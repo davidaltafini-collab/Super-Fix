@@ -26,8 +26,8 @@ model Hero {
   powers            String
   location          String?
   
-  avatarUrl         String?  @db.LongText
-  videoUrl          String?  @db.LongText
+  avatarUrl         String?  
+  videoUrl          String?  
 
   hourlyRate        Int      @default(100)
   phone             String?
@@ -72,8 +72,8 @@ model ServiceRequest {
   status      String   @default("PENDING")
   
   // -- DOVEZI FOTO (NOU) --
-  photoBefore String?  @db.LongText
-  photoAfter  String?  @db.LongText
+  photoBefore String?  
+  photoAfter  String?  
   
   date        DateTime @default(now())
   
