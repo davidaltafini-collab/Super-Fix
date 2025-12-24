@@ -9,8 +9,9 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "."
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["server.ts", "seed.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
