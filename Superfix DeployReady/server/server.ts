@@ -13,34 +13,11 @@ app.use(express.json({ limit: '50mb' }));
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
-/* =========================
-   DOAR CORS SCHIMBAT AICI
-   ========================= */
 app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin) return cb(null, true);
-
-        const allowed = [
-            process.env.FRONTEND_URL,       // dacă ai setat-o în Render
-            'https://super-fix.ro',
-            'https://www.super-fix.ro',
-            'http://localhost:3000',
-            'http://localhost:5173'
-        ].filter(Boolean);
-
-        if (allowed.includes(origin)) return cb(null, true);
-
-        return cb(new Error('CORS blocked'), false);
-    },
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
-
-app.options('*', cors());
-/* =========================
-   GATA. RESTUL E 1/1
-   ========================= */
 
 // === MIDDLEWARE AUTH ===
 interface AuthRequest extends Request { user?: any; }
