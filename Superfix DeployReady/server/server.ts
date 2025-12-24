@@ -5,84 +5,63 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+// Nodemailer a fost eliminat; folosim un API HTTP pentru emailuri.
+// Dacă runtime-ul tău nu are fetch, instalează node-fetch și importă-l aici.
+// import fetch from 'node-fetch';
 
 dotenv.config();
+
 const app = express();
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '50mb' }));
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
 const allowedOrigins = [
-  "https://www.super-fix.ro",
-  "https://super-fix.ro",
-  "http://localhost:3000",
-  "http://localhost:5173",
+    "https://www.super-fix.ro",
+    "https://super-fix.ro",
+    "http://localhost:3000",
+    "http://localhost:5173",
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // origin poate fi undefined la request-uri server-to-server / curl
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
 app.use((req, res, next) => {
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
 });
 
-
-
 // === MIDDLEWARE AUTH ===
-interface AuthRequest extends Request { user?: any; }
+interface AuthRequest extends Request {
+    user?: any;
+}
 const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ message: "Lipsă token" });
     jwt.verify(token, process.env.JWT_SECRET as string, (err: any, user: any) => {
         if (err) return res.status(403).json({ message: "Token invalid" });
-        req.user = user;
+        (req as AuthRequest).user = user;
         next();
     });
 };
 
-// === EMAIL CONFIG ===
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT),
-    secure: false,
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD },
-});
-
-// === SEO SITEMAP GENERATOR ===
 // === SEO SITEMAP GENERATOR ===
 app.get('/sitemap.xml', async (req, res) => {
     try {
-        const baseUrl = process.env.FRONTEND_URL || 'https://superfix.ro'; 
-
-        // 1. Luăm toți eroii din DB (DOAR ID-ul, fără updatedAt)
-        const heroes = await prisma.hero.findMany({
-            select: { id: true }
-        });
-
-        // 2. Definim paginile statice importante
-        const staticPages = [
-            '',
-            '/register',
-            '/heroes',
-            '/legal'
-        ];
-
-        // 3. Construim XML-ul
+        const baseUrl = process.env.FRONTEND_URL || 'https://superfix.ro';
+        const heroes = await prisma.hero.findMany({ select: { id: true } });
+        const staticPages = ['', '/register', '/heroes', '/legal'];
         const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
             ${staticPages
@@ -107,7 +86,6 @@ app.get('/sitemap.xml', async (req, res) => {
                 })
                 .join('')}
         </urlset>`;
-
         res.header('Content-Type', 'application/xml');
         res.send(sitemap);
     } catch (error) {
@@ -116,10 +94,8 @@ app.get('/sitemap.xml', async (req, res) => {
     }
 });
 
-
 // === MESAJE "CATERINCĂ" (Stil Superfix) ===
 const FUNNY_MESSAGES = {
-    // Mesaje pentru EROU (Când primește o misiune nouă)
     HERO_ALERT: [
         "Știu că probabil salvezi planeta (sau bei o cafea), dar avem o urgență!",
         "Lăsați totul jos! Cineva are nevoie de tine mai mult decât are nevoie Batman de Robin.",
@@ -132,8 +108,6 @@ const FUNNY_MESSAGES = {
         "Ai un nou dosar pe birou. Sper că ți-ai luat pelerina la tine azi.",
         "Cetățenii strigă după ajutor! E momentul tău de glorie (și de făcut bani)."
     ],
-    
-    // Mesaje pentru CLIENT (Când așteaptă răspuns)
     CLIENT_WAITING: [
         "Semnalul a fost trimis! Eroul nostru își termină probabil gogoașa și revine.",
         "Am lansat porumbelul digital. Acum așteptăm să vedem dacă eroul e disponibil.",
@@ -146,8 +120,6 @@ const FUNNY_MESSAGES = {
         "Sistemul nostru a alertat specialistul. Să vedem dacă acceptă provocarea!",
         "Eroul știe de tine. Acum e o chestiune de minute până răspunde."
     ],
-
-    // Mesaje ACCEPT (Când eroul zice DA)
     MISSION_ACCEPTED: [
         "Veste bună! Eroul a zis 'DA'. Pregătește-te, ajutorul e pe drum!",
         "Avem confirmare! Eroul și-a pus centura și vine spre tine.",
@@ -160,8 +132,6 @@ const FUNNY_MESSAGES = {
         "Start misiune! Eroul a plecat spre locația ta.",
         "Confirmare primită. Eroul nostru e gata de acțiune!"
     ],
-
-    // Mesaje REJECT (Când eroul e ocupat)
     MISSION_REJECTED: [
         "Ghinion! Eroul e prins într-o luptă crâncenă (probabil are altă lucrare).",
         "Din păcate, eroul nostru e indisponibil momentan. Dar nu renunța!",
@@ -174,8 +144,6 @@ const FUNNY_MESSAGES = {
         "Eroul e indisponibil. Probabil salvează lumea în alt cartier.",
         "Refuz tactic. Eroul nu poate ajunge. Te rugăm să selectezi alt profesionist."
     ],
-
-    // Mesaje COMPLETE (La final)
     MISSION_COMPLETED: [
         "Misiune Îndeplinită! Încă o zi, încă o problemă rezolvată.",
         "Boom! S-a rezolvat. Eroul și-a făcut treaba și a dispărut în apus.",
@@ -195,9 +163,8 @@ const getRandomMsg = (type: keyof typeof FUNNY_MESSAGES) => {
     return list[Math.floor(Math.random() * list.length)];
 };
 
-// === TEMPLATE EMAIL "DOSAR APLICAȚIE" (DESIGN FIX CA ÎN POZĂ) ===
+// === TEMPLATE EMAIL "DOSAR APLICAȚIE" ===
 const getSuperfixTemplate = (title: string, message: string, dataFields: any = {}, ctaLink?: string, ctaText?: string) => {
-    // Construim HTML-ul pentru câmpurile de date (stil galben punctat)
     let fieldsHtml = '';
     for (const [key, value] of Object.entries(dataFields)) {
         fieldsHtml += `
@@ -339,17 +306,46 @@ const getSuperfixTemplate = (title: string, message: string, dataFields: any = {
     `;
 };
 
-async function sendEmail(to: string, subject: string, title: string, message: string, dataFields: any = {}, ctaLink?: string, ctaText?: string) {
+// === EMAIL CONFIG (Resend) ===
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+/**
+ * Trimite un e‑mail folosind API‑ul Resend.
+ * Pentru a folosi această funcție trebuie să definești variabila de mediu RESEND_API_KEY
+ * și să verifici adresa de expeditor (EMAIL_USER) în contul Resend.
+ */
+async function sendEmail(
+    to: string,
+    subject: string,
+    title: string,
+    message: string,
+    dataFields: any = {},
+    ctaLink?: string,
+    ctaText?: string
+) {
     try {
-        await transporter.sendMail({ 
-            from: `"SuperFix HQ" <${process.env.EMAIL_USER}>`, 
-            to, 
-            subject: `📁 ${subject}`, 
-            html: getSuperfixTemplate(title, message, dataFields, ctaLink, ctaText) 
+        const html = getSuperfixTemplate(title, message, dataFields, ctaLink, ctaText);
+        const payload = {
+            from: `"SuperFix HQ" <${process.env.EMAIL_USER}>`,
+            to,
+            subject: `📁 ${subject}`,
+            html,
+        };
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify(payload),
         });
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(errorBody);
+        }
         console.log(`📧 Email trimis către ${to}`);
-    } catch (error) { 
-        console.error("❌ Eroare Email:", error); 
+    } catch (error) {
+        console.error('❌ Eroare Email:', error);
     }
 }
 
@@ -358,88 +354,90 @@ app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const admin = await prisma.admin.findUnique({ where: { username } });
-        if (!admin || !await bcrypt.compare(password, admin.passwordHash)) return res.status(401).json({ message: "Credențiale invalide" });
+        if (!admin || !(await bcrypt.compare(password, admin.passwordHash))) {
+            return res.status(401).json({ message: 'Credențiale invalide' });
+        }
         const token = jwt.sign({ id: admin.id, role: 'ADMIN' }, process.env.JWT_SECRET as string, { expiresIn: '24h' });
         res.json({ token, role: 'ADMIN' });
-    } catch (e) { res.status(500).json({ error: "Server error" }); }
+    } catch (e) {
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 app.post('/api/auth/hero-login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const hero = await prisma.hero.findUnique({ where: { username } });
-        if (!hero || !await bcrypt.compare(password, hero.passwordHash)) return res.status(401).json({ message: "Date incorecte" });
+        if (!hero || !(await bcrypt.compare(password, hero.passwordHash))) {
+            return res.status(401).json({ message: 'Date incorecte' });
+        }
         const token = jwt.sign({ id: hero.id, role: 'HERO', alias: hero.alias }, process.env.JWT_SECRET as string, { expiresIn: '7d' });
         res.json({ token, role: 'HERO', heroId: hero.id });
-    } catch (e) { res.status(500).json({ error: "Server error" }); }
+    } catch (e) {
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 // === PUBLIC ROUTES ===
 app.post('/api/apply-hero', async (req, res) => {
     try {
-        // 1. Preluăm și 'message' din body
         const { name, email, phone, category, message } = req.body;
-        
-        // 2. Salvăm în baza de date inclusiv mesajul
+
         await prisma.heroApplication.create({ data: { name, email, phone, category, message } });
-        
-        // 3. Email Admin - Am adăugat mesajul eroului în textul emailului
-        await sendEmail(process.env.EMAIL_USER as string, 
-            "APLICAȚIE NOUĂ", "DOSAR RECRUT", 
+
+        // Email către Admin
+        await sendEmail(
+            process.env.EMAIL_USER as string,
+            'APLICAȚIE NOUĂ',
+            'DOSAR RECRUT',
             `Un nou civil vrea să devină erou! Verifică dacă are stofă de Superfix.\n\nMESAJ EROU:\n"${message || 'Niciun mesaj'}"`,
-            { "Candidat": name, "Specializare": category, "Contact": phone }
+            { Candidat: name, Specializare: category, Contact: phone }
         );
-        
-        // Email Applicant (Rămâne neschimbat)
-        await sendEmail(email, 
-            "APLICAȚIE PRIMITĂ", "STAND BY", 
+
+        // Email către Aplicant
+        await sendEmail(
+            email,
+            'APLICAȚIE PRIMITĂ',
+            'STAND BY',
             "Salut viitorule Erou, dosarul tău a ajuns la Cartierul General. Agenții noștri îl analizează chiar acum. Dacă ai 'factorul X', te contactăm!",
-            { "Status Curent": "ÎN AȘTEPTARE (PENDING)" }
+            { 'Status Curent': 'ÎN AȘTEPTARE (PENDING)' }
         );
 
         res.json({ success: true });
-    } catch (error) { 
-        console.error(error); // E bine să vezi eroarea în consolă dacă apare
-        res.status(500).json({ error: "Eroare aplicare" }); 
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Eroare aplicare' });
     }
 });
 
 // === ADMIN ROUTES ===
 app.get('/api/admin/applications', authenticateToken, async (req: any, res) => {
-    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: "Forbidden" });
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
     const apps = await prisma.heroApplication.findMany({ orderBy: { date: 'desc' } });
     res.json(apps);
 });
 
 app.delete('/api/admin/applications/:id', authenticateToken, async (req: any, res) => {
-    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: "Forbidden" });
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
     try {
         const appId = req.params.id;
-
-        // 1. Căutăm aplicația înainte să o ștergem (ca să avem email-ul)
-        const application = await prisma.heroApplication.findUnique({ 
-            where: { id: appId } 
-        });
-
+        const application = await prisma.heroApplication.findUnique({ where: { id: appId } });
         if (application) {
-            // 2. Trimitem email de respingere
             await sendEmail(
                 application.email,
-                "STATUS APLICAȚIE", 
-                "DOSAR RESPINS", 
+                'STATUS APLICAȚIE',
+                'DOSAR RESPINS',
                 `Salut ${application.name}, mulțumim pentru interesul acordat Ligii Superfix. Din păcate, în acest moment profilul tău nu corespunde cu nevoile noastre operative sau locurile sunt ocupate.`,
-                { "Status": "RESPINS (REJECTED)", "Motiv": "Selecție competitivă" },
-                `${process.env.FRONTEND_URL}/`, "ÎNAPOI LA SITE"
+                { Status: 'RESPINS (REJECTED)', Motiv: 'Selecție competitivă' },
+                `${process.env.FRONTEND_URL}/`,
+                'ÎNAPOI LA SITE'
             );
-
-            // 3. Ștergem aplicația din baza de date
             await prisma.heroApplication.delete({ where: { id: appId } });
         }
-
         res.json({ success: true });
-    } catch (error) { 
+    } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Delete failed" }); 
+        res.status(500).json({ error: 'Delete failed' });
     }
 });
 
@@ -447,49 +445,60 @@ app.post('/api/heroes', authenticateToken, async (req, res) => {
     try {
         const { username, alias, password, email, ...rest } = req.body;
         const existing = await prisma.hero.findUnique({ where: { username } });
-        if (existing) return res.status(400).json({ error: "Username luat!" });
-        
-        const plainPassword = password || "Hero123!";
+        if (existing) return res.status(400).json({ error: 'Username luat!' });
+        const plainPassword = password || 'Hero123!';
         const passwordHash = await bcrypt.hash(plainPassword, 10);
         const trustFactor = rest.trustFactor || 50;
-
         await prisma.hero.create({
             data: { username, alias, passwordHash, email, trustFactor, missionsCompleted: 0, ...rest }
         });
-
         if (email) {
             await sendEmail(
-                email, 
-                "BINE AI VENIT!", "DOSAR APROBAT", 
+                email,
+                'BINE AI VENIT!',
+                'DOSAR APROBAT',
                 `Salut ${alias}, ai fost recrutat oficial! Cu o putere mare vine și o responsabilitate mare (și facturi plătite la timp).`,
-                { "User": username, "Parola": plainPassword },
-                `${process.env.FRONTEND_URL}/portal`, "ACCESEAZĂ PORTALUL"
+                { User: username, Parola: plainPassword },
+                `${process.env.FRONTEND_URL}/portal`,
+                'ACCESEAZĂ PORTALUL'
             );
         }
         res.json({ success: true });
-    } catch { res.status(500).json({ error: "DB Error" }); }
+    } catch {
+        res.status(500).json({ error: 'DB Error' });
+    }
 });
 
 app.put('/api/heroes/:id', authenticateToken, async (req: any, res) => {
-    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: "Forbidden" });
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
     try {
         const dataToUpdate = { ...req.body };
         if (dataToUpdate.password) {
             dataToUpdate.passwordHash = await bcrypt.hash(dataToUpdate.password, 10);
             delete dataToUpdate.password;
-        } else { delete dataToUpdate.password; }
-        
-        delete dataToUpdate.id; delete dataToUpdate.reviews; delete dataToUpdate.requests; delete dataToUpdate.createdAt; delete dataToUpdate.updatedAt;
-
+        } else {
+            delete dataToUpdate.password;
+        }
+        delete dataToUpdate.id;
+        delete dataToUpdate.reviews;
+        delete dataToUpdate.requests;
+        delete dataToUpdate.createdAt;
+        delete dataToUpdate.updatedAt;
         const updated = await prisma.hero.update({ where: { id: req.params.id }, data: dataToUpdate });
         res.json(updated);
-    } catch (e) { res.status(500).json({ error: "Update failed" }); }
+    } catch (e) {
+        res.status(500).json({ error: 'Update failed' });
+    }
 });
 
 app.delete('/api/heroes/:id', authenticateToken, async (req: any, res) => {
-    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: "Forbidden" });
-    try { await prisma.hero.delete({ where: { id: req.params.id } }); res.json({ success: true }); } 
-    catch { res.status(500).json({ error: "Delete failed" }); }
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
+    try {
+        await prisma.hero.delete({ where: { id: req.params.id } });
+        res.json({ success: true });
+    } catch {
+        res.status(500).json({ error: 'Delete failed' });
+    }
 });
 
 app.get('/api/heroes', async (req, res) => {
@@ -503,42 +512,41 @@ app.get('/api/heroes/:id', async (req, res) => {
 });
 
 // === SERVICE REQUESTS & MISSIONS ===
-
-// 1. Client trimite cerere (SOS)
 app.post('/api/request', async (req, res) => {
     const { heroId, clientName, clientPhone, clientEmail, description } = req.body;
     try {
         const request = await prisma.serviceRequest.create({
             data: { heroId, clientName, clientPhone, clientEmail, description, status: 'PENDING' }
         });
-        
         const hero = await prisma.hero.findUnique({ where: { id: heroId } });
-        
         // Email către EROU
         if (hero?.email) {
             const randomMsg = getRandomMsg('HERO_ALERT');
             await sendEmail(
-                hero.email, 
-                "MISIUNE NOUĂ", "COD ROSU", 
+                hero.email,
+                'MISIUNE NOUĂ',
+                'COD ROSU',
                 randomMsg,
-                { "Cetățean": clientName, "Telefon": clientPhone, "Problema": description },
-                `${process.env.FRONTEND_URL}/portal`, "INTRA ÎN PORTAL"
+                { Cetățean: clientName, Telefon: clientPhone, Problema: description },
+                `${process.env.FRONTEND_URL}/portal`,
+                'INTRA ÎN PORTAL'
             );
         }
-
         // Email către CLIENT
         if (clientEmail) {
             const randomMsg = getRandomMsg('CLIENT_WAITING');
             await sendEmail(
                 clientEmail,
-                "CERERE TRIMISĂ", "CONFIRMARE",
+                'CERERE TRIMISĂ',
+                'CONFIRMARE',
                 randomMsg,
-                { "Status": "Se așteaptă răspuns", "Erou Contactat": hero?.alias || "N/A" }
+                { Status: 'Se așteaptă răspuns', 'Erou Contactat': hero?.alias || 'N/A' }
             );
         }
-
         res.json({ success: true, id: request.id });
-    } catch (e) { res.status(500).json({ error: "Request error" }); }
+    } catch (e) {
+        res.status(500).json({ error: 'Request error' });
+    }
 });
 
 app.get('/api/request', authenticateToken, async (req, res) => {
@@ -560,72 +568,77 @@ app.put('/api/missions/:id/status', authenticateToken, async (req: any, res: Res
     const heroId = req.user.id;
     try {
         const mission = await prisma.serviceRequest.findUnique({ where: { id: missionId }, include: { hero: true } });
-        
-        // NOTIFICĂRI EMAIL CĂTRE CLIENT
         if (mission?.clientEmail) {
-            
             if (status === 'ACCEPTED') {
                 const randomMsg = getRandomMsg('MISSION_ACCEPTED');
                 await sendEmail(
-                    mission.clientEmail, 
-                    "EROUL VINE!", "MISIUNE ACCEPTATĂ", 
+                    mission.clientEmail,
+                    'EROUL VINE!',
+                    'MISIUNE ACCEPTATĂ',
                     randomMsg,
-                    { "Agent Asignat": mission.hero.alias, "Status": "ÎN DEPLASARE" }
+                    { 'Agent Asignat': mission.hero.alias, Status: 'ÎN DEPLASARE' }
                 );
-            } 
-            
-            else if (status === 'REJECTED') {
+            } else if (status === 'REJECTED') {
                 const randomMsg = getRandomMsg('MISSION_REJECTED');
                 await sendEmail(
-                    mission.clientEmail, 
-                    "UPDATE MISIUNE", "EROUL INDISPONIBIL", 
+                    mission.clientEmail,
+                    'UPDATE MISIUNE',
+                    'EROUL INDISPONIBIL',
                     randomMsg,
                     {},
-                    `${process.env.FRONTEND_URL}/heroes`, "GĂSEȘTE ALT EROU"
+                    `${process.env.FRONTEND_URL}/heroes`,
+                    'GĂSEȘTE ALT EROU'
                 );
-            } 
-            
-            else if (status === 'COMPLETED') {
-                 const randomMsg = getRandomMsg('MISSION_COMPLETED');
-                 await sendEmail(
-                    mission.clientEmail, 
-                    "MISIUNE ÎNDEPLINITĂ", "DOSAR ÎNCHIS", 
+            } else if (status === 'COMPLETED') {
+                const randomMsg = getRandomMsg('MISSION_COMPLETED');
+                await sendEmail(
+                    mission.clientEmail,
+                    'MISIUNE ÎNDEPLINITĂ',
+                    'DOSAR ÎNCHIS',
                     randomMsg,
-                    { "Rezultat": "SUCCES", "Erou": mission.hero.alias },
-                    `${process.env.FRONTEND_URL}/hero/${mission.hero.id}`, "LASĂ O RECENZIE"
+                    { Rezultat: 'SUCCES', Erou: mission.hero.alias },
+                    `${process.env.FRONTEND_URL}/hero/${mission.hero.id}`,
+                    'LASĂ O RECENZIE'
                 );
             }
         }
-        
-        await prisma.serviceRequest.update({ 
-            where: { id: missionId }, 
-            data: { 
-                status, 
+        await prisma.serviceRequest.update({
+            where: { id: missionId },
+            data: {
+                status,
                 ...(status === 'IN_PROGRESS' ? { photoBefore: photo } : {}),
                 ...(status === 'COMPLETED' ? { photoAfter: photo } : {})
-            } 
+            }
         });
-
-        if(status === 'COMPLETED') {
-            await prisma.hero.update({ where: { id: heroId }, data: { trustFactor: { increment: 5 }, missionsCompleted: { increment: 1 }}});
+        if (status === 'COMPLETED') {
+            await prisma.hero.update({
+                where: { id: heroId },
+                data: {
+                    trustFactor: { increment: 5 },
+                    missionsCompleted: { increment: 1 }
+                }
+            });
         }
-        
         res.json({ success: true });
-    } catch { res.status(500).json({ error: "Update error" }); }
+    } catch {
+        res.status(500).json({ error: 'Update error' });
+    }
 });
 
 app.post('/api/reviews', async (req, res) => {
     const { heroId, clientName, rating, comment } = req.body;
     try {
         await prisma.review.create({ data: { heroId, clientName, rating, comment, date: new Date() } });
-        if (rating === 5) await prisma.hero.update({ where: { id: heroId }, data: { trustFactor: { increment: 2 } } });
+        if (rating === 5) {
+            await prisma.hero.update({ where: { id: heroId }, data: { trustFactor: { increment: 2 } } });
+        }
         res.json({ success: true });
-    } catch { res.status(500).json({ error: "Review error" }); }
+    } catch {
+        res.status(500).json({ error: 'Review error' });
+    }
 });
 
+// === START SERVER ===
 app.listen(PORT, () => {
     console.log(`🚀 Server Backend "SuperFix" rulează pe portul ${PORT}`);
-
 });
-
-
