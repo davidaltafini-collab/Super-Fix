@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>SUPERFIX - Cheamă Eroul</title>
+    <meta name="description" content="Marketplace pentru meseriasi - Stil Supereroi" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'super-red': '#E63946',
+              'super-blue': '#1D3557',
+              'super-gold': '#F4A261',
+              'super-light': '#F1FAEE',
+              'super-dark': '#0f172a',
+              'comic-yellow': '#FFD700',
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              heading: ['Impact', 'Arial Black', 'sans-serif'],
+              comic: ['Comic Sans MS', 'Chalkboard SE', 'sans-serif'],
+            },
+            backgroundImage: {
+              'halftone': "radial-gradient(circle, #1D3557 1px, transparent 1px)",
+              'halftone-light': "radial-gradient(circle, #cbd5e1 1px, transparent 1px)",
+            },
+            backgroundSize: {
+              'halftone-size': '20px 20px',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #f8fafc;
+      }
+      
+      /* COMIC BOOK STYLES */
+      .comic-border {
+        border: 3px solid #000;
+      }
+      
+      .comic-shadow {
+        box-shadow: 4px 4px 0px 0px #000;
+      }
+      
+      .comic-shadow-lg {
+        box-shadow: 8px 8px 0px 0px #000;
+      }
+
+      .comic-shadow-hover {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 4px 0px 0px #000;
+      }
+      
+      .comic-shadow-hover:hover {
+        transform: translate(-4px, -4px);
+        box-shadow: 8px 8px 0px 0px #000;
+      }
+      
+      .comic-shadow-hover:active {
+        transform: translate(0px, 0px);
+        box-shadow: 0px 0px 0px 0px #000;
+      }
+
+      /* ANIMATIONS */
+      @keyframes popIn {
+        0% { transform: scale(0.8); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      
+      @keyframes slideUp {
+        0% { transform: translateY(20px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+
+      .animate-pop-in {
+        animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      }
+      
+      .animate-slide-up {
+        animation: slideUp 0.5s ease-out forwards;
+      }
+      
+      /* FIX: Applied opacity to the gradient color, not the whole element */
+      .bg-dots {
+        background-image: radial-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

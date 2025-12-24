@@ -1,0 +1,68 @@
+/* RomaniaMap.css */
+
+.romania-map-container {
+  display: inline-block;
+  width: 100%;
+  max-width: 1000px;
+  /* Comic book background usually simple white or halftone, keeping it transparent for utility */
+  background: transparent;
+}
+
+.romania-map-container svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible; /* Allow drop shadows to spill out */
+}
+
+/* Base county style */
+.county {
+  fill: #f0f0f0; /* Default neutral fill */
+  stroke: #000000; /* Bold black outline */
+  stroke-width: 1px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Snappy transition */
+  
+  /* Initial subtle shadow */
+  filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.2));
+}
+
+/* Hover effect */
+.romania-map-container:not(.read-only) .county:hover {
+  fill: #e0e0e0;
+  transform: translate(-1px, -1px);
+  filter: drop-shadow(3px 3px 0px rgba(0, 0, 0, 1)); /* Hard black shadow on hover */
+  z-index: 10; /* Note: z-index doesn't strictly work on SVG elements this way, but useful if wrapper logic changes */
+}
+
+/* Selected State - Comic Book Pop-out */
+.county.is-selected {
+  fill: #4ade80; /* Comic Green */
+  stroke: #000000;
+  stroke-width: 2px; /* Thicker outline */
+  
+  /* The "Pop-out" effect using hard drop-shadow */
+  /* This creates a solid block of black offset from the shape */
+  filter: drop-shadow(4px 4px 0px #000000);
+  
+  /* Slight movement to match the shadow source */
+  transform: translate(-2px, -2px);
+  
+  /* Ensure it looks 'on top' relative to base stroke */
+  vector-effect: non-scaling-stroke; 
+}
+
+/* Remove hover effects for read-only map */
+.romania-map-container.read-only .county {
+  cursor: default;
+}
+.romania-map-container.read-only .county:hover {
+  transform: none;
+  filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.2));
+}
+.romania-map-container.read-only .county.is-selected:hover {
+  transform: translate(-2px, -2px);
+  filter: drop-shadow(4px 4px 0px #000000);
+}

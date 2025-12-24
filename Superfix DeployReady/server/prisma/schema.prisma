@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// === ADMIN (Rămâne la fel) ===
+model Admin {
+  id           String @id @default(uuid())
+  username     String @unique
+  passwordHash String
+}
+
+// === EROU (Update Major) ===
+model Hero {
+  id                String   @id @default(uuid())
+  alias             String
+  realName          String?
+  username          String   @unique
+  passwordHash      String
+  
+  description       String   @db.Text
+  powers            String
+  location          String?
+  
+  avatarUrl         String?  @db.LongText
+  videoUrl          String?  @db.LongText
+
+  hourlyRate        Int      @default(100)
+  phone             String?
+  email             String?
+  category          String   @default("Electrician")
+
+  // --- NEW FIELD: ACTION AREAS ---
+  // Stochează județele selectate (ex: ["B", "IF", "CJ"])
+  actionAreas       Json?
+  // ------------------------------
+
+  trustFactor       Int      @default(50)
+  missionsCompleted Int      @default(0)
+  
+  reviews           Review[]
+  requests          ServiceRequest[]
+}
+
+// === REVIEW (Rămâne la fel) ===
+model Review {
+  id         String   @id @default(uuid())
+  clientName String
+  rating     Int
+  comment    String
+  date       DateTime @default(now())
+  
+  heroId     String
+  hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+}
+
+// === CERERE SERVICIU (TaskRabbit Style) ===
+model ServiceRequest {
+  id          String   @id @default(uuid())
+  
+  // -- CLIENT --
+  clientName  String
+  clientPhone String
+  clientEmail String?
+  description String   @db.Text
+  
+  // -- STATUS MISIUNE --
+  status      String   @default("PENDING")
+  
+  // -- DOVEZI FOTO (NOU) --
+  photoBefore String?  @db.LongText
+  photoAfter  String?  @db.LongText
+  
+  date        DateTime @default(now())
+  
+  // -- LEGĂTURĂ --
+  heroId      String
+  hero        Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+}
+
+// === TABEL NOU: APLICAȚII EROI (Formular Simplu) ===
+model HeroApplication {
+  id       String   @id @default(uuid())
+  name     String
+  email    String
+  phone    String
+  category String
+  message  String?  @db.Text  // <--- LINIA NOUĂ (Adăugat câmp mesaj)
+  status   String   @default("PENDING")
+  date     DateTime @default(now())
+}
