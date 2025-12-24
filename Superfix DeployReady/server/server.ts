@@ -73,7 +73,7 @@ app.get('/sitemap.xml', async (req, res) => {
                 })
                 .join('')}
             ${heroes
-                .map((hero) => {
+                .map((hero: any) => {
                     return `
                     <url>
                         <loc>${baseUrl}/hero/${hero.id}</loc>
@@ -602,4 +602,5 @@ app.post('/api/reviews', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Server Backend "SuperFix" rulează pe portul ${PORT}`);
+
 });
