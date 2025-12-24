@@ -13,11 +13,32 @@ app.use(express.json({ limit: '50mb' }));
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
+const allowedOrigins = [
+  "https://www.super-fix.ro",
+  "https://super-fix.ro",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
+  origin: (origin, callback) => {
+    // origin poate fi undefined la request-uri server-to-server / curl
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// Preflight pentru toate rutele
+app.options("*", cors());
+
 
 // === MIDDLEWARE AUTH ===
 interface AuthRequest extends Request { user?: any; }
@@ -604,3 +625,4 @@ app.listen(PORT, () => {
     console.log(`🚀 Server Backend "SuperFix" rulează pe portul ${PORT}`);
 
 });
+
