@@ -13,11 +13,13 @@ import { Admin } from './pages/Admin';
 import { HeroPortal } from './pages/HeroPortal';
 import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
-import { Terms } from './pages/LegalPages'; 
+
+// === MODIFICARE AICI: Importăm toate paginile legale ===
+// Asigură-te că fișierul tău cu paginile legale se numește exact 'LegalPages.tsx' 
+// sau 'pages.tsx' (caz în care schimbi calea de mai jos în './pages/pages')
+import { Terms, Privacy, Cookies, GDPR } from './pages/LegalPages'; 
 
 // === COMPONENTA "SENZOR" ===
-// Aceasta stă ascunsă în Router și anunță Google când schimbi pagina,
-// DAR numai dacă utilizatorul a acceptat cookie-urile.
 const AnalyticsTracker = () => {
   const location = useLocation();
 
@@ -28,7 +30,7 @@ const AnalyticsTracker = () => {
     }
   }, [location]);
 
-  return null; // Nu randează nimic vizual
+  return null;
 };
 
 const App: React.FC = () => {
@@ -52,7 +54,14 @@ const App: React.FC = () => {
               <Route path="/register" element={<RegisterHero />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/portal" element={<HeroPortal />} />
-              <Route path="/legal" element={<Terms />} />
+
+              {/* === MODIFICARE AICI: Rutele legale specifice === */}
+              {/* Acestea rezolvă erorile "No routes matched" */}
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/cookies" element={<Cookies />} />
+              <Route path="/gdpr" element={<GDPR />} />
+              
             </Routes>
           </main>
           
