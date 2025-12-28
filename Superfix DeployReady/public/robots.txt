@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /portal
 
-Sitemap: https://super-fix.ro/sitemap.xml
+Sitemap: https://api.super-fix.ro/sitemap.xml
