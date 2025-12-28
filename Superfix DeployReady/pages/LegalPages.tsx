@@ -1,7 +1,21 @@
 import React from 'react';
+import { Helmet } from 'react-helmet-async'; // <--- IMPORT ESENȚIAL PENTRU SEO
 
+// === LAYOUT PRINCIPAL CU SEO INTEGRAT ===
 const LegalLayout: React.FC<{title: string, lastUpdated: string, children: React.ReactNode}> = ({title, lastUpdated, children}) => (
     <div className="container mx-auto px-4 py-12 max-w-4xl bg-white border-4 border-black shadow-[8px_8px_0_#000] my-8">
+        
+        {/* === ZONA SEO AUTOMATĂ === */}
+        <Helmet>
+            <title>{title} | Superfix</title>
+            <meta name="description" content={`Informații legale Superfix: ${title}. Ultima actualizare: ${lastUpdated}.`} />
+            
+            {/* Open Graph / Facebook / WhatsApp */}
+            <meta property="og:title" content={`${title} | Superfix`} />
+            <meta property="og:description" content={`Citește despre ${title} pe platforma Superfix.`} />
+            <meta property="og:type" content="website" />
+        </Helmet>
+
         <h1 className="text-3xl md:text-4xl font-heading mb-2 text-super-red">{title}</h1>
         <p className="text-sm text-gray-500 font-mono mb-8 border-b-2 border-gray-200 pb-4">Ultima actualizare: {lastUpdated}</p>
         <div className="prose prose-lg font-comic text-gray-800 max-w-none">
@@ -9,6 +23,8 @@ const LegalLayout: React.FC<{title: string, lastUpdated: string, children: React
         </div>
     </div>
 );
+
+// === PAGINILE INDIVIDUALE (Rămân neschimbate, dar acum au SEO) ===
 
 export const Terms: React.FC = () => (
     <LegalLayout title="Termeni și Condiții de Utilizare" lastUpdated="24.05.2026">
