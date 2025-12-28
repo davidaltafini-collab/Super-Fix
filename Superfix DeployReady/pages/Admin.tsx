@@ -141,7 +141,7 @@ export const Admin: React.FC = () => {
           alias: '', realName: app.name || '', 
           username: app.email.split('@')[0], password: 'Hero' + Math.floor(Math.random() * 1000), 
           category: app.category, 
-          description: app.message || '', // <--- MODIFICARE: Punem mesajul automat la descriere
+          description: app.message || '', 
           hourlyRate: 100, 
           avatarUrl: '', videoUrl: '', email: app.email || '', phone: app.phone || '', 
           location: 'București', powers: '', trustFactor: 50, actionAreas: []
@@ -155,6 +155,11 @@ export const Admin: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
       const payload = { ...formData };
+      
+      // === MODIFICARE 1: Asigurăm conversia în număr ===
+      payload.hourlyRate = Number(payload.hourlyRate);
+      // =================================================
+
       if(isCustomCat && formCustomCat) payload.category = formCustomCat; 
       if(!payload.password) delete payload.password;
       delete payload.id; delete payload.reviews; delete payload.requests; delete payload.createdAt; delete payload.updatedAt;
@@ -839,7 +844,15 @@ export const Admin: React.FC = () => {
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                   <input placeholder="Nume Real" className="border-2 border-black p-2" value={formData.realName} onChange={e => setFormData({...formData, realName: e.target.value})} />
-                                  <input type="number" placeholder="Tarif (RON)" className="border-2 border-black p-2" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} />
+                                  {/* === MODIFICARE 2: Input Number cu parseFloat === */}
+                                  <input 
+                                      type="number" 
+                                      placeholder="Tarif (RON)" 
+                                      className="border-2 border-black p-2" 
+                                      value={formData.hourlyRate} 
+                                      onChange={e => setFormData({...formData, hourlyRate: parseFloat(e.target.value) || 0})} 
+                                  />
+                                  {/* ================================================= */}
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                   <input placeholder="Telefon" className="border-2 border-black p-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
