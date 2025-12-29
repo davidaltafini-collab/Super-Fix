@@ -21,6 +21,9 @@ export const HeroPortal: React.FC = () => {
   const [currentMissionId, setCurrentMissionId] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<'START' | 'FINISH'>('START');
 
+  // === NEW: Modal Info State ===
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -29,10 +32,8 @@ export const HeroPortal: React.FC = () => {
     const token = localStorage.getItem('superfix_token');
     const role = localStorage.getItem('superfix_role');
     
-    // Verificăm dacă există token și rol corect
     if (token && role === 'HERO') {
         setIsAuthenticated(true);
-        // Decodăm ID-ul eroului direct din token pentru siguranță
         try {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -67,11 +68,9 @@ export const HeroPortal: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Apelăm serviciul de login
     const success = await loginHero(usernameInput, passwordInput);
     
     if (success) {
-        // Dacă login-ul e ok, token-ul e în localStorage. Re-rulăm verificarea.
         await checkAuth();
         setUsernameInput('');
         setPasswordInput('');
@@ -95,7 +94,6 @@ export const HeroPortal: React.FC = () => {
       }
 
       await updateMissionStatus(id, newStatus, null);
-      // Reîmprospătăm datele (Trust factor poate s-a schimbat, lista s-a schimbat)
       if (currentHero) refreshData(currentHero.id);
   };
 
@@ -135,7 +133,6 @@ export const HeroPortal: React.FC = () => {
                   </button>
               </form>
 
-              {/* === LINK CĂTRE ÎNREGISTRARE === */}
               <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-400 text-center">
                   <p className="font-comic text-sm text-gray-600 mb-2">Ești un meseriaș cu superputeri?</p>
                   <Link to="/register" className="inline-block bg-yellow-400 text-black font-bold px-4 py-2 border-2 border-black shadow-comic hover:scale-105 transition-transform text-sm uppercase">
@@ -161,7 +158,7 @@ export const HeroPortal: React.FC = () => {
               </div>
 
               {/* STATS BUBBLES */}
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-center">
                   <div className="bg-black text-white p-2 px-4 border-2 border-gray-500 rounded text-center min-w-[100px] shadow-sm">
                       <div className="text-[10px] uppercase text-yellow-400 font-bold tracking-wider">TRUST</div>
                       <div className="text-2xl font-heading leading-none">{currentHero?.trustFactor || 50}</div>
@@ -172,9 +169,17 @@ export const HeroPortal: React.FC = () => {
                   </div>
               </div>
 
-              <button onClick={() => { logoutUser(); setIsAuthenticated(false); }} className="text-xs font-bold underline bg-red-100 text-red-600 px-4 py-2 border border-red-200 hover:bg-red-600 hover:text-white transition-colors">
-                  DECONECTARE
-              </button>
+              {/* ACTION BUTTONS */}
+              <div className="flex gap-2">
+                  {/* === BUTON INFO NOU === */}
+                  <button onClick={() => setShowInfoModal(true)} className="text-xs font-bold bg-blue-100 text-blue-800 px-4 py-2 border border-blue-200 hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-1">
+                      ℹ️ CUM FUNCȚIONEAZĂ
+                  </button>
+                  
+                  <button onClick={() => { logoutUser(); setIsAuthenticated(false); }} className="text-xs font-bold underline bg-red-100 text-red-600 px-4 py-2 border border-red-200 hover:bg-red-600 hover:text-white transition-colors">
+                      DECONECTARE
+                  </button>
+              </div>
           </div>
       </div>
 
@@ -289,6 +294,76 @@ export const HeroPortal: React.FC = () => {
               label={cameraMode === 'START' ? "FĂ O POZĂ LA ÎNCEPUTUL LUCRĂRII" : "FĂ O POZĂ CU REZULTATUL FINAL"}
           />
       )}
+
+      {/* === MODAL INFO NOU === */}
+      {showInfoModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
+            <div className="bg-white w-full max-w-2xl border-4 border-white shadow-2xl relative animate-fade-in flex flex-col max-h-[90vh]">
+                
+                {/* Header Modal */}
+                <div className="bg-blue-600 p-4 border-b-4 border-black flex justify-between items-center shrink-0">
+                    <h2 className="font-heading text-xl md:text-2xl text-white uppercase tracking-wider">
+                        📘 MANUAL DE OPERARE SUPERFIX
+                    </h2>
+                    <button onClick={() => setShowInfoModal(false)} className="text-white font-bold text-xl hover:scale-110">X</button>
+                </div>
+
+                {/* Body Scrollable */}
+                <div className="p-6 font-comic text-gray-800 overflow-y-auto">
+                    <div className="mb-6">
+                        <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                            <span className="text-2xl">⚡</span> FIXOMETRUL (FACTORUL DE ÎNCREDERE)
+                        </h3>
+                        <p className="mb-2">
+                            Fixometrul este reputația ta. Cu cât ai un scor mai mare, cu atât 
+                            <span className="bg-yellow-200 px-1 font-bold">apari mai sus în lista de eroi</span> 
+                            când clienții caută meseriași.
+                        </p>
+                        <p className="text-sm italic text-gray-500">Un Trust Factor mare = Mai mulți clienți = Mai mulți bani.</p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 mb-6">
+                        <div className="bg-green-50 border-2 border-green-600 p-4 rounded">
+                            <h4 className="font-bold text-green-700 mb-2">CUM CÂȘTIGI PUNCTE 📈</h4>
+                            <ul className="list-disc pl-4 space-y-1 text-sm">
+                                <li><strong>+2 Puncte:</strong> Misiune finalizată cu succes (cu poze Before/After).</li>
+                                <li><strong>+2 Puncte:</strong> Recenzie de 5 stele de la client.</li>
+                            </ul>
+                        </div>
+                        <div className="bg-red-50 border-2 border-red-600 p-4 rounded">
+                            <h4 className="font-bold text-red-700 mb-2">CUM PIERZI PUNCTE 📉</h4>
+                            <ul className="list-disc pl-4 space-y-1 text-sm">
+                                <li><strong>-1 Punct:</strong> Refuzarea unei misiuni alocate.</li>
+                                <li><strong>-2 Puncte:</strong> Anularea unei misiuni acceptate.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-100 p-4 border-l-4 border-black">
+                        <h3 className="font-bold mb-2">📸 DE CE SUNT IMPORTANTE POZELE?</h3>
+                        <p className="mb-2 text-sm">
+                            Deși <strong>nu sunt obligatorii din punct de vedere legal</strong>, pozele (Început și Final) sunt dovada muncii tale în fața Cartierului General.
+                        </p>
+                        <p className="text-sm">
+                            Fără poze, sistemul nu poate valida complet misiunea, iar Trust Factor-ul tău nu va crește la fel de repede. 
+                            <span className="font-bold"> Arată-le oamenilor ce treabă bună faci!</span>
+                        </p>
+                    </div>
+                </div>
+
+                {/* Footer Modal */}
+                <div className="p-4 border-t-4 border-black bg-gray-50 text-center shrink-0">
+                    <button 
+                        onClick={() => setShowInfoModal(false)}
+                        className="bg-black text-white font-heading py-3 px-8 border-2 border-transparent hover:bg-gray-800 hover:border-black shadow-comic uppercase"
+                    >
+                        AM ÎNȚELES, LA TREABĂ!
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 };
