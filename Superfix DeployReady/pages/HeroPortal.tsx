@@ -342,7 +342,7 @@ export const HeroPortal: React.FC = () => {
                     <div className="bg-gray-100 p-4 border-l-4 border-black">
                         <h3 className="font-bold mb-2">📸 DE CE SUNT IMPORTANTE POZELE?</h3>
                         <p className="mb-2 text-sm">
-                            Deși <strong>nu sunt obligatorii din punct de vedere legal</strong>, pozele (Început și Final) sunt dovada muncii tale în fața Cartierului General.
+                            Deși <strong>nu sunt obligatorii</strong>, pozele (Început și Final) sunt dovada muncii tale în fața Cartierului General.
                         </p>
                         <p className="text-sm">
                             Fără poze, sistemul nu poate valida complet misiunea, iar Trust Factor-ul tău nu va crește la fel de repede. 
@@ -367,5 +367,6 @@ export const HeroPortal: React.FC = () => {
     </div>
   );
 };
+
 
 
