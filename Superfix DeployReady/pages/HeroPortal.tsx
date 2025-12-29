@@ -326,7 +326,7 @@ export const HeroPortal: React.FC = () => {
                         <div className="bg-green-50 border-2 border-green-600 p-4 rounded">
                             <h4 className="font-bold text-green-700 mb-2">CUM CÂȘTIGI PUNCTE 📈</h4>
                             <ul className="list-disc pl-4 space-y-1 text-sm">
-                                <li><strong>+2 Puncte:</strong> Misiune finalizată cu succes (cu poze Before/After).</li>
+                                <li><strong>+5 Puncte:</strong> Misiune finalizată cu succes (cu poze Before/After).</li>
                                 <li><strong>+2 Puncte:</strong> Recenzie de 5 stele de la client.</li>
                             </ul>
                         </div>
@@ -367,3 +367,4 @@ export const HeroPortal: React.FC = () => {
     </div>
   );
 };
+
