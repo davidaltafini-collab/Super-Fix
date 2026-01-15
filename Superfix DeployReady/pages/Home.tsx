@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
@@ -35,10 +35,79 @@ const SuperfixBadge = ({ size = "normal" }: { size?: "small" | "normal" | "large
   );
 };
 
+// === COMPONENTA NOUĂ: SUPER SEMNAL (Buton Flotant) ===
+// Aceasta alternează între "Caută" și "Erou" și pulsează
+const SuperSignal = () => {
+  const [showIcon, setShowIcon] = useState(true);
+
+  // Alternăm starea la fiecare 3 secunde
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowIcon(prev => !prev);
+    }, 3000); // Schimbă la fiecare 3 secunde
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Link 
+      to="/heroes"
+      className="fixed bottom-6 right-6 z-50 group md:bottom-10 md:right-10 cursor-pointer"
+      aria-label="Caută Meseriaș"
+    >
+      {/* Cercurile de pulsare (efect de semnal radar) */}
+      <div className="absolute inset-0 bg-super-red rounded-full opacity-0 animate-ping"></div>
+      <div className="absolute -inset-2 bg-comic-yellow rounded-full opacity-20 animate-pulse delay-75"></div>
+      
+      {/* Butonul propriu-zis */}
+      <div className="
+        relative 
+        flex items-center justify-center 
+        w-20 h-20 md:w-24 md:h-24 
+        bg-comic-yellow 
+        border-4 border-black 
+        rounded-full 
+        shadow-[4px_4px_0_#000] 
+        hover:scale-110 
+        hover:shadow-[6px_6px_0_#000] 
+        hover:rotate-6
+        transition-all duration-300
+        overflow-hidden
+      ">
+        {/* STARE 1: Masca de Erou (Vizibilă când showIcon este true) */}
+        <div className={`transition-all duration-500 transform absolute inset-0 flex items-center justify-center ${showIcon ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 -rotate-180'}`}>
+           <span className="text-4xl md:text-5xl" role="img" aria-label="Hero">🦸‍♂️</span>
+        </div>
+
+        {/* STARE 2: Lupa + Text (Vizibilă când showIcon este false) */}
+        <div className={`transition-all duration-500 transform absolute inset-0 flex flex-col items-center justify-center leading-none ${!showIcon ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'}`}>
+           <span className="text-2xl md:text-3xl mb-1" role="img" aria-label="Search">🔍</span>
+           <span className="font-heading text-xs md:text-sm text-black font-bold uppercase tracking-widest">CAUTĂ</span>
+        </div>
+      </div>
+
+      {/* Tooltip mic care apare doar la hover pe Desktop */}
+      <div className="
+        absolute right-full mr-4 top-1/2 -translate-y-1/2 
+        bg-white border-2 border-black px-3 py-1 
+        font-comic text-sm whitespace-nowrap 
+        opacity-0 group-hover:opacity-100 
+        transition-opacity pointer-events-none
+        shadow-[2px_2px_0_#000]
+        hidden md:block
+      ">
+        Găsește un Meseriaș!
+      </div>
+    </Link>
+  );
+};
+
 export const Home: React.FC = () => {
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden font-sans">
+    <div className="flex flex-col min-h-screen overflow-x-hidden font-sans relative">
       
+      {/* === ADAUGĂM BUTONUL FLOTANT AICI === */}
+      <SuperSignal />
+
       {/* === SEO META TAGS === */}
       <Helmet>
         <title>Superfix - Găsește Meșteri și Eroi Locali în România</title>
@@ -46,6 +115,9 @@ export const Home: React.FC = () => {
         <meta property="og:title" content="Superfix - Meșteri Locali Gata de Acțiune" />
         <meta property="og:description" content="Ai nevoie de un erou? Găsește meseriași verificați în zona ta." />
         <link rel="canonical" href="https://superfix.ro/" />
+        
+        {/* SUGESTIE: Adaugă o imagine pentru social share când ai link-ul */}
+        {/* <meta property="og:image" content="https://superfix.ro/og-image.jpg" /> */}
       </Helmet>
 
       {/* Stiluri CSS pentru animația infinită */}
