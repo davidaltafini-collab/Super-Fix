@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 // Nodemailer a fost eliminat; folosim un API HTTP pentru emailuri.
 // Dacă runtime-ul tău nu are fetch, instalează node-fetch și importă-l aici.
 // import fetch from 'node-fetch';
@@ -637,7 +639,75 @@ app.post('/api/reviews', async (req, res) => {
         res.status(500).json({ error: 'Review error' });
     }
 });
+// ==================================================
+// 🚀 ZONA SEO DINAMIC & SERVIRE FRONTEND
+// ==================================================
 
+// Definim unde se află fișierele site-ului construit (folderul 'dist')
+// Ajustează calea '../dist' dacă folderul de build are alt nume
+const BUILD_PATH = path.join(__dirname, '../dist');
+
+// 1. RUTA SPECIALĂ PENTRU EROI (Injectează Poza pentru WhatsApp)
+app.get('/hero/:id', async (req, res) => {
+    const heroId = req.params.id;
+    const indexPath = path.join(BUILD_PATH, 'index.html');
+
+    // Dacă nu există build-ul, dăm eroare (se întâmplă doar în dezvoltare)
+    if (!fs.existsSync(indexPath)) {
+        return res.status(404).send('Eroare: Nu găsesc frontend-ul (folderul dist). Rulează "npm run build".');
+    }
+
+    try {
+        // Căutăm eroul în baza de date
+        const hero = await prisma.hero.findUnique({ where: { id: heroId } });
+        
+        // Citim fișierul index.html original
+        let html = fs.readFileSync(indexPath, 'utf8');
+
+        if (hero) {
+            // ÎNLOCUIM PLACEHOLDERELE CU DATELE REALE
+            html = html
+                .replace('__META_TITLE__', `${hero.alias} - ${hero.category}`)
+                .replace('__META_DESCRIPTION__', `Cheamă-l pe ${hero.alias}! Tarif: ${hero.hourlyRate} RON/h. ${hero.description.substring(0, 100)}...`)
+                .replace('__META_IMAGE__', hero.avatarUrl || 'https://superfix.ro/og-default.jpg') // Pune o poză default dacă nu are avatar
+                .replace('<title>SUPERFIX - Cheamă Eroul</title>', `<title>${hero.alias} - Superfix</title>`);
+        } else {
+            // Dacă eroul nu există, punem date standard
+            html = html
+                .replace('__META_TITLE__', 'SUPERFIX - Eroare')
+                .replace('__META_DESCRIPTION__', 'Eroul căutat nu a fost găsit.')
+                .replace('__META_IMAGE__', 'https://superfix.ro/og-default.jpg');
+        }
+
+        // Trimitem pagina modificată către WhatsApp/Browser
+        res.send(html);
+
+    } catch (error) {
+        console.error('Eroare SEO:', error);
+        res.status(500).send('Eroare Server');
+    }
+});
+
+// 2. SERVIREA FIȘIERELOR STATICE (JS, CSS, Imagini)
+app.use(express.static(BUILD_PATH));
+
+// 3. RUTA CATCH-ALL (Orice altă pagină returnează index.html standard)
+app.get('*', (req, res) => {
+    const indexPath = path.join(BUILD_PATH, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        let html = fs.readFileSync(indexPath, 'utf8');
+        // Curățăm placeholderele pentru paginile normale
+        html = html
+            .replace('__META_TITLE__', 'SUPERFIX - Cheamă Eroul')
+            .replace('__META_DESCRIPTION__', 'Marketplace pentru meseriași - Stil Supereroi')
+            .replace('__META_IMAGE__', 'https://superfix.ro/og-default.jpg');
+        res.send(html);
+    } else {
+        res.status(404).send('Frontend not built');
+    }
+});
+
+// ==================================================
 // === START SERVER ===
 app.listen(PORT, () => {
     console.log(`🚀 Server Backend "SuperFix" rulează pe portul ${PORT}`);
