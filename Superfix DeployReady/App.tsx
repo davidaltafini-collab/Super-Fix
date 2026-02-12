@@ -13,6 +13,7 @@ import { Admin } from './pages/Admin';
 import { HeroPortal } from './pages/HeroPortal';
 import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
+import HeroOnboarding from './pages/HeroOnboarding';
 
 // === MODIFICARE AICI: Importăm toate paginile legale ===
 // Asigură-te că fișierul tău cu paginile legale se numește exact 'LegalPages.tsx' 
@@ -53,6 +54,7 @@ const App: React.FC = () => {
               <Route path="/hero/:id" element={<HeroProfile />} />
               <Route path="/register" element={<RegisterHero />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/onboarding" element={<HeroOnboarding />} />
               <Route path="/portal" element={<HeroPortal />} />
 
               {/* === MODIFICARE AICI: Rutele legale specifice === */}

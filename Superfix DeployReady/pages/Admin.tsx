@@ -25,6 +25,8 @@ export const Admin: React.FC = () => {
   const [usernameInput, setUsernameInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
   
+  const [updates, setUpdates] = useState<any[]>([]);
+
   const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'SETTINGS'>('HEROES');
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -54,27 +56,59 @@ export const Admin: React.FC = () => {
   const [isCustomCat, setIsCustomCat] = useState(false);
   const [formCustomCat, setFormCustomCat] = useState('');
 
-  // === INIT ===
-  useEffect(() => {
-    const token = localStorage.getItem('superfix_token');
-    const role = localStorage.getItem('superfix_role');
-    if (token && role === 'ADMIN') setIsAuthenticated(true);
-    else { setIsAuthenticated(false); if(token) logoutUser(); }
+    // === INIT ===
+    useEffect(() => {
+        const token = localStorage.getItem('superfix_token');
+        const role = localStorage.getItem('superfix_role');
+        if (token && role === 'ADMIN') setIsAuthenticated(true);
+        else { setIsAuthenticated(false); if (token) logoutUser(); }
 
-    const savedCats = localStorage.getItem('superfix_full_categories');
-    if(savedCats) setCategoryList(JSON.parse(savedCats));
-  }, []);
+        const savedCats = localStorage.getItem('superfix_full_categories');
+        if (savedCats) setCategoryList(JSON.parse(savedCats));
+    }, []);
 
-  useEffect(() => {
-    if(!isAuthenticated) return;
-    refreshAllData();
-  }, [isAuthenticated, activeTab]);
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        refreshAllData();
+    }, [isAuthenticated, activeTab]);
 
-  const refreshAllData = () => {
-      getHeroes().then(setHeroes);
-      getAllRequests().then(setRequests);
-      getApplications().then(setApplications);
-  };
+    // === FUNCȚIE FETCH UPDATES (NOUĂ) ===
+    const fetchUpdates = async () => {
+        const token = localStorage.getItem('superfix_token');
+        try {
+            const res = await fetch('https://api.super-fix.ro/api/admin/updates', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (Array.isArray(data)) setUpdates(data);
+        } catch (e) { console.error("Eroare updates:", e); }
+    };
+
+    const refreshAllData = () => {
+        getHeroes().then(setHeroes);
+        getAllRequests().then(setRequests);
+        getApplications().then(setApplications);
+        fetchUpdates(); // <--- AICI AM ADĂUGAT APELUL NOU
+    };
+
+    // === FUNCȚIE APROBARE UPDATE (NOUĂ) ===
+    const handleApproveUpdate = async (updateId: string) => {
+        if (!window.confirm("Sigur aprobi și înlocuiești datele?")) return;
+        const token = localStorage.getItem('superfix_token');
+        try {
+            const res = await fetch(`https://api.super-fix.ro/api/admin/approve-update/${updateId}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert("✅ Profil actualizat cu succes!");
+                refreshAllData(); // Refresh la tot
+            } else {
+                alert("Eroare: " + json.error);
+            }
+        } catch (e) { alert("Eroare server"); }
+    };
 
   // === HANDLERS ===
   const handleLogin = async (e: React.FormEvent) => {
@@ -583,15 +617,19 @@ export const Admin: React.FC = () => {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-black pb-4 bg-white p-4 shadow-comic gap-4">
         <h1 className="font-heading text-2xl md:text-4xl italic">SUPERFIX <span className="text-super-red">ADMIN</span></h1>
-        <div className="flex flex-wrap justify-center gap-2">
-            {['HEROES', 'REQUESTS', 'APPLICATIONS', 'SETTINGS'].map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab as any)} 
-                    className={`font-heading text-xs md:text-sm px-3 py-1 border-2 border-transparent transition-all ${activeTab === tab ? 'bg-comic-yellow border-black shadow-comic' : 'hover:underline'}`}>
-                    {tab === 'HEROES' ? 'EROI' : tab === 'REQUESTS' ? 'MISIUNI' : tab === 'APPLICATIONS' ? 'RECRUTARE' : 'SETĂRI'}
-                </button>
-            ))}
-            <button onClick={handleLogout} className="text-gray-500 font-bold ml-2 border-l-2 border-gray-300 pl-2 text-sm">IEȘIRE</button>
-        </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'UPDATES', 'SETTINGS'].map(tab => (
+                      <button key={tab} onClick={() => setActiveTab(tab as any)}
+                          className={`font-heading text-xs md:text-sm px-3 py-1 border-2 border-transparent transition-all ${activeTab === tab ? 'bg-comic-yellow border-black shadow-comic' : 'hover:underline'}`}>
+                          {tab === 'HEROES' ? 'EROI'
+                              : tab === 'REQUESTS' ? 'MISIUNI'
+                                  : tab === 'APPLICATIONS' ? 'RECRUTARE'
+                                      : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
+                                          : 'SETĂRI'}
+                      </button>
+                  ))}
+                  <button onClick={handleLogout} className="text-gray-500 font-bold ml-2 border-l-2 border-gray-300 pl-2 text-sm">IEȘIRE</button>
+              </div>
       </div>
 
       {/* TABS (EROI, MISIUNI, ETC) */}
@@ -711,6 +749,84 @@ export const Admin: React.FC = () => {
               </div>
           </div>
       )}
+      {/* === TAB-UL DE UPDATES === */}
+        {activeTab === 'updates' && (
+          <div className="space-y-8">
+            <h2 className="text-4xl font-black italic mb-8 border-b-8 border-blue-500 inline-block">
+              MODIFICĂRI PROFIL ÎN AȘTEPTARE
+            </h2>
+
+            {updates.length === 0 ? (
+              <p className="text-xl font-bold text-gray-500 italic">Nicio cerere de update momentan.</p>
+            ) : (
+              <div className="grid gap-8">
+                {updates.map((update) => (
+                  <div key={update.id} className="bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
+                    
+                    {/* Header Card */}
+                    <div className="flex justify-between items-start mb-6 border-b-4 border-gray-200 pb-4">
+                      <div>
+                        <h3 className="text-2xl font-black italic">{update.hero.alias}</h3>
+                        <p className="font-mono text-sm text-gray-500">{update.hero.email}</p>
+                      </div>
+                      <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 border-2 border-blue-800 text-sm">
+                        UPDATE PENDING
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Coloana Stângă: Date Noi */}
+                      <div className="space-y-4">
+                         {update.description && (
+                             <div className="bg-yellow-50 p-3 border-l-4 border-yellow-400">
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Descriere Nouă</p>
+                                 <p className="italic">"{update.description}"</p>
+                             </div>
+                         )}
+                         {update.hourlyRate && (
+                             <div className="bg-green-50 p-3 border-l-4 border-green-400">
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Preț Nou</p>
+                                 <p className="font-black text-xl">{update.hourlyRate} RON/oră</p>
+                             </div>
+                         )}
+                         {update.actionAreas && (
+                             <div className="bg-purple-50 p-3 border-l-4 border-purple-400">
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Zone Noi</p>
+                                 <p className="font-mono text-sm">{JSON.stringify(update.actionAreas)}</p>
+                             </div>
+                         )}
+                         {update.videoUrl && (
+                             <div className="bg-red-50 p-3 border-l-4 border-red-400">
+                                 <p className="text-xs font-bold text-gray-500 uppercase">Video Nou</p>
+                                 <a href={update.videoUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">Vezi Link Video</a>
+                             </div>
+                         )}
+                      </div>
+
+                      {/* Coloana Dreaptă: Poză și Acțiuni */}
+                      <div className="flex flex-col items-center justify-between">
+                        {update.avatarUrl ? (
+                            <div className="relative mb-4">
+                                <img src={update.avatarUrl} alt="New" className="w-32 h-32 object-cover rounded-full border-4 border-black shadow-lg" />
+                                <span className="absolute bottom-0 right-0 bg-green-500 text-white text-xs font-bold px-2 py-1 border-2 border-black">NOU</span>
+                            </div>
+                        ) : <p className="text-gray-400 italic mb-4">Fără poză nouă</p>}
+
+                        <button
+                          onClick={() => handleApproveUpdate(update.id)}
+                          className="w-full bg-green-500 text-white font-black py-4 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center gap-2"
+                        >
+                          <span>✅ APROBĂ ȘI ÎNLOCUIEȘTE</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* MODAL EROU */}
       {showModal && (
