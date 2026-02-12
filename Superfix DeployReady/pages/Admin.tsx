@@ -27,7 +27,7 @@ export const Admin: React.FC = () => {
   
   const [updates, setUpdates] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'SETTINGS'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'UPDATES' | 'SETTINGS'>('HEROES');
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -624,7 +624,7 @@ export const Admin: React.FC = () => {
                           {tab === 'HEROES' ? 'EROI'
                               : tab === 'REQUESTS' ? 'MISIUNI'
                                   : tab === 'APPLICATIONS' ? 'RECRUTARE'
-                                      : tab === 'updates' ? `MODIFICĂRI (${updates.length})`
+                                      : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
                                           : 'SETĂRI'}
                       </button>
                   ))}
@@ -750,7 +750,7 @@ export const Admin: React.FC = () => {
           </div>
       )}
       {/* === TAB-UL DE UPDATES === */}
-        {activeTab === 'updates' && (
+        {activeTab === 'UPDATES' && (
           <div className="space-y-8">
             <h2 className="text-4xl font-black italic mb-8 border-b-8 border-blue-500 inline-block">
               MODIFICĂRI PROFIL ÎN AȘTEPTARE
