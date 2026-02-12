@@ -624,7 +624,7 @@ export const Admin: React.FC = () => {
                           {tab === 'HEROES' ? 'EROI'
                               : tab === 'REQUESTS' ? 'MISIUNI'
                                   : tab === 'APPLICATIONS' ? 'RECRUTARE'
-                                      : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
+                                      : tab === 'updates' ? `MODIFICĂRI (${updates.length})`
                                           : 'SETĂRI'}
                       </button>
                   ))}
