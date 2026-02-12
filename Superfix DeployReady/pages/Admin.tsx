@@ -109,6 +109,21 @@ export const Admin: React.FC = () => {
             }
         } catch (e) { alert("Eroare server"); }
     };
+    const handleRejectUpdate = async (updateId: string) => {
+        if (!window.confirm("Sigur anulezi aceste modificări? Datele trimise de erou vor fi șterse.")) return;
+        const token = localStorage.getItem('superfix_token');
+        try {
+            const res = await fetch(`https://api.super-fix.ro/api/admin/reject-update/${updateId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert("🗑️ Modificare anulată.");
+                refreshAllData(); // Refresh ca să dispară indicatorul
+            }
+        } catch (e) { alert("Eroare server"); }
+    };
 
   // === HANDLERS ===
   const handleLogin = async (e: React.FormEvent) => {
@@ -878,6 +893,40 @@ export const Admin: React.FC = () => {
                   <div className="p-4 md:p-6 bg-white">
                       {modalMode === 'VIEW' ? (
                           <div className="space-y-6">
+                                  {/* === START ALERTĂ MODIFICĂRI === */}
+                                  {(() => {
+                                      const pendingUpdate = updates.find(u => u.heroId === selectedHero?.id);
+                                      if (!pendingUpdate) return null;
+
+                                      return (
+                                          <div className="bg-blue-600 border-4 border-black p-4 mb-6 shadow-comic animate-pulse">
+                                              <h3 className="text-white font-heading text-xl italic mb-4 uppercase">
+                                                  ⚠️ Date noi primite de la erou!
+                                              </h3>
+                                              <div className="grid md:grid-cols-2 gap-4 bg-white p-4 border-2 border-black">
+                                                  <div className="text-sm font-mono">
+                                                      <p className="font-bold text-blue-600 uppercase border-b-2 border-blue-100 mb-2">MODIFICĂRI:</p>
+                                                      {pendingUpdate.description && <p><strong>Descriere:</strong> {pendingUpdate.description}</p>}
+                                                      {pendingUpdate.hourlyRate && <p><strong>Tarif:</strong> {pendingUpdate.hourlyRate} RON/h</p>}
+                                                      {pendingUpdate.actionAreas && <p><strong>Zone:</strong> {JSON.stringify(pendingUpdate.actionAreas)}</p>}
+                                                      {pendingUpdate.videoUrl && (
+                                                          <p><strong>Video:</strong> <a href={pendingUpdate.videoUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">VEZI VIDEO</a></p>
+                                                      )}
+                                                  </div>
+                                                  <div className="flex flex-col items-center justify-center gap-3 border-l-2 border-dashed border-gray-300 pl-4">
+                                                      {pendingUpdate.avatarUrl && (
+                                                          <img src={pendingUpdate.avatarUrl} alt="New" className="w-20 h-20 rounded-full border-4 border-blue-600 object-cover" />
+                                                      )}
+                                                      <div className="flex gap-2 w-full">
+                                                          <button onClick={() => handleApproveUpdate(pendingUpdate.id)} className="flex-1 bg-green-500 text-white font-bold py-2 border-2 border-black shadow-sm text-xs">✅ APROBĂ</button>
+                                                          <button onClick={() => handleRejectUpdate(pendingUpdate.id)} className="flex-1 bg-red-600 text-white font-bold py-2 border-2 border-black shadow-sm text-xs">❌ ȘTERGE</button>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })()}
+                                  {/* === FINAL ALERTĂ MODIFICĂRI === */}
                                 <div className="grid md:grid-cols-2 gap-4 text-sm font-mono">
                                     <div className="border-2 border-black p-3 bg-gray-50">
                                         <div className="font-bold text-gray-500">NUME REAL:</div> {formData.realName}
