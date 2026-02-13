@@ -179,16 +179,16 @@ const HeroOnboarding = () => {
             <p className="text-gray-700 font-bold mb-4">
                 Hei, recrut! Înainte să completezi dosarul, bagă un ochi pe acest video. E scurt, te învață ce trebuie să știi ca să fii un SuperFix de top:
             </p>
-            <div className="relative" style={{ paddingBottom: '56.25%', height: 0, overflow: 'hidden' }}>
-                <iframe 
-                    className="absolute top-0 left-0 w-full h-full border-4 border-black shadow-lg"
-                    src="https://www.youtube.com/embed/qlgBAqtwgcI" 
-                    title="Video Înrolare SuperFix" 
-                    frameBorder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowFullScreen
-                ></iframe>
-            </div>
+<div className="relative w-full max-w-sm mx-auto" style={{ paddingBottom: '177.77%', height: 0, overflow: 'hidden' }}>
+    <iframe 
+        className="absolute top-0 left-0 w-full h-full border-4 border-black shadow-lg"
+        src="https://www.youtube.com/embed/qlgBAqtwgcI" 
+        title="Video Înrolare SuperFix" 
+        frameBorder="0" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        allowFullScreen
+    ></iframe>
+</div>
             <p className="text-sm text-gray-600 mt-4 font-bold">
                 ⚡ L-ai văzut? Perfect! Acum hai să completăm formularul de mai jos și să te băgăm în Liga SuperFix.
             </p>
@@ -401,5 +401,6 @@ const HeroOnboarding = () => {
 };
 
 export default HeroOnboarding;
+
 
 
