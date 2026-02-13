@@ -284,9 +284,9 @@ export const HeroesList: React.FC = () => {
                 const avgRating = getAverageRating(hero);
                 return (
                   // CARD EROU
-                  <Link 
-                    to={`/hero/${hero.id}`} 
-                    key={hero.id} 
+                  <Link
+                    to={`/hero/${hero.slug || hero.id}`}
+                    key={hero.id}
                     className="block bg-white border-4 border-black rounded-xl overflow-hidden shadow-[8px_8px_0_#000] hover:-translate-y-2 hover:shadow-[12px_12px_0_#000] transition-all duration-200 flex flex-col h-full group relative"
                   >
                     {/* Badge Categorie */}
@@ -305,7 +305,7 @@ export const HeroesList: React.FC = () => {
                       />
                       <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
-                    
+
                     {/* Conținut */}
                     <div className="p-5 flex-grow flex flex-col">
                       

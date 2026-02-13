@@ -6,7 +6,7 @@ import { RomaniaMap } from '../components/RomaniaMap';
 import { Helmet } from 'react-helmet-async';
 
 export const HeroProfile: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
   // === STATE DATE ===
@@ -44,10 +44,10 @@ export const HeroProfile: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    if (id && localStorage.getItem(`superfix_review_${id}`)) {
+    if (slug && localStorage.getItem(`superfix_review_${slug}`)) {
         setHasReviewed(true);
     }
-  }, [id, navigate]);
+  }, [slug, navigate]);
 
   // HANDLER: Trimitere Cerere Misiune (SOS)
   const handleSubmit = async (e: React.FormEvent) => {
