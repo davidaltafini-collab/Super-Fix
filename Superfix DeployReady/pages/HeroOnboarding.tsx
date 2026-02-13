@@ -16,6 +16,21 @@ const ALL_COUNTIES = [
   'TM', 'TL', 'VS', 'VL', 'VN', 'B'
 ];
 
+// ✅ Numele complete ale județelor pentru listă
+const COUNTY_NAMES: Record<string, string> = {
+  'AB': 'Alba', 'AR': 'Arad', 'AG': 'Argeș', 'BC': 'Bacău', 'BH': 'Bihor',
+  'BN': 'Bistrița-Năsăud', 'BT': 'Botoșani', 'BV': 'Brașov', 'BR': 'Brăila',
+  'BZ': 'Buzău', 'CS': 'Caraș-Severin', 'CL': 'Călărași', 'CJ': 'Cluj',
+  'CT': 'Constanța', 'CV': 'Covasna', 'DB': 'Dâmbovița', 'DJ': 'Dolj',
+  'GL': 'Galați', 'GR': 'Giurgiu', 'GJ': 'Gorj', 'HR': 'Harghita',
+  'HD': 'Hunedoara', 'IL': 'Ialomița', 'IS': 'Iași', 'IF': 'Ilfov',
+  'MM': 'Maramureș', 'MH': 'Mehedinți', 'MS': 'Mureș', 'NT': 'Neamț',
+  'OT': 'Olt', 'PH': 'Prahova', 'SM': 'Satu Mare', 'SJ': 'Sălaj',
+  'SB': 'Sibiu', 'SV': 'Suceava', 'TR': 'Teleorman', 'TM': 'Timiș',
+  'TL': 'Tulcea', 'VS': 'Vaslui', 'VL': 'Vâlcea', 'VN': 'Vrancea',
+  'B': 'București'
+};
+
 const HeroOnboarding = () => {
   const [searchParams] = useSearchParams();
   const heroId = searchParams.get('id');
@@ -32,6 +47,7 @@ const HeroOnboarding = () => {
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showCountyList, setShowCountyList] = useState(false); // ✅ Toggle pentru listă
 
   const handleFileUpload = async (file: File, field: 'avatarUrl' | 'videoUrl') => {
     // ✅ Validare dimensiune
@@ -39,7 +55,9 @@ const HeroOnboarding = () => {
     const fileSizeMB = file.size / (1024 * 1024);
     
     if (fileSizeMB > maxSizeMB) {
-      setErrorMsg(`Fișierul e prea mare! Limită: ${maxSizeMB}MB (ai încărcat ${fileSizeMB.toFixed(1)}MB)`);
+      const fileType = field === 'videoUrl' ? 'video-ul' : 'poza';
+      setErrorMsg(`🚫 ${fileType.charAt(0).toUpperCase() + fileType.slice(1)} e prea mare! Limită: ${maxSizeMB}MB. Tu ai încărcat ${fileSizeMB.toFixed(1)}MB. Comprimă fișierul și încearcă din nou.`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -58,11 +76,14 @@ const HeroOnboarding = () => {
       const resData = await res.json();
       if(resData.secure_url) {
         setFormData(prev => ({ ...prev, [field]: resData.secure_url }));
+        setErrorMsg(''); // ✅ Clear error on success
       } else {
-        setErrorMsg("Eroare la încărcarea fișierului. Încearcă din nou!");
+        setErrorMsg("❌ Eroare la încărcarea fișierului. Încearcă din nou!");
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch(e) { 
-      setErrorMsg("Eroare la conexiunea cu serverul de upload!"); 
+      setErrorMsg("❌ Eroare la conexiunea cu serverul de upload. Verifică internetul și încearcă din nou!"); 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     finally { setUploading(false); }
   };
@@ -285,8 +306,8 @@ const HeroOnboarding = () => {
                 <label className="font-black text-2xl block mb-2 uppercase">Zone de Acțiune</label>
                 <p className="text-sm font-bold text-gray-600 mb-4">Selectează județele în care intervii sau alege toată țara.</p>
                 
-                {/* ✅ BUTON DISCRET */}
-                <div className="mb-4 flex items-center gap-3">
+                {/* ✅ BUTOANE DE CONTROL */}
+                <div className="mb-4 flex flex-wrap items-center gap-3">
                     <button 
                         type="button"
                         onClick={toggleAllRomania}
@@ -294,18 +315,57 @@ const HeroOnboarding = () => {
                     >
                         {formData.actionAreas.length === ALL_COUNTIES.length ? '❌ Deselectează' : '🇷🇴 Toată România'}
                     </button>
+                    
+                    <button 
+                        type="button"
+                        onClick={() => setShowCountyList(!showCountyList)}
+                        className="bg-gray-100 text-gray-700 font-bold px-4 py-2 text-sm uppercase border-2 border-gray-400 hover:border-black hover:bg-gray-200 transition-all"
+                    >
+                        {showCountyList ? '🗺️ Arată Harta' : '📋 Arată Lista'}
+                    </button>
+                    
                     <span className="text-sm font-bold text-gray-500">
                         {formData.actionAreas.length}/{ALL_COUNTIES.length} județe
                     </span>
                 </div>
 
-                <div className="border-4 border-black bg-blue-50 p-4 flex justify-center shadow-inner mb-4">
-                    <div className="max-w-[500px] w-full">
-                        <RomaniaMap value={formData.actionAreas} onToggle={toggleArea} />
+                {/* ✅ HARTĂ SAU LISTĂ (TOGGLE) */}
+                {!showCountyList ? (
+                    // HARTĂ
+                    <div className="border-4 border-black bg-blue-50 p-4 flex justify-center shadow-inner mb-4">
+                        <div className="max-w-[500px] w-full">
+                            <RomaniaMap value={formData.actionAreas} onToggle={toggleArea} />
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    // LISTĂ CU CHECKBOXURI
+                    <div className="border-4 border-black bg-gray-50 p-4 mb-4 max-h-[400px] overflow-y-auto">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {ALL_COUNTIES.map(code => (
+                                <label 
+                                    key={code}
+                                    className={`flex items-center gap-2 p-3 border-2 cursor-pointer transition-all ${
+                                        formData.actionAreas.includes(code) 
+                                            ? 'bg-black text-white border-black font-black' 
+                                            : 'bg-white text-black border-gray-300 hover:border-black'
+                                    }`}
+                                >
+                                    <input 
+                                        type="checkbox"
+                                        checked={formData.actionAreas.includes(code)}
+                                        onChange={() => toggleArea(code)}
+                                        className="w-4 h-4"
+                                    />
+                                    <span className="text-sm font-bold">
+                                        {code} - {COUNTY_NAMES[code]}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 
-                {/* ✅ ASCUNDE LISTA CÂND E TOATĂ ROMÂNIA SELECTATĂ */}
+                {/* ✅ DISPLAY SELECTAT */}
                 {formData.actionAreas.length === 0 && (
                     <div className="text-center">
                         <span className="text-sm font-bold text-red-500">⚠️ Niciun județ selectat!</span>
