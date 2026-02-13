@@ -158,7 +158,7 @@ export const HeroProfile: React.FC = () => {
              <div className="relative group">
                 <div className="absolute -inset-2 bg-comic-yellow rotate-6 border-4 border-black"></div>
                 <div className="w-56 h-56 md:w-72 md:h-72 flex-shrink-0 border-4 border-black bg-white relative z-10 overflow-hidden shadow-[8px_8px_0_#000]">
-                    <img src={hero.avatarUrl || 'https://via.placeholder.com/300'} alt={hero.alias} className="w-full h-full object-cover" />
+                    <img src={hero.avatarUrl || 'https://super-fix.ro/revizie.png'} alt={hero.alias} className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-4 -right-4 bg-super-red text-white font-heading px-4 py-2 border-4 border-black rotate-12 z-20 shadow-[4px_4px_0_#000]">
                     LVL {Math.floor(hero.missionsCompleted / 10) + 1}
