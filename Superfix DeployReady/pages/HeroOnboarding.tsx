@@ -182,7 +182,7 @@ const HeroOnboarding = () => {
             <div className="relative" style={{ paddingBottom: '56.25%', height: 0, overflow: 'hidden' }}>
                 <iframe 
                     className="absolute top-0 left-0 w-full h-full border-4 border-black shadow-lg"
-                    src="https://youtube.com/shorts/qlgBAqtwgcI?si=aU7hANKvO317h5HJ" 
+                    src="https://www.youtube.com/embed/qlgBAqtwgcI" 
                     title="Video Înrolare SuperFix" 
                     frameBorder="0" 
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -401,4 +401,5 @@ const HeroOnboarding = () => {
 };
 
 export default HeroOnboarding;
+
 
