@@ -226,11 +226,11 @@ const HeroOnboarding = () => {
             <div className="bg-gray-50 border-4 border-black p-6 md:p-8 hover:bg-yellow-50 transition-colors">
                 <span className="inline-block bg-black text-white px-3 py-1 font-black text-sm uppercase mb-4 shadow-[4px_4px_0_0_rgba(0,0,0,0.3)]">Pasul 1</span>
                 <label className="font-black text-2xl block mb-2 uppercase">Numele tău de Erou</label>
-                <p className="text-sm text-gray-600 mb-6 font-bold">Alege un nume profesionist și ușor de reținut. Acesta va fi văzut de toți clienții care îți cer ajutorul.</p>
+                <p className="text-sm text-gray-600 mb-6 font-bold">Orice Erou are nevoie de un nume! Alege-ți numele de Erou, acesta va fi văzut de toți cetațenii care îți cer ajutorul.</p>
                 <input 
                     type="text" 
                     required 
-                    placeholder="Ex: Expertul Electric, Instalator Rapid..."
+                    placeholder="Ex: Ion Fulger, Batman de Hunedoara..."
                     className="w-full border-4 border-black p-4 text-xl font-bold focus:outline-none focus:bg-white transition-all placeholder:font-normal"
                     value={formData.alias} 
                     onChange={e => setFormData({...formData, alias: e.target.value})} 
@@ -279,7 +279,7 @@ const HeroOnboarding = () => {
                         <div className="w-full h-32 border-4 border-black bg-gray-900 mb-4 flex flex-col items-center justify-center text-white p-2 shadow-md pointer-events-none">
                             {formData.videoUrl ? 
                                 <><span className="text-lg font-bold text-green-400">✅ Video Salvat</span></> : 
-                                <><span className="text-4xl mb-2">📹</span><span className="text-xs font-medium">Video scurt (Max {MAX_VIDEO_SIZE_MB}MB)</span></>
+                                <><span className="text-4xl mb-2">📹</span><span className="text-xs font-medium">Video scurt 30 secunde (Max {MAX_VIDEO_SIZE_MB}MB)</span></>
                             }
                         </div>
                         <div className="text-sm font-bold text-gray-600 pointer-events-none">
@@ -309,7 +309,7 @@ const HeroOnboarding = () => {
                     required 
                 />
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-100 p-4 border-4 border-black w-full md:w-fit">
-                    <span className="font-bold text-lg">Tarif de bază (orar):</span>
+                    <span className="font-bold text-lg">Tarif de bază estimativ (pe oră):</span>
                     <div className="flex items-center">
                         <input 
                             type="number" 
@@ -326,7 +326,7 @@ const HeroOnboarding = () => {
             <div className="bg-white border-4 border-black p-6 md:p-8">
                 <span className="inline-block bg-black text-white px-3 py-1 font-black text-sm uppercase mb-4 shadow-[4px_4px_0_0_rgba(0,0,0,0.3)]">Pasul 4</span>
                 <label className="font-black text-2xl block mb-2 uppercase">Zonele tale de acțiune</label>
-                <p className="text-sm font-bold text-gray-600 mb-6">Selectează județele în care ești dispus să te deplasezi pentru misiuni.</p>
+                <p className="text-sm font-bold text-gray-600 mb-6">Selectează județele în care vrei să primești misiuni.</p>
                 
                 <div className="mb-6 flex flex-col md:flex-row items-stretch md:items-center gap-3">
                     <button 
@@ -407,3 +407,4 @@ const HeroOnboarding = () => {
 };
 
 export default HeroOnboarding;
+
