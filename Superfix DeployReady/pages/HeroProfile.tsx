@@ -6,7 +6,7 @@ import { RomaniaMap } from '../components/RomaniaMap';
 import { Helmet } from 'react-helmet-async';
 
 export const HeroProfile: React.FC = () => {
-  const { slug } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>(); 
   const navigate = useNavigate();
   
   // === STATE DATE ===
@@ -32,16 +32,25 @@ export const HeroProfile: React.FC = () => {
 
   // Încărcare date erou
   const fetchData = async () => {
-    if (!id) return;
-    const data = await getHeroById(id);
-    if (!data) {
-      navigate('/heroes'); 
-    } else {
-      setHero(data);
-    }
-    setLoading(false);
-  };
+    if (!slug) return;
 
+    try {
+      // Folosim noul endpoint de slug pe care l-am creat pe backend
+      const response = await fetch(`https://api.super-fix.ro/api/heroes/slug/${slug}`);
+      const data = await response.json();
+
+      if (!data || data.error) {
+        navigate('/heroes');
+      } else {
+        setHero(data);
+      }
+    } catch (error) {
+      console.error("Eroare la încărcare:", error);
+      navigate('/heroes');
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     fetchData();
     if (slug && localStorage.getItem(`superfix_review_${slug}`)) {
@@ -88,8 +97,9 @@ export const HeroProfile: React.FC = () => {
   // HANDLER: Trimitere Recenzie
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hero || !id) return;
-    
+    // Verificăm dacă avem eroul încărcat (el conține ID-ul real de bază de date)
+    if (!hero) return;
+
     const success = await addReview(hero.id, {
       clientName: reviewData.clientName,
       rating: reviewData.rating,
@@ -97,13 +107,14 @@ export const HeroProfile: React.FC = () => {
     });
 
     if (success) {
-        setReviewData({ clientName: '', rating: 5, comment: '' });
-        setShowReviewForm(false);
-        setHasReviewed(true);
-        localStorage.setItem(`superfix_review_${id}`, 'true');
-        await fetchData();
+      setReviewData({ clientName: '', rating: 5, comment: '' });
+      setShowReviewForm(false);
+      setHasReviewed(true);
+      // Salvăm în localStorage folosind slug-ul pentru a ține minte că a votat
+      localStorage.setItem(`superfix_review_${slug}`, 'true');
+      await fetchData();
     } else {
-        alert("Eroare: Se pare că ai mai lăsat o recenzie recent sau a apărut o problemă.");
+      alert("Eroare: Se pare că ai mai lăsat o recenzie recent sau a apărut o problemă.");
     }
   };
 
