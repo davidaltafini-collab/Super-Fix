@@ -17,6 +17,8 @@ const COUNTIES = [
   { code: 'VS', name: 'Vaslui' }, { code: 'VN', name: 'Vrancea' }
 ].sort((a, b) => a.name.localeCompare(b.name));
 
+const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // sau link-ul pe care l-ai folosit
+
 export const HeroesList: React.FC = () => {
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [loading, setLoading] = useState(true);
@@ -296,18 +298,14 @@ export const HeroesList: React.FC = () => {
 
                     {/* Imagine */}
                     <div className="h-64 bg-gray-200 border-b-4 border-black overflow-hidden relative">
-                      {hero.avatarUrl ? (
-                        <img 
-                          src={hero.avatarUrl} 
-                          alt={hero.alias} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-6xl text-gray-400 bg-dots">🦸‍♂️</div>
-                      )}
+                      <img 
+                        src={hero.avatarUrl || DEFAULT_AVATAR} 
+                        alt={hero.alias} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
                       <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
-
+                    
                     {/* Conținut */}
                     <div className="p-5 flex-grow flex flex-col">
                       
