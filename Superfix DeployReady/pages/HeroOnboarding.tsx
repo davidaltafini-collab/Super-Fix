@@ -5,12 +5,20 @@ import { RomaniaMap } from '../components/RomaniaMap';
 const CLOUD_NAME = "dnsmgqllf";
 const UPLOAD_PRESET = "superfix_upload";
 
+// ✅ Lista completă cu toate județele din România
+const ALL_COUNTIES = [
+  'AB', 'AR', 'AG', 'BC', 'BH', 'BN', 'BT', 'BV', 'BR', 'BZ', 'CS', 'CL', 
+  'CJ', 'CT', 'CV', 'DB', 'DJ', 'GL', 'GR', 'GJ', 'HR', 'HD', 'IL', 'IS', 
+  'IF', 'MM', 'MH', 'MS', 'NT', 'OT', 'PH', 'SM', 'SJ', 'SB', 'SV', 'TR', 
+  'TM', 'TL', 'VS', 'VL', 'VN', 'B'
+];
+
 const HeroOnboarding = () => {
   const [searchParams] = useSearchParams();
   const heroId = searchParams.get('id');
 
   const [formData, setFormData] = useState({
-    alias: '', // Numele de supererou
+    alias: '',
     description: '',
     hourlyRate: 100,
     actionAreas: [] as string[],
@@ -20,7 +28,7 @@ const HeroOnboarding = () => {
   
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false); // <--- Controlăm ecranul de succes
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleFileUpload = async (file: File, field: 'avatarUrl' | 'videoUrl') => {
     const data = new FormData();
@@ -44,6 +52,17 @@ const HeroOnboarding = () => {
     setFormData({ ...formData, actionAreas: newAreas });
   };
 
+  // ✅ FUNCȚIE NOUĂ: Selectează/Deselectează toată România
+  const toggleAllRomania = () => {
+    if (formData.actionAreas.length === ALL_COUNTIES.length) {
+      // Dacă toate sunt selectate, le deselectăm
+      setFormData({ ...formData, actionAreas: [] });
+    } else {
+      // Altfel, le selectăm pe toate
+      setFormData({ ...formData, actionAreas: ALL_COUNTIES });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!heroId) return;
@@ -64,9 +83,8 @@ const HeroOnboarding = () => {
       const data = await res.json();
       
       if (data.success) {
-        setIsSuccess(true); // Afișăm ecranul de SUCCES
+        setIsSuccess(true);
       } else {
-        // Aici prindem eroarea dacă numele e deja luat!
         setErrorMsg(data.error || "Eroare la trimiterea datelor.");
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -76,7 +94,7 @@ const HeroOnboarding = () => {
     finally { setUploading(false); }
   };
 
-  // === ECRANUL DE SUCCES (Apare în locul formularului) ===
+  // === ECRANUL DE SUCCES ===
   if (isSuccess) {
       return (
           <div className="min-h-screen flex items-center justify-center bg-green-500 p-4 font-sans">
@@ -103,11 +121,35 @@ const HeroOnboarding = () => {
     <div className="min-h-screen bg-gray-100 py-12 px-2 md:px-4 font-sans">
       <div className="max-w-4xl mx-auto bg-white border-4 border-black shadow-[12px_12px_0_0_rgba(0,0,0,1)] overflow-hidden">
         
-        {/* HEADER & VIDEO */}
+        {/* HEADER */}
         <div className="bg-black text-white p-8 text-center border-b-4 border-black relative">
             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, #fff 10px, #fff 20px)' }}></div>
             <h1 className="font-black text-4xl md:text-5xl italic uppercase relative z-10">INFORMAȚII <span className="text-red-500">DOSAR</span></h1>
             <p className="mt-2 text-gray-300 relative z-10">Completează profilul pentru a putea prelua misiuni.</p>
+        </div>
+
+        {/* ✅ SECȚIUNE NOUĂ: VIDEO TUTORIAL ÎNROLARE */}
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b-4 border-black p-6 md:p-10">
+            <div className="flex items-center gap-3 mb-4">
+                <span className="text-4xl">🎬</span>
+                <h2 className="font-black text-2xl md:text-3xl uppercase">Video de Înrolare</h2>
+            </div>
+            <p className="text-gray-700 font-bold mb-4">
+                Înainte de a completa formularul, te rugăm să vizionezi acest video scurt care îți explică cum funcționează platforma și ce așteptări avem de la tine ca erou:
+            </p>
+            <div className="relative" style={{ paddingBottom: '56.25%', height: 0, overflow: 'hidden' }}>
+                <iframe 
+                    className="absolute top-0 left-0 w-full h-full border-4 border-black shadow-lg"
+                    src="https://www.youtube.com/embed/LINK_VIDEO_YOUTUBE_AICI" 
+                    title="Video Înrolare SuperFix" 
+                    frameBorder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                ></iframe>
+            </div>
+            <p className="text-sm text-gray-600 mt-4 font-bold italic">
+                📌 Dacă ai vizionat video-ul, poți continua cu completarea formularului de mai jos.
+            </p>
         </div>
 
         <div className="p-6 md:p-10">
@@ -120,7 +162,7 @@ const HeroOnboarding = () => {
 
             <form onSubmit={handleSubmit} className="space-y-12">
             
-            {/* SECTIUNEA 1: NUMELE DE EROU (NOUĂ) */}
+            {/* SECTIUNEA 1: NUMELE DE EROU */}
             <div className="bg-yellow-50 border-4 border-black p-6 relative">
                 <span className="absolute -top-4 left-4 bg-black text-white px-3 py-1 font-black text-sm uppercase">Pasul 1</span>
                 <label className="font-black text-2xl block mb-2 uppercase">Alege-ți Numele de Erou</label>
@@ -171,16 +213,32 @@ const HeroOnboarding = () => {
                 </div>
             </div>
 
-            {/* SECTIUNEA 4: HARTA */}
+            {/* ✅ SECTIUNEA 4: HARTA CU BUTON "SELECTEAZĂ TOATĂ ROMÂNIA" */}
             <div className="bg-white border-4 border-black p-6 relative">
                 <span className="absolute -top-4 left-4 bg-black text-white px-3 py-1 font-black text-sm uppercase">Pasul 4</span>
                 <label className="font-black text-2xl block mb-2 uppercase">Zone de Acțiune</label>
-                <p className="text-sm font-bold text-gray-600 mb-6">Selectează de pe hartă județele în care ești dispus să te deplasezi.</p>
+                <p className="text-sm font-bold text-gray-600 mb-4">Selectează de pe hartă județele în care ești dispus să te deplasezi.</p>
+                
+                {/* ✅ BUTON NOU: Selectează toată România */}
+                <div className="mb-4 flex gap-4">
+                    <button 
+                        type="button"
+                        onClick={toggleAllRomania}
+                        className="bg-blue-600 text-white font-black px-6 py-3 uppercase border-4 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:bg-blue-700 hover:translate-y-1 hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] transition-all"
+                    >
+                        {formData.actionAreas.length === ALL_COUNTIES.length ? '❌ Deselectează Tot' : '🇷🇴 Selectează Toată România'}
+                    </button>
+                    <span className="flex items-center font-bold text-gray-600">
+                        ({formData.actionAreas.length}/{ALL_COUNTIES.length} județe selectate)
+                    </span>
+                </div>
+
                 <div className="border-4 border-black bg-blue-50 p-4 flex justify-center shadow-inner mb-4">
-                <div className="max-w-[500px] w-full">
-                    <RomaniaMap value={formData.actionAreas} onToggle={toggleArea} />
+                    <div className="max-w-[500px] w-full">
+                        <RomaniaMap value={formData.actionAreas} onToggle={toggleArea} />
+                    </div>
                 </div>
-                </div>
+                
                 <div className="flex flex-wrap gap-2">
                     {formData.actionAreas.length === 0 && <span className="text-xs font-bold text-red-500">Niciun județ selectat!</span>}
                     {formData.actionAreas.map(a => <span key={a} className="bg-black text-white px-3 py-1 text-xs font-black uppercase shadow-sm">{a}</span>)}
