@@ -18,6 +18,7 @@ const ROMANIAN_COUNTIES = [
   "Prahova", "Satu Mare", "Sălaj", "Sibiu", "Suceava", "Teleorman", "Timiș", "Tulcea", 
   "Vâlcea", "Vaslui", "Vrancea"
 ];
+const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // Pui link-ul tău real aici
 
 export const Admin: React.FC = () => {
   // === STATE ===
@@ -185,21 +186,30 @@ export const Admin: React.FC = () => {
       setShowModal(true);
   };
 
- const handleRecruit = (app: any) => {
-      setFormData({
-          alias: '', realName: app.name || '', 
-          username: app.email.split('@')[0], password: 'Hero' + Math.floor(Math.random() * 1000), 
-          category: app.category, 
-          description: app.message || '', 
-          hourlyRate: 100, 
-          avatarUrl: '', videoUrl: '', email: app.email || '', phone: app.phone || '', 
-          location: 'București', powers: '', trustFactor: 50, actionAreas: []
-      });
-      setRecruitingAppId(app.id);
-      setActiveTab('HEROES');
-      setModalMode('ADD');
-      setShowModal(true);
-  };
+    const handleRecruit = (app: any) => {
+        // Autocompletează totul cu date "Basic", dar lasă totul editabil!
+        setFormData({
+            alias: app.name || 'Recrut Nou',
+            realName: app.name || '',
+            username: (app.email ? app.email.split('@')[0] : 'user') + Math.floor(Math.random() * 1000),
+            password: 'Hero' + Math.floor(Math.random() * 1000) + '!',
+            category: app.category,
+            description: 'Agent nou recrutat. Profilul și identitatea vizuală sunt în curs de actualizare.',
+            hourlyRate: 100,
+            avatarUrl: '',
+            videoUrl: '',
+            email: app.email || '',
+            phone: app.phone || '',
+            location: 'București',
+            powers: '',
+            trustFactor: 50,
+            actionAreas: []
+        });
+        setRecruitingAppId(app.id);
+        setActiveTab('HEROES');
+        setModalMode('ADD');
+        setShowModal(true);
+    };
 
   const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -663,7 +673,7 @@ export const Admin: React.FC = () => {
                       <div key={hero.id} onClick={() => openHeroFile(hero)} className="bg-white border-4 border-black p-4 cursor-pointer hover:-translate-y-1 hover:shadow-comic transition-all relative group">
                           <div className="absolute top-2 right-2 bg-yellow-400 border-2 border-black px-2 text-xs font-bold z-10">★ {hero.trustFactor}</div>
                           <div className="aspect-square w-full mb-4 border-2 border-black overflow-hidden bg-gray-200">
-                              {hero.avatarUrl ? <img src={hero.avatarUrl} className="w-full h-full object-cover" /> : <div className="flex h-full items-center justify-center text-4xl">🦸‍♂️</div>}
+                              <img src={hero.avatarUrl || DEFAULT_AVATAR} className="w-full h-full object-cover" alt={hero.alias} />
                           </div>
                           <h3 className="font-heading text-xl truncate">{hero.alias}</h3>
                           <span className="text-xs bg-black text-white px-2 py-1 uppercase font-bold">{hero.category}</span>
@@ -853,7 +863,7 @@ export const Admin: React.FC = () => {
                       <div className="flex flex-col md:flex-row gap-6 items-start">
                           <div className="relative group w-32 h-32 md:w-40 md:h-40 flex-shrink-0 mx-auto md:mx-0">
                               <div className="w-full h-full bg-gray-300 border-4 border-black overflow-hidden shadow-comic">
-                                  {formData.avatarUrl ? <img src={formData.avatarUrl} className="w-full h-full object-cover" /> : <span className="flex items-center justify-center h-full text-4xl">?</span>}
+                                  <img src={formData.avatarUrl || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="Avatar" />
                               </div>
                               {modalMode !== 'VIEW' && (
                                   <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 border-2 border-black cursor-pointer hover:bg-blue-700 shadow-md transform hover:scale-110 z-10 rounded-full">
