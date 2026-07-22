@@ -41,7 +41,7 @@ export const Admin: React.FC = () => {
   
   const [updates, setUpdates] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'UPDATES' | 'PAYOUTS' | 'SETTINGS'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'RECRUITERS' | 'UPDATES' | 'PAYOUTS' | 'SETTINGS'>('HEROES');
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -52,6 +52,11 @@ export const Admin: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [uploading, setUploading] = useState(false);
+
+  const [recruiters, setRecruiters] = useState<any[]>([]);
+  const [recruiterLoading, setRecruiterLoading] = useState(false);
+  const [recruiterError, setRecruiterError] = useState('');
+  const [recruiterAction, setRecruiterAction] = useState<string | null>(null);
 
   const [payouts, setPayouts] = useState<PayoutBatch[]>([]);
   const [payoutLoading, setPayoutLoading] = useState(false);
@@ -241,11 +246,80 @@ export const Admin: React.FC = () => {
         }
     };
 
+    const fetchRecruiters = async () => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setRecruiterLoading(true);
+        setRecruiterError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/recruiters`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.status === 401 || response.status === 403) {
+                logoutUser();
+                setIsAuthenticated(false);
+                throw new Error('Sesiunea de administrator a expirat. Autentifică-te din nou.');
+            }
+            if (!response.ok) throw new Error(await readApiError(response, 'Lista de recruiteri nu a putut fi încărcată.'));
+            const data = await response.json();
+            setRecruiters(Array.isArray(data) ? data : []);
+        } catch (error) {
+            setRecruiterError(error instanceof Error ? error.message : 'Lista de recruiteri nu a putut fi încărcată.');
+        } finally {
+            setRecruiterLoading(false);
+        }
+    };
+
+    const recruiterRequest = async (id: string, path: string, actionKey: string, body?: any) => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setRecruiterAction(actionKey);
+        setRecruiterError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/recruiters/${encodeURIComponent(id)}/${path}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Acțiunea nu a putut fi executată.'));
+            await fetchRecruiters();
+        } catch (error) {
+            setRecruiterError(error instanceof Error ? error.message : 'Acțiunea nu a putut fi executată.');
+        } finally {
+            setRecruiterAction(null);
+        }
+    };
+
+    const approveRecruiter = (rec: any) => {
+        if (!window.confirm(`Aprobi recruiterul ${rec.name}? Va primi pe email codul personal ${rec.code}.`)) return;
+        return recruiterRequest(rec.id, 'approve', `approve:${rec.id}`);
+    };
+
+    const rejectRecruiter = (rec: any) => {
+        const reason = window.prompt(`Motivul respingerii pentru ${rec.name} (minimum 5 caractere):`)?.trim() || '';
+        if (reason.length < 5) {
+            setRecruiterError('Respingerea cere un motiv de minimum 5 caractere.');
+            return;
+        }
+        return recruiterRequest(rec.id, 'reject', `reject:${rec.id}`, { reason });
+    };
+
+    const suspendRecruiter = (rec: any) => {
+        if (!window.confirm(`Suspenzi recruiterul ${rec.name}? Sesiunile lui vor fi invalidate.`)) return;
+        return recruiterRequest(rec.id, 'suspend', `suspend:${rec.id}`);
+    };
+
+    const reactivateRecruiter = (rec: any) => {
+        if (!window.confirm(`Reactivezi recruiterul ${rec.name}?`)) return;
+        return recruiterRequest(rec.id, 'reactivate', `reactivate:${rec.id}`);
+    };
+
     const refreshAllData = () => {
         getHeroes().then(setHeroes);
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
         if (activeTab === 'PAYOUTS') fetchPayouts();
+        if (activeTab === 'RECRUITERS') fetchRecruiters();
     };
 
     // === FUNCȚIE APROBARE UPDATE (NOUĂ) ===
@@ -778,12 +852,13 @@ export const Admin: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-black pb-4 bg-white p-4 shadow-comic gap-4">
         <h1 className="font-heading text-2xl md:text-4xl italic">SUPERFIX <span className="text-super-red">ADMIN</span></h1>
               <div className="flex flex-wrap justify-center gap-2">
-                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'PAYOUTS', 'SETTINGS'].map(tab => (
+                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'RECRUITERS', 'PAYOUTS', 'SETTINGS'].map(tab => (
                       <button key={tab} onClick={() => setActiveTab(tab as any)}
                           className={`font-heading text-xs md:text-sm px-3 py-1 border-2 border-transparent transition-all ${activeTab === tab ? 'bg-comic-yellow border-black shadow-comic' : 'hover:underline'}`}>
                           {tab === 'HEROES' ? 'EROI'
                               : tab === 'REQUESTS' ? 'MISIUNI'
                                   : tab === 'APPLICATIONS' ? 'RECRUTARE'
+                                      : tab === 'RECRUITERS' ? 'RECRUITERI'
                                       : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
                                           : tab === 'PAYOUTS' ? 'PAYOUT-URI'
                                           : 'SETĂRI'}
@@ -891,6 +966,95 @@ export const Admin: React.FC = () => {
                   </div>
               ))}
           </div>
+      )}
+
+      {activeTab === 'RECRUITERS' && (
+          <section className="space-y-6 animate-fade-in" aria-labelledby="recruiters-title">
+              <div className="bg-white border-4 border-black p-5 md:p-6 shadow-comic flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                  <div>
+                      <h2 id="recruiters-title" className="font-heading text-2xl md:text-3xl">RECRUITERI</h2>
+                      <p className="font-comic text-sm text-gray-700 mt-2 max-w-3xl">
+                          Cererile de înscriere în programul de recruiteri. Aprobă un candidat ca să-i activezi codul personal
+                          (primește codul automat pe email). Datele bancare complete nu se afișează aici.
+                      </p>
+                  </div>
+                  <button
+                      type="button"
+                      onClick={fetchRecruiters}
+                      disabled={Boolean(recruiterAction) || recruiterLoading}
+                      className="bg-blue-600 text-white font-heading px-5 py-3 border-4 border-black shadow-comic hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                      {recruiterLoading ? 'SE ÎNCARCĂ…' : '↻ REÎMPROSPĂTEAZĂ'}
+                  </button>
+              </div>
+
+              {recruiterError && (
+                  <div role="alert" className="bg-red-50 text-red-800 border-4 border-red-700 p-4 font-bold flex items-start justify-between gap-4">
+                      <span>{recruiterError}</span>
+                      <button type="button" onClick={() => setRecruiterError('')} className="font-black" aria-label="Închide eroarea">×</button>
+                  </div>
+              )}
+
+              {recruiterLoading && recruiters.length === 0 ? (
+                  <div className="bg-white border-4 border-black p-8 text-center font-heading">SE ÎNCARCĂ RECRUITERII…</div>
+              ) : recruiters.length === 0 ? (
+                  <div className="bg-white border-4 border-dashed border-gray-400 p-8 text-center">
+                      <p className="font-heading text-xl">NICIUN RECRUITER</p>
+                      <p className="font-comic text-sm text-gray-600 mt-2">Cererile trimise din pagina „/recruiter" apar aici.</p>
+                  </div>
+              ) : (
+                  <div className="grid gap-5 md:grid-cols-2">
+                      {recruiters.map((rec) => {
+                          const isPending = rec.status === 'PENDING';
+                          const isActive = rec.status === 'ACTIVE';
+                          const isSuspended = rec.status === 'SUSPENDED';
+                          const badgeClass = isActive ? 'bg-green-500 text-white'
+                              : isPending ? 'bg-yellow-300 text-black'
+                              : isSuspended ? 'bg-orange-500 text-white'
+                              : 'bg-gray-400 text-white';
+                          return (
+                              <article key={rec.id} className="bg-white border-4 border-black p-5 shadow-comic relative">
+                                  {isPending && <div className="absolute -top-3 -right-3 bg-red-600 text-white font-bold px-3 border-2 border-black rotate-3">NOU</div>}
+                                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                                      <span className={`border-2 border-black px-3 py-1 text-xs font-black ${badgeClass}`}>{rec.status}</span>
+                                      {rec.code && !isPending && <span className="font-mono text-xs bg-black text-white px-2 py-1">COD: {rec.code}</span>}
+                                  </div>
+                                  <h3 className="font-heading text-xl">{rec.name}</h3>
+                                  <div className="font-mono text-sm my-3 space-y-1">
+                                      <div>✉️ {rec.email}</div>
+                                      {rec.phone && <div>📞 {rec.phone}</div>}
+                                      <div>🏦 {rec.ibanMask}</div>
+                                      <div className="text-gray-500 text-xs">Înscris: {formatDateTime(rec.createdAt)}</div>
+                                      {rec.counts && <div className="text-gray-500 text-xs">Atribuiri: {rec.counts.attributions ?? 0} • Comisioane: {rec.counts.commissions ?? 0}</div>}
+                                  </div>
+                                  <div className="flex gap-2 flex-wrap">
+                                      {isPending && (
+                                          <>
+                                              <button onClick={() => approveRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-green-500 text-white font-heading py-2 border-2 border-black hover:bg-green-600 shadow-sm disabled:opacity-50">
+                                                  {recruiterAction === `approve:${rec.id}` ? 'SE APROBĂ…' : '✓ APROBĂ'}
+                                              </button>
+                                              <button onClick={() => rejectRecruiter(rec)} disabled={Boolean(recruiterAction)} className="px-4 bg-red-500 text-white font-bold border-2 border-black hover:bg-red-600 shadow-sm disabled:opacity-50">
+                                                  {recruiterAction === `reject:${rec.id}` ? '…' : 'RESPINGE'}
+                                              </button>
+                                          </>
+                                      )}
+                                      {isActive && (
+                                          <button onClick={() => suspendRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-orange-500 text-white font-heading py-2 border-2 border-black hover:bg-orange-600 shadow-sm disabled:opacity-50">
+                                              {recruiterAction === `suspend:${rec.id}` ? 'SE SUSPENDĂ…' : 'SUSPENDĂ'}
+                                          </button>
+                                      )}
+                                      {isSuspended && (
+                                          <button onClick={() => reactivateRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-green-500 text-white font-heading py-2 border-2 border-black hover:bg-green-600 shadow-sm disabled:opacity-50">
+                                              {recruiterAction === `reactivate:${rec.id}` ? 'SE REACTIVEAZĂ…' : 'REACTIVEAZĂ'}
+                                          </button>
+                                      )}
+                                  </div>
+                              </article>
+                          );
+                      })}
+                  </div>
+              )}
+          </section>
       )}
 
       {activeTab === 'PAYOUTS' && (
