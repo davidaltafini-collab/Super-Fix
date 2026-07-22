@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ServiceRequest, Hero } from '../types';
 import { getMyMissions, updateMissionStatus, loginHero, logoutUser, getHeroById } from '../services/dataService';
 import { CameraCapture } from '../components/CameraCapture';
+import { uploadSignedMedia } from '../services/mediaUpload';
 
 export const HeroPortal: React.FC = () => {
   const navigate = useNavigate();
@@ -42,9 +43,11 @@ export const HeroPortal: React.FC = () => {
             }).join(''));
             const payload = JSON.parse(jsonPayload);
             
-            if (payload.id) {
-                localStorage.setItem('superfix_hero_id', payload.id);
-                refreshData(payload.id);
+            if (typeof payload.sub === 'string' && payload.sub) {
+                localStorage.setItem('superfix_hero_id', payload.sub);
+                refreshData(payload.sub);
+            } else {
+                throw new Error('Tokenul nu conține identitatea eroului.');
             }
         } catch (e) {
             console.error("Eroare decodare token", e);
@@ -93,15 +96,27 @@ export const HeroPortal: React.FC = () => {
           return;
       }
 
-      await updateMissionStatus(id, newStatus, null);
+      const success = await updateMissionStatus(id, newStatus, null);
+      if (!success) alert('Statusul misiunii nu a putut fi actualizat. Reîncearcă.');
       if (currentHero) refreshData(currentHero.id);
   };
 
   const handlePhotoCapture = async (base64Image: string) => {
       if (!currentMissionId || !currentHero) return;
       
+      const blob = await (await fetch(base64Image)).blob();
+      const file = new File([blob], `mission-${currentMissionId}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const photoUrl = await uploadSignedMedia(file, 'image');
+      if (!photoUrl) {
+          alert('Fotografia nu a putut fi încărcată. Verifică conexiunea și încearcă din nou.');
+          return;
+      }
       const newStatus = cameraMode === 'START' ? 'IN_PROGRESS' : 'COMPLETED';
-      await updateMissionStatus(currentMissionId, newStatus, base64Image);
+      const success = await updateMissionStatus(currentMissionId, newStatus, photoUrl);
+      if (!success) {
+          alert('Fotografia a fost încărcată, dar statusul misiunii nu a putut fi actualizat. Reîncearcă.');
+          return;
+      }
       
       setShowCamera(false);
       setCurrentMissionId(null);
@@ -132,6 +147,10 @@ export const HeroPortal: React.FC = () => {
                       INTRĂ ÎN BAZĂ
                   </button>
               </form>
+
+              <Link to="/reset-password?role=HERO" className="mt-3 block text-center text-sm font-bold underline">
+                  Ai uitat parola?
+              </Link>
 
               <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-400 text-center">
                   <p className="font-comic text-sm text-gray-600 mb-2">Ești un meseriaș cu superputeri?</p>

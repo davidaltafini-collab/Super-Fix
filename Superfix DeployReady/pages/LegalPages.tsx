@@ -1,123 +1,127 @@
 import React from 'react';
-import { Helmet } from 'react-helmet-async'; // <--- IMPORT ESENȚIAL PENTRU SEO
+import { Helmet } from 'react-helmet-async';
+import { LEGAL, legalIdentityParts } from '../config/legal';
 
-// === LAYOUT PRINCIPAL CU SEO INTEGRAT ===
-const LegalLayout: React.FC<{title: string, lastUpdated: string, children: React.ReactNode}> = ({title, lastUpdated, children}) => (
-    <div className="container mx-auto px-4 py-12 max-w-4xl bg-white border-4 border-black shadow-[8px_8px_0_#000] my-8">
-        
-        {/* === ZONA SEO AUTOMATĂ === */}
-        <Helmet>
-            <title>{title} | Superfix</title>
-            <meta name="description" content={`Informații legale Superfix: ${title}. Ultima actualizare: ${lastUpdated}.`} />
-            
-            {/* Open Graph / Facebook / WhatsApp */}
-            <meta property="og:title" content={`${title} | Superfix`} />
-            <meta property="og:description" content={`Citește despre ${title} pe platforma Superfix.`} />
-            <meta property="og:type" content="website" />
-        </Helmet>
+const UPDATED_AT = '13.07.2026';
 
-        <h1 className="text-3xl md:text-4xl font-heading mb-2 text-super-red">{title}</h1>
-        <p className="text-sm text-gray-500 font-mono mb-8 border-b-2 border-gray-200 pb-4">Ultima actualizare: {lastUpdated}</p>
-        <div className="prose prose-lg font-comic text-gray-800 max-w-none">
-            {children}
-        </div>
-    </div>
+const LegalLayout: React.FC<{ title: string; lastUpdated: string; children: React.ReactNode }> = ({ title, lastUpdated, children }) => (
+  <div className="container mx-auto px-4 py-12 max-w-4xl bg-white border-4 border-black shadow-[8px_8px_0_#000] my-8">
+    <Helmet>
+      <title>{title} | Superfix</title>
+      <meta name="description" content={`Informații legale Superfix: ${title}. Ultima actualizare: ${lastUpdated}.`} />
+      <meta property="og:title" content={`${title} | Superfix`} />
+      <meta property="og:description" content={`Citește despre ${title} pe platforma Superfix.`} />
+      <meta property="og:type" content="website" />
+    </Helmet>
+
+    <h1 className="text-3xl md:text-4xl font-heading mb-2 text-super-red">{title}</h1>
+    <p className="text-sm text-gray-500 font-mono mb-8 border-b-2 border-gray-200 pb-4">Ultima actualizare: {lastUpdated}</p>
+    <div className="prose prose-lg font-comic text-gray-800 max-w-none">{children}</div>
+  </div>
 );
 
-// === PAGINILE INDIVIDUALE (Rămân neschimbate, dar acum au SEO) ===
+const OperatorIdentity: React.FC = () => (
+  <>
+    <strong>{LEGAL.name}</strong>
+    {legalIdentityParts.length ? `, ${legalIdentityParts.join(', ')}` : ''}
+  </>
+);
 
 export const Terms: React.FC = () => (
-    <LegalLayout title="Termeni și Condiții de Utilizare" lastUpdated="24.05.2026">
-        <h3>1. Introducere</h3>
-        <p>Bun venit pe <strong>SUPERFIX</strong>. Acești termeni reglementează utilizarea platformei noastre, care conectează clienții cu prestatori de servicii independenți ("Eroi").</p>
-        <p>Platforma este operată de <strong>[NUME FIRMA SRL]</strong>, cu sediul în [ADRESA SEDIU], CUI [RO...], J[.../../...].</p>
+  <LegalLayout title="Termeni și Condiții de Utilizare" lastUpdated={UPDATED_AT}>
+    <h3>1. Introducere</h3>
+    <p>Bun venit pe <strong>SUPERFIX</strong>. Acești termeni reglementează utilizarea platformei care conectează Clienții cu prestatori de servicii independenți („Eroi”).</p>
+    <p>Platforma este operată de <OperatorIdentity />. Contact: <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</p>
 
-        <h3>2. Natura Serviciului (Intermediere)</h3>
-        <p>Superfix acționează strict ca un <strong>intermediar tehnologic</strong>. Noi nu suntem angajatorul Eroilor și nu prestăm direct serviciile de reparații.</p>
-        <ul>
-            <li>Contractul de prestări servicii se încheie direct între Client și Erou.</li>
-            <li>Superfix <strong>nu oferă garanții</strong> pentru calitatea lucrărilor efectuate de Eroi. Responsabilitatea legală și calitativă aparține în totalitate Eroului.</li>
-            <li>Orice dispută referitoare la lucrare se rezolvă între Client și Erou.</li>
-        </ul>
+    <h3>2. Natura serviciului</h3>
+    <p>Superfix este un intermediar tehnologic. Nu este angajatorul Eroilor și nu prestează direct lucrările solicitate prin platformă.</p>
+    <ul>
+      <li>Contractul pentru lucrare, prețul și condițiile de execuție se stabilesc direct între Client și Erou.</li>
+      <li>Eroul răspunde pentru autorizațiile necesare, calitatea lucrării, garanții și obligațiile fiscale proprii.</li>
+      <li>Superfix poate modera profiluri și poate oferi instrumente de comunicare, dar nu devine parte în contractul lucrării.</li>
+    </ul>
 
-        <h3>3. Plăți și Costuri</h3>
-        <ul>
-            <li>Utilizarea platformei pentru clienți este momentan gratuită.</li>
-            <li>Plata pentru serviciile prestate se face <strong>direct către Erou</strong> (Cash, Transfer, Card), conform înțelegerii dintre părți.</li>
-            <li>Superfix nu procesează plățile și nu percepe comisioane din tranzacțiile directe Client-Erou.</li>
-            <li>Ne rezervăm dreptul de a introduce taxe de listare sau abonamente pentru Eroi în viitor, cu notificare prealabilă.</li>
-        </ul>
+    <h3>3. Plăți și abonamentul Eroului</h3>
+    <ul>
+      <li>Utilizarea platformei pentru Clienți este gratuită, cu excepția unui cost comunicat distinct înainte de confirmarea sa.</li>
+      <li>Plata lucrării se face direct către Erou și este separată de abonamentul de listare Superfix.</li>
+      <li>Prețul abonamentului, perioada gratuită și următoarea dată de plată sunt afișate înainte de activare și în contul Eroului.</li>
+      <li>Datele complete ale cardului sunt introduse numai în pagina securizată NETOPIA Payments. Superfix păstrează doar tokenul tehnic primit și date mascate, nu numărul complet al cardului sau codul CVV.</li>
+      <li>Oprirea reînnoirii produce efecte la finalul perioadei deja plătite ori acordate gratuit, conform datei afișate în cont.</li>
+    </ul>
 
-        <h3>4. Sistemul "Trust Factor" și Clasamentul</h3>
-        <p>Pentru a menține calitatea, Superfix folosește un sistem automat de evaluare numit <strong>Trust Factor</strong>. Acesta pornește de la 50 de puncte și variază astfel:</p>
-        <ul>
-            <li><strong>+2 Puncte:</strong> Misiune finalizată cu succes (dovedită prin poze).</li>
-            <li><strong>+2 Puncte:</strong> Recenzie de 5 stele.</li>
-            <li><strong>-1 Punct:</strong> Refuzarea unei misiuni alocate.</li>
-        </ul>
-        <p><strong>Important:</strong> Participarea la sistemul de raportare (trimiterea pozelor Before/After) nu este obligatorie legal, dar este necesară pentru creșterea Trust Factor-ului. Refuzul de a trimite dovezi sau de a accepta misiuni va duce la scăderea scorului și, implicit, la o poziționare mai slabă în lista de Eroi sau chiar delistarea temporară.</p>
+    <h3>4. Gratuitate, invitații și recruiteri</h3>
+    <ul>
+      <li>Invitația este calificată numai după aprobarea contului invitat și validarea metodei sale de plată. Conturile duplicate, proprii, frauduloase sau anulate nu sunt eligibile.</li>
+      <li>În configurația curentă, invitatul eligibil primește 12 luni gratuite, iar Eroul care invită primește o lună gratuită pentru fiecare prag de 5 invitați calificați.</li>
+      <li>Un cont poate fi atribuit unui singur cod, introdus la înscriere: fie cod de invitație, fie cod de recruiter. Atribuirea nu se face retroactiv.</li>
+      <li>Recruiterii sunt aprobați manual. Comisionul curent este 50% din primele 6 facturi de abonament efectiv încasate pentru fiecare Erou atribuit.</li>
+      <li>Lunile gratuite și plățile eșuate, anulate sau rambursate nu generează comision. Un refund sau chargeback anulează comisionul aferent.</li>
+      <li>Comisioanele sunt verificate înainte de plată. Recruiterul furnizează un IBAN propriu valid și răspunde pentru obligațiile fiscale care îi revin.</li>
+      <li>Valorile afișate în cont la data calificării se aplică acelui beneficiu. Superfix poate modifica programul pentru înscrieri viitoare, cu actualizarea acestor termeni.</li>
+    </ul>
 
-        <h3>5. Conținut și Drepturi de Autor (Poze/Video)</h3>
-        <p>Prin încărcarea fotografiilor sau videoclipurilor pe platformă (ex: poze "Before/After"), utilizatorii (Clienți și Eroi):</p>
-        <ul>
-            <li>Declară că au dreptul să preia acele imagini și că nu încalcă intimitatea altor persoane.</li>
-            <li>Acordă Superfix o <strong>licență neexclusivă, gratuită și perpetuă</strong> de a utiliza aceste materiale în scopuri de promovare, marketing și analiză internă.</li>
-            <li>Superfix nu își arogă dreptul de autor asupra lucrării fizice efectuate, ci doar dreptul de utilizare asupra materialelor digitale încărcate pe platformă.</li>
-        </ul>
+    <h3>5. Trust Factor și clasament</h3>
+    <p>Superfix poate folosi indicatori precum misiuni finalizate, recenzii și respectarea regulilor pentru ordonarea profilurilor. Manipularea recenziilor sau a activității poate duce la suspendare ori delistare.</p>
 
-        <h3>6. Moderare și Fraudă</h3>
-        <p>Ne rezervăm dreptul de a șterge conturi, recenzii sau conținut fără preaviz dacă suspectăm activități frauduloase (ex: recenzii false, profiluri duplicate, comportament abuziv). Dorim să menținem un mediu onest și transparent.</p>
-    </LegalLayout>
+    <h3>6. Conținut foto/video</h3>
+    <p>Prin încărcarea materialelor, utilizatorul declară că are dreptul să le folosească și că nu încalcă drepturile ori viața privată a altor persoane. Materialele sunt folosite pentru executarea cererii, suport, prevenirea fraudei și, numai când există un temei legal adecvat, promovare.</p>
+
+    <h3>7. Moderare, fraudă și închiderea contului</h3>
+    <p>Superfix poate limita sau suspenda conturi, recompense, recenzii și conținut atunci când există indicii rezonabile de fraudă, abuz, încălcarea legii ori a acestor termeni. Datele care trebuie păstrate pentru obligații legale, plăți, securitate sau apărarea unui drept nu sunt eliminate odată cu închiderea contului.</p>
+  </LegalLayout>
 );
 
 export const Privacy: React.FC = () => (
-    <LegalLayout title="Politica de Confidențialitate (GDPR)" lastUpdated="24.05.2026">
-        <h3>1. Operatorul de Date</h3>
-        <p>Datele sunt prelucrate de <strong>[NUME FIRMA SRL]</strong>. Pentru orice solicitare GDPR, ne puteți contacta la [EMAIL SUPORT].</p>
+  <LegalLayout title="Politica de Confidențialitate (GDPR)" lastUpdated={UPDATED_AT}>
+    <h3>1. Operatorul de date</h3>
+    <p>Datele sunt prelucrate de <OperatorIdentity />. Solicitările privind datele personale pot fi trimise la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</p>
 
-        <h3>2. Ce date colectăm și de ce?</h3>
-        <ul>
-            <li><strong>Nume și Prenume:</strong> Pentru identificarea părților.</li>
-            <li><strong>Număr de Telefon:</strong> Pentru a facilita legătura urgentă între Erou și Client.</li>
-            <li><strong>Adresa de Email:</strong> Pentru confirmări de comenzi și notificări de sistem.</li>
-            <li><strong>Adresa Intervenției:</strong> Necesară Eroului pentru a ajunge la locație.</li>
-            <li><strong>Materiale Vizuale (Foto/Video):</strong> Pentru documentarea stării lucrării (Before/After) și calcularea Trust Factor-ului.</li>
-        </ul>
+    <h3>2. Datele prelucrate și scopurile</h3>
+    <ul>
+      <li><strong>Identitate și contact:</strong> nume, email, telefon și adresă, pentru cont, solicitări și comunicarea dintre părți.</li>
+      <li><strong>Profil profesional:</strong> specializări, zone, descriere, tarife și materiale de profil, pentru publicarea și administrarea profilului Eroului.</li>
+      <li><strong>Cereri, mesaje și imagini:</strong> pentru executarea solicitărilor, conversații, notificări, suport și soluționarea incidentelor.</li>
+      <li><strong>Securitate și dispozitiv:</strong> sesiuni, jurnale de audit și tokenuri push, pentru autentificare, notificări și prevenirea fraudei.</li>
+      <li><strong>Facturare:</strong> starea plăților, identificatori de tranzacție, token tehnic și date mascate ale cardului. NETOPIA Payments colectează direct datele complete ale cardului; Superfix nu le stochează.</li>
+      <li><strong>Recruiteri:</strong> codul, atribuirile, comisioanele și IBAN-ul necesar plății. IBAN-ul este criptat în baza de date și este disponibil numai persoanelor autorizate pentru operațiuni.</li>
+    </ul>
 
-        <h3>3. Stocarea Datelor</h3>
-        <p>Datele sunt stocate pe servere situate în <strong>România (Freakhosting)</strong>, asigurând protecția conform standardelor UE.</p>
-        <p>Păstrăm datele pe o perioadă nedeterminată, strict necesară pentru funcționarea contului, istoricului de servicii și îndeplinirea obligațiilor legale (ex: evidența activității pentru combaterea fraudei).</p>
+    <h3>3. Temei, furnizori și păstrare</h3>
+    <p>Prelucrarea se bazează, după caz, pe executarea serviciului solicitat, obligații legale, interes legitim pentru securitate și prevenirea fraudei sau consimțământ. Folosim furnizori de găzduire, plăți, email și notificări numai cât este necesar funcționării serviciului.</p>
+    <p>Datele de cont sunt păstrate cât timp contul este activ. La ștergere, datele operaționale sunt șterse sau anonimizate, iar evidențele de plată, comision, securitate și audit pot fi păstrate atât cât impun obligațiile legale ori apărarea unui drept.</p>
 
-        <h3>4. Drepturile Tale</h3>
-        <p>Conform GDPR, ai dreptul la informare, acces, rectificare, ștergere ("dreptul de a fi uitat") și portabilitate. Poți exercita aceste drepturi printr-un email la adresa de suport.</p>
-    </LegalLayout>
+    <h3>4. Drepturile tale</h3>
+    <p>Ai dreptul la informare, acces, rectificare, ștergere, restricționare, opoziție și portabilitate, în condițiile legii. Poți depune și o plângere la autoritatea competentă pentru protecția datelor.</p>
+  </LegalLayout>
 );
 
 export const Cookies: React.FC = () => (
-    <LegalLayout title="Politica de Cookies și Stocare Locală" lastUpdated="24.05.2026">
-        <h3>1. Ce tehnologii folosim?</h3>
-        <p>Superfix folosește tehnologii de stocare locală (LocalStorage) și, posibil, module cookie pentru a asigura funcționarea corectă a aplicației.</p>
+  <LegalLayout title="Politica de Cookies și Stocare Locală" lastUpdated={UPDATED_AT}>
+    <h3>1. Tehnologii folosite</h3>
+    <p>Superfix folosește stocarea locală ori de sesiune și poate folosi module cookie strict necesare funcționării site-ului.</p>
 
-        <h3>2. Scopul Stocării</h3>
-        <ul>
-            <li><strong>Autentificare:</strong> Stocăm un "token" securizat pentru a te menține logat (ca Admin sau Erou). Fără acesta, ar trebui să te loghezi la fiecare click.</li>
-            <li><strong>Securitate și Anti-Spam:</strong> Stocăm informații locale pentru a preveni votarea multiplă abuzivă (sistemul de recenzii unice).</li>
-            <li><strong>Performanță:</strong> Reținem preferințele tale de afișare.</li>
-        </ul>
+    <h3>2. Scop</h3>
+    <ul>
+      <li><strong>Autentificare:</strong> păstrarea temporară a sesiunii. Portalul recruiter folosește stocarea de sesiune a browserului.</li>
+      <li><strong>Securitate:</strong> protecție anti-abuz și păstrarea stării necesare fluxului solicitat.</li>
+      <li><strong>Preferințe și performanță:</strong> memorarea opțiunilor tehnice ale interfeței.</li>
+    </ul>
 
-        <h3>3. Gestionare</h3>
-        <p>Aceste fișiere sunt strict necesare pentru funcționarea tehnică a platformei. Dacă ștergeți datele din browser (Clear Data), veți fi delogat și istoricul local de preferințe se va pierde.</p>
-    </LegalLayout>
+    <h3>3. Gestionare</h3>
+    <p>Ștergerea datelor browserului închide sesiunea și elimină preferințele locale. Orice tehnologie opțională de analiză sau marketing trebuie activată numai conform alegerii tale, atunci când este aplicabil.</p>
+  </LegalLayout>
 );
 
 export const GDPR: React.FC = () => (
-    <LegalLayout title="Drepturile Tale" lastUpdated="24.05.2026">
-        <p>Această secțiune rezumă drepturile tale conform Regulamentului 2016/679 (GDPR).</p>
-        <ul>
-            <li><strong>Dreptul de acces:</strong> Poți cere o copie a datelor pe care le avem despre tine.</li>
-            <li><strong>Dreptul la rectificare:</strong> Poți cere corectarea datelor greșite.</li>
-            <li><strong>Dreptul la ștergere:</strong> Poți cere ștergerea contului și a datelor asociate, dacă nu mai există un motiv legal pentru păstrarea lor.</li>
-        </ul>
-        <p>Pentru a exercita oricare dintre aceste drepturi, te rugăm să trimiți un email la <strong>[EMAIL SUPORT]</strong>.</p>
-    </LegalLayout>
+  <LegalLayout title="Drepturile Tale" lastUpdated={UPDATED_AT}>
+    <p>Această secțiune rezumă drepturile prevăzute de Regulamentul (UE) 2016/679.</p>
+    <ul>
+      <li><strong>Acces:</strong> poți cere confirmarea prelucrării și o copie a datelor tale.</li>
+      <li><strong>Rectificare:</strong> poți cere corectarea sau completarea datelor.</li>
+      <li><strong>Ștergere ori restricționare:</strong> poți formula o cerere, sub rezerva obligațiilor legale de păstrare.</li>
+      <li><strong>Opoziție și portabilitate:</strong> se aplică în situațiile prevăzute de lege.</li>
+    </ul>
+    <p>Pentru exercitarea drepturilor, scrie la <strong>{LEGAL.supportEmail}</strong>. Pentru protecția contului, putem cere verificarea identității.</p>
+  </LegalLayout>
 );

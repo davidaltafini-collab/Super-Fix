@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { LEGAL, legalIdentityParts } from '../config/legal';
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -21,10 +22,8 @@ export const Footer: React.FC = () => {
               Conectăm eroi locali cu probleme casnice urgente. Simplu, rapid și de încredere.
             </p>
             <div className="text-xs font-mono text-gray-500 bg-gray-50 p-3 border-l-4 border-black space-y-1">
-              <p className="font-bold text-black uppercase">SC SUPERFIX SERVICES SRL</p>
-              <p>CUI: RO12345678</p>
-              <p>J40/123/2025</p>
-              <p>București, România</p>
+              <p className="font-bold text-black uppercase">{LEGAL.name}</p>
+              {legalIdentityParts.map((part) => <p key={part}>{part}</p>)}
             </div>
           </div>
 
@@ -37,6 +36,7 @@ export const Footer: React.FC = () => {
               <li><Link to="/" className="hover:text-super-red hover:translate-x-1 transition-transform inline-block">→ Acasă</Link></li>
               <li><Link to="/heroes" className="hover:text-super-red hover:translate-x-1 transition-transform inline-block">→ Găsește Erou</Link></li>
               <li><Link to="/register" className="hover:text-super-red hover:translate-x-1 transition-transform inline-block">→ Devino Erou</Link></li>
+              <li><Link to="/recruiter" className="hover:text-super-red hover:translate-x-1 transition-transform inline-block">→ Program recruiteri</Link></li>
               <li><Link to="/hero-portal" className="hover:text-super-red hover:translate-x-1 transition-transform inline-block">→ Portal Eroi</Link></li>
             </ul>
           </div>
@@ -54,8 +54,8 @@ export const Footer: React.FC = () => {
             </ul>
             <div className="mt-6 pt-4 border-t border-gray-200">
                 <p className="text-xs font-bold text-gray-400 uppercase mb-1">Ai nevoie de ajutor?</p>
-                <a href="mailto:suport@superfix.ro" className="font-heading text-lg text-black hover:text-super-red underline decoration-2 decoration-comic-yellow underline-offset-4">
-                    suport@superfix.ro
+                <a href={`mailto:${LEGAL.supportEmail}`} className="font-heading text-lg text-black hover:text-super-red underline decoration-2 decoration-comic-yellow underline-offset-4">
+                    {LEGAL.supportEmail}
                 </a>
             </div>
           </div>
@@ -93,7 +93,7 @@ export const Footer: React.FC = () => {
 
         {/* COPYRIGHT */}
         <div className="border-t-2 border-black/10 pt-8 mt-8 text-center flex flex-col md:flex-row justify-between items-center text-xs font-comic text-gray-500">
-          <p>&copy; {currentYear} <strong>Superfix Services SRL</strong>. Toate drepturile rezervate.</p>
+          <p>&copy; {currentYear} <strong>{LEGAL.name}</strong>. Toate drepturile rezervate.</p>
           <div className="mt-2 md:mt-0 flex gap-4">
               <span>Made with ⚡ in Bucharest</span>
           </div>

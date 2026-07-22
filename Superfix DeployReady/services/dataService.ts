@@ -1,9 +1,9 @@
 import { Hero, ServiceRequest, Review } from '../types';
+import { API_URL } from '../config/api';
 
 // === AICI E SCHIMBAREA CRITICĂ ===
 // Acum va citi link-ul din .env (https://super-fix.ro/api) când ești pe server,
 // și va folosi localhost doar când lucrezi tu acasă.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const getAuthHeader = () => {
     const token = localStorage.getItem('superfix_token');
@@ -29,8 +29,16 @@ export const loginUser = async (username: string, password: string) => {
 };
 
 export const logoutUser = () => {
+    const token = localStorage.getItem('superfix_token');
     localStorage.removeItem('superfix_token');
     localStorage.removeItem('superfix_role');
+    if (token) {
+        fetch(`${API_URL}/auth/logout`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            keepalive: true,
+        }).catch(() => undefined);
+    }
 };
 
 export const loginHero = async (username: string, password: string) => {
@@ -61,10 +69,10 @@ export const getApplications = async () => {
 
 export const deleteApplication = async (id: string) => {
     try {
-        await fetch(`${API_URL}/admin/applications/${id}`, { 
+        const res = await fetch(`${API_URL}/admin/applications/${id}`, { 
             method: 'DELETE', headers: getAuthHeader() 
         });
-        return true;
+        return res.ok;
     } catch { return false; }
 };
 
@@ -82,10 +90,10 @@ export const updateHero = async (id: string, data: Partial<Hero>) => {
 
 export const deleteHero = async (id: string) => {
     try {
-        await fetch(`${API_URL}/heroes/${id}`, { 
+        const res = await fetch(`${API_URL}/heroes/${id}`, { 
             method: 'DELETE', headers: getAuthHeader() 
         });
-        return true;
+        return res.ok;
     } catch { return false; }
 };
 
@@ -115,7 +123,10 @@ export const createServiceRequest = async (request: ServiceRequest): Promise<boo
     try {
         const res = await fetch(`${API_URL}/request`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(request.clientNonce || request.id ? { 'Idempotency-Key': String(request.clientNonce || request.id) } : {}),
+            },
             body: JSON.stringify(request)
         });
         return res.ok;
@@ -155,7 +166,7 @@ export const updateMissionStatus = async (id: string, status: string, photo: str
 export const addReview = async (heroId: string, review: any) => {
     try {
         const res = await fetch(`${API_URL}/reviews`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ heroId, ...review })
         });
         return res.ok;

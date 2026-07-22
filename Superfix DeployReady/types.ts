@@ -59,5 +59,6 @@ export interface ServiceRequest {
     
     date: string | Date;
     heroId: string;
+    clientNonce?: string;
     hero?: Hero;
 }

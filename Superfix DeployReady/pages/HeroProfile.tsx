@@ -4,10 +4,12 @@ import { Hero, ServiceRequest } from '../types';
 import { getHeroById, createServiceRequest, addReview } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { Helmet } from 'react-helmet-async';
+import { API_URL } from '../config/api';
 
 export const HeroProfile: React.FC = () => {
   const { slug } = useParams<{ slug: string }>(); 
   const navigate = useNavigate();
+  const canReview = localStorage.getItem('superfix_role') === 'CLIENT' && !!localStorage.getItem('superfix_token');
   
   // === STATE DATE ===
   const [hero, setHero] = useState<Hero | null>(null);
@@ -36,7 +38,7 @@ export const HeroProfile: React.FC = () => {
 
     try {
       // Folosim noul endpoint de slug pe care l-am creat pe backend
-      const response = await fetch(`https://api.super-fix.ro/api/heroes/slug/${slug}`);
+      const response = await fetch(`${API_URL}/heroes/slug/${slug}`);
       const data = await response.json();
 
       if (!data || data.error) {
@@ -81,9 +83,12 @@ export const HeroProfile: React.FC = () => {
       date: new Date().toISOString()
     };
 
-    await createServiceRequest(request);
-    
+    const requestCreated = await createServiceRequest(request);
     setIsSubmitting(false);
+    if (!requestCreated) {
+      alert('Cererea nu a putut fi trimisă. Verifică datele sau autentificarea și încearcă din nou.');
+      return;
+    }
     setSubmitSuccess(true);
     
     setTimeout(() => {
@@ -358,7 +363,7 @@ export const HeroProfile: React.FC = () => {
              <div className="flex justify-between items-center mb-6 border-b-4 border-black pb-2">
                 <h3 className="font-heading text-3xl text-black">JURNAL DE RECENZII</h3>
                 
-                {!hasReviewed && (
+                {!hasReviewed && canReview && (
                     <button 
                         onClick={() => setShowReviewForm(!showReviewForm)}
                         className="bg-white border-2 border-black text-black font-bold px-4 py-2 hover:bg-black hover:text-white transition-colors uppercase tracking-wider shadow-[4px_4px_0_#000]"
@@ -368,8 +373,14 @@ export const HeroProfile: React.FC = () => {
                 )}
              </div>
 
+             {!canReview && (
+                 <div className="mb-6 bg-blue-50 border-2 border-black p-4 font-comic text-sm">
+                     Recenziile pot fi publicate numai de clienți autentificați, pentru o misiune finalizată. Folosește contul de client din aplicația Superfix.
+                 </div>
+             )}
+
              {/* Formular Recenzie */}
-             {showReviewForm && !hasReviewed && (
+             {showReviewForm && !hasReviewed && canReview && (
                <div className="bg-comic-yellow p-6 border-4 border-black mb-8 animate-pop-in relative">
                  <div className="absolute -top-3 left-6 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-black"></div>
                  <h4 className="font-heading text-xl mb-4 text-black uppercase">SCRIE O RECENZIE</h4>
@@ -432,7 +443,7 @@ export const HeroProfile: React.FC = () => {
              <div className="space-y-6">
                {hero.reviews.length === 0 && !hasReviewed && (
                    <div className="bg-gray-100 p-8 border-2 border-dashed border-gray-300 text-center text-gray-500 font-comic">
-                       Încă nu sunt recenzii. Fii tu primul care scrie una!
+                       Încă nu sunt recenzii verificate.
                    </div>
                )}
                {hero.reviews.map((review: any) => (
