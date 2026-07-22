@@ -6,9 +6,8 @@ import {
     updateHero, deleteHero 
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
-
-const CLOUD_NAME = "dnsmgqllf";
-const UPLOAD_PRESET = "superfix_upload";
+import { API_URL } from '../config/api';
+import { uploadSignedMedia } from '../services/mediaUpload';
 
 const ROMANIAN_COUNTIES = [
   "Alba", "Arad", "Argeș", "Bacău", "Bihor", "Bistrița-Năsăud", "Botoșani", "Brașov", 
@@ -20,6 +19,20 @@ const ROMANIAN_COUNTIES = [
 ];
 const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // Pui link-ul tău real aici
 
+type PayoutBatch = {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  totalBani: number;
+  reference?: string | null;
+  createdAt: string;
+  paidAt?: string | null;
+  itemCount?: number;
+  recruiterCount?: number;
+  _count?: { items?: number };
+};
+
 export const Admin: React.FC = () => {
   // === STATE ===
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,7 +41,7 @@ export const Admin: React.FC = () => {
   
   const [updates, setUpdates] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'UPDATES' | 'SETTINGS'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'UPDATES' | 'PAYOUTS' | 'SETTINGS'>('HEROES');
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -39,6 +52,12 @@ export const Admin: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [uploading, setUploading] = useState(false);
+
+  const [payouts, setPayouts] = useState<PayoutBatch[]>([]);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutAction, setPayoutAction] = useState<string | null>(null);
+  const [payoutError, setPayoutError] = useState('');
+  const [transferReferences, setTransferReferences] = useState<Record<string, string>>({});
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'VIEW' | 'EDIT' | 'ADD'>('VIEW');
@@ -75,55 +94,167 @@ export const Admin: React.FC = () => {
 
     // === FUNCȚIE FETCH UPDATES (NOUĂ) ===
     const fetchUpdates = async () => {
-        const token = localStorage.getItem('superfix_token');
+        setUpdates([]);
+    };
+
+    const readApiError = async (response: Response, fallback: string) => {
         try {
-            const res = await fetch('https://api.super-fix.ro/api/admin/updates', {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const data = await response.json();
+            return data.message || data.error || fallback;
+        } catch {
+            return fallback;
+        }
+    };
+
+    const fetchPayouts = async () => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setPayoutLoading(true);
+        setPayoutError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/payouts`, {
+                headers: { Authorization: `Bearer ${token}` },
             });
-            const data = await res.json();
-            if (Array.isArray(data)) setUpdates(data);
-        } catch (e) { console.error("Eroare updates:", e); }
+            if (response.status === 401 || response.status === 403) {
+                logoutUser();
+                setIsAuthenticated(false);
+                throw new Error('Sesiunea de administrator a expirat. Autentifică-te din nou.');
+            }
+            if (!response.ok) throw new Error(await readApiError(response, 'Lista de payout-uri nu a putut fi încărcată.'));
+            const data = await response.json();
+            const batches = Array.isArray(data) ? data : (data.batches || data.payouts || []);
+            setPayouts(Array.isArray(batches) ? batches : []);
+        } catch (error) {
+            setPayoutError(error instanceof Error ? error.message : 'Lista de payout-uri nu a putut fi încărcată.');
+        } finally {
+            setPayoutLoading(false);
+        }
+    };
+
+    const createPayoutBatch = async () => {
+        if (!window.confirm('Creezi un batch catch-up cu toate comisioanele eligibile și neincluse în alte batch-uri?')) return;
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setPayoutAction('create');
+        setPayoutError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/payouts`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Batch-ul nu a putut fi creat.'));
+            await fetchPayouts();
+        } catch (error) {
+            setPayoutError(error instanceof Error ? error.message : 'Batch-ul nu a putut fi creat.');
+        } finally {
+            setPayoutAction(null);
+        }
+    };
+
+    const downloadPayoutCsv = async (batch: PayoutBatch) => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setPayoutAction(`export:${batch.id}`);
+        setPayoutError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/payouts/${encodeURIComponent(batch.id)}/export`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Fișierul CSV nu a putut fi generat.'));
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+            const filename = (filenameMatch?.[1] || `superfix-payout-${batch.id}.csv`).replace(/[^a-zA-Z0-9._-]/g, '_');
+            const objectUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
+            await fetchPayouts();
+        } catch (error) {
+            setPayoutError(error instanceof Error ? error.message : 'Fișierul CSV nu a putut fi generat.');
+        } finally {
+            setPayoutAction(null);
+        }
+    };
+
+    const markPayoutPaid = async (batch: PayoutBatch) => {
+        const reference = (transferReferences[batch.id] || '').trim();
+        if (!reference) {
+            setPayoutError('Introdu referința transferului înainte de confirmarea plății.');
+            return;
+        }
+        if (!window.confirm(`Confirmi că batch-ul ${batch.id.slice(0, 8)} a fost transferat? Referință: ${reference}`)) return;
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setPayoutAction(`paid:${batch.id}`);
+        setPayoutError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/payouts/${encodeURIComponent(batch.id)}/mark-paid`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reference }),
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Payout-ul nu a putut fi marcat ca plătit.'));
+            setTransferReferences((current) => {
+                const next = { ...current };
+                delete next[batch.id];
+                return next;
+            });
+            await fetchPayouts();
+        } catch (error) {
+            setPayoutError(error instanceof Error ? error.message : 'Payout-ul nu a putut fi marcat ca plătit.');
+        } finally {
+            setPayoutAction(null);
+        }
+    };
+
+    const cancelPayoutBatch = async (batch: PayoutBatch) => {
+        const reason = window.prompt('Motivul anulării batch-ului (minimum 5 caractere):')?.trim() || '';
+        if (reason.length < 5) {
+            setPayoutError('Anularea cere un motiv de minimum 5 caractere.');
+            return;
+        }
+        if (!window.confirm(`Anulezi batch-ul ${batch.id.slice(0, 8)} și eliberezi comisioanele pentru un batch nou?`)) return;
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setPayoutAction(`cancel:${batch.id}`);
+        setPayoutError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/payouts/${encodeURIComponent(batch.id)}/cancel`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason }),
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Batch-ul nu a putut fi anulat.'));
+            await fetchPayouts();
+        } catch (error) {
+            setPayoutError(error instanceof Error ? error.message : 'Batch-ul nu a putut fi anulat.');
+        } finally {
+            setPayoutAction(null);
+        }
     };
 
     const refreshAllData = () => {
         getHeroes().then(setHeroes);
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
-        fetchUpdates(); // <--- AICI AM ADĂUGAT APELUL NOU
+        if (activeTab === 'PAYOUTS') fetchPayouts();
     };
 
     // === FUNCȚIE APROBARE UPDATE (NOUĂ) ===
     const handleApproveUpdate = async (updateId: string) => {
-        if (!window.confirm("Sigur aprobi și înlocuiești datele?")) return;
-        const token = localStorage.getItem('superfix_token');
-        try {
-            const res = await fetch(`https://api.super-fix.ro/api/admin/approve-update/${updateId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const json = await res.json();
-            if (json.success) {
-                alert("✅ Profil actualizat cu succes!");
-                refreshAllData(); // Refresh la tot
-            } else {
-                alert("Eroare: " + json.error);
-            }
-        } catch (e) { alert("Eroare server"); }
+        void updateId;
+        alert('Workflow-ul legacy a fost retras; profilurile se actualizează autentificat direct.');
     };
     const handleRejectUpdate = async (updateId: string) => {
-        if (!window.confirm("Sigur anulezi aceste modificări? Datele trimise de erou vor fi șterse.")) return;
-        const token = localStorage.getItem('superfix_token');
-        try {
-            const res = await fetch(`https://api.super-fix.ro/api/admin/reject-update/${updateId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const json = await res.json();
-            if (json.success) {
-                alert("🗑️ Modificare anulată.");
-                refreshAllData(); // Refresh ca să dispară indicatorul
-            }
-        } catch (e) { alert("Eroare server"); }
+        void updateId;
     };
 
   // === HANDLERS ===
@@ -227,8 +358,9 @@ export const Admin: React.FC = () => {
       let success = false;
       if(modalMode === 'EDIT' && selectedHero) success = await updateHero(selectedHero.id, payload);
       else {
+          if (recruitingAppId) (payload as any).applicationId = recruitingAppId;
           success = await createHero(payload);
-          if(success && recruitingAppId) { await deleteApplication(recruitingAppId); setRecruitingAppId(null); }
+          if(success && recruitingAppId) setRecruitingAppId(null);
       }
 
       if(success) { setShowModal(false); refreshAllData(); alert("✅ Eroul a fost salvat cu succes!"); }
@@ -245,14 +377,11 @@ export const Admin: React.FC = () => {
   };
 
   const handleFileUpload = async (file: File, field: 'avatarUrl' | 'videoUrl') => {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
       setUploading(true);
       try {
-          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${field === 'videoUrl' ? 'video' : 'image'}/upload`, { method: 'POST', body: formData });
-          const data = await res.json();
-          if(data.secure_url) setFormData((prev: any) => ({ ...prev, [field]: data.secure_url }));
+          const secureUrl = await uploadSignedMedia(file, field === 'videoUrl' ? 'video' : 'image');
+          if(secureUrl) setFormData((prev: any) => ({ ...prev, [field]: secureUrl }));
+          else alert('Fișierul nu este acceptat sau uploadul securizat nu este configurat.');
       } finally { setUploading(false); }
   };
 
@@ -296,6 +425,12 @@ export const Admin: React.FC = () => {
       const d = new Date(date);
       return d.toLocaleDateString('ro-RO') + ' ' + d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
   };
+
+  const formatMoney = (amountBani: number) => new Intl.NumberFormat('ro-RO', {
+      style: 'currency',
+      currency: 'RON',
+      minimumFractionDigits: 2,
+  }).format((Number(amountBani) || 0) / 100);
 
   // === PRINTARE DOSAR ÎMBUNĂTĂȚIT ===
   const handlePrintDossier = () => {
@@ -643,13 +778,14 @@ export const Admin: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-black pb-4 bg-white p-4 shadow-comic gap-4">
         <h1 className="font-heading text-2xl md:text-4xl italic">SUPERFIX <span className="text-super-red">ADMIN</span></h1>
               <div className="flex flex-wrap justify-center gap-2">
-                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'UPDATES', 'SETTINGS'].map(tab => (
+                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'PAYOUTS', 'SETTINGS'].map(tab => (
                       <button key={tab} onClick={() => setActiveTab(tab as any)}
                           className={`font-heading text-xs md:text-sm px-3 py-1 border-2 border-transparent transition-all ${activeTab === tab ? 'bg-comic-yellow border-black shadow-comic' : 'hover:underline'}`}>
                           {tab === 'HEROES' ? 'EROI'
                               : tab === 'REQUESTS' ? 'MISIUNI'
                                   : tab === 'APPLICATIONS' ? 'RECRUTARE'
                                       : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
+                                          : tab === 'PAYOUTS' ? 'PAYOUT-URI'
                                           : 'SETĂRI'}
                       </button>
                   ))}
@@ -755,6 +891,149 @@ export const Admin: React.FC = () => {
                   </div>
               ))}
           </div>
+      )}
+
+      {activeTab === 'PAYOUTS' && (
+          <section className="space-y-6 animate-fade-in" aria-labelledby="payouts-title">
+              <div className="bg-white border-4 border-black p-5 md:p-6 shadow-comic flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                  <div>
+                      <h2 id="payouts-title" className="font-heading text-2xl md:text-3xl">PAYOUT RECRUITERI</h2>
+                      <p className="font-comic text-sm text-gray-700 mt-2 max-w-3xl">
+                          Un batch catch-up include toate comisioanele eligibile care nu se află deja într-un batch.
+                          Datele bancare nu sunt afișate aici; ele sunt incluse numai în CSV-ul descărcat explicit.
+                      </p>
+                  </div>
+                  <button
+                      type="button"
+                      onClick={createPayoutBatch}
+                      disabled={Boolean(payoutAction)}
+                      className="bg-green-500 text-white font-heading px-5 py-3 border-4 border-black shadow-comic hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                      {payoutAction === 'create' ? 'SE CREEAZĂ…' : '+ BATCH CATCH-UP'}
+                  </button>
+              </div>
+
+              {payoutError && (
+                  <div role="alert" className="bg-red-50 text-red-800 border-4 border-red-700 p-4 font-bold flex items-start justify-between gap-4">
+                      <span>{payoutError}</span>
+                      <button type="button" onClick={() => setPayoutError('')} className="font-black" aria-label="Închide eroarea">×</button>
+                  </div>
+              )}
+
+              {payoutLoading && payouts.length === 0 ? (
+                  <div className="bg-white border-4 border-black p-8 text-center font-heading">SE ÎNCARCĂ PAYOUT-URILE…</div>
+              ) : payouts.length === 0 ? (
+                  <div className="bg-white border-4 border-dashed border-gray-400 p-8 text-center">
+                      <p className="font-heading text-xl">NICIUN BATCH CREAT</p>
+                      <p className="font-comic text-sm text-gray-600 mt-2">Creează un batch după ce există comisioane ajunse la data de plată.</p>
+                  </div>
+              ) : (
+                  <div className="grid gap-5">
+                       {payouts.map((batch) => {
+                           const isPaid = batch.status === 'PAID';
+                           const isDraft = batch.status === 'DRAFT';
+                           const isExported = batch.status === 'EXPORTED';
+                           const isCancelled = batch.status === 'CANCELLED';
+                          const itemCount = batch.itemCount ?? batch._count?.items;
+                          return (
+                              <article key={batch.id} className="bg-white border-4 border-black p-5 shadow-comic">
+                                  <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+                                      <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-3 mb-3">
+                                               <span className={`border-2 border-black px-3 py-1 text-xs font-black ${isPaid ? 'bg-green-500 text-white' : isCancelled ? 'bg-gray-400 text-white' : 'bg-yellow-300 text-black'}`}>
+                                                  {batch.status}
+                                              </span>
+                                              <span className="font-mono text-xs text-gray-500">#{batch.id.slice(0, 8)}</span>
+                                          </div>
+                                          <p className="font-heading text-2xl md:text-3xl">{formatMoney(batch.totalBani)}</p>
+                                          <dl className="grid sm:grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm font-comic">
+                                              <div>
+                                                  <dt className="text-gray-500 font-bold uppercase text-xs">Perioadă eligibilă</dt>
+                                                  <dd>{new Date(batch.periodStart).toLocaleDateString('ro-RO')} – {new Date(batch.periodEnd).toLocaleDateString('ro-RO')}</dd>
+                                              </div>
+                                              <div>
+                                                  <dt className="text-gray-500 font-bold uppercase text-xs">Creat</dt>
+                                                  <dd>{formatDateTime(batch.createdAt)}</dd>
+                                              </div>
+                                              {typeof batch.recruiterCount === 'number' && (
+                                                  <div>
+                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Recruiteri</dt>
+                                                      <dd>{batch.recruiterCount}</dd>
+                                                  </div>
+                                              )}
+                                              {typeof itemCount === 'number' && (
+                                                  <div>
+                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Comisioane</dt>
+                                                      <dd>{itemCount}</dd>
+                                                  </div>
+                                              )}
+                                              {isPaid && batch.paidAt && (
+                                                  <div>
+                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Plătit</dt>
+                                                      <dd>{formatDateTime(batch.paidAt)}</dd>
+                                                  </div>
+                                              )}
+                                              {isPaid && batch.reference && (
+                                                  <div>
+                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Referință transfer</dt>
+                                                      <dd className="font-mono break-all">{batch.reference}</dd>
+                                                  </div>
+                                              )}
+                                          </dl>
+                                      </div>
+
+                                      <div className="w-full xl:w-[360px] space-y-3 xl:border-l-2 xl:border-gray-200 xl:pl-5">
+                                           {!isCancelled && <button
+                                              type="button"
+                                              onClick={() => downloadPayoutCsv(batch)}
+                                              disabled={Boolean(payoutAction)}
+                                              className="w-full bg-blue-600 text-white font-heading py-3 px-4 border-4 border-black hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          >
+                                              {payoutAction === `export:${batch.id}` ? 'SE GENEREAZĂ…' : 'DESCARCĂ CSV PENTRU TRANSFER'}
+                                           </button>}
+                                           {(isDraft || isExported) && (
+                                              <div className="bg-gray-50 border-2 border-black p-3 space-y-3">
+                                                  {isDraft && <p className="text-xs font-bold text-amber-800">Descarcă mai întâi CSV-ul. Exportul îngheață beneficiarii, IBAN-urile și sumele batch-ului.</p>}
+                                                  <label htmlFor={`reference-${batch.id}`} className="block text-xs font-black uppercase">
+                                                      Referință transfer
+                                                  </label>
+                                                  <input
+                                                      id={`reference-${batch.id}`}
+                                                      type="text"
+                                                      maxLength={120}
+                                                      autoComplete="off"
+                                                      placeholder="Ex: OP-2026-07-001"
+                                                      value={transferReferences[batch.id] || ''}
+                                                      onChange={(event) => setTransferReferences((current) => ({ ...current, [batch.id]: event.target.value }))}
+                                                      className="w-full border-2 border-black p-2 font-mono text-sm"
+                                                  />
+                                                  <button
+                                                      type="button"
+                                                      onClick={() => markPayoutPaid(batch)}
+                                                      disabled={Boolean(payoutAction) || !isExported || !(transferReferences[batch.id] || '').trim()}
+                                                      className="w-full bg-black text-white font-heading py-3 px-4 border-2 border-black hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                  >
+                                                      {payoutAction === `paid:${batch.id}` ? 'SE CONFIRMĂ…' : 'CONFIRMĂ TRANSFERUL EFECTUAT'}
+                                                  </button>
+                                                   <p className="text-[11px] text-gray-600 font-comic">Acțiunea cere confirmare și devine definitivă în registrul de comisioane.</p>
+                                                   <button
+                                                       type="button"
+                                                       onClick={() => cancelPayoutBatch(batch)}
+                                                       disabled={Boolean(payoutAction)}
+                                                       className="w-full border-2 border-red-700 text-red-700 bg-white font-heading py-2 px-4 hover:bg-red-50 disabled:opacity-40"
+                                                   >
+                                                       {payoutAction === `cancel:${batch.id}` ? 'SE ANULEAZĂ…' : 'ANULEAZĂ BATCH-UL'}
+                                                   </button>
+                                               </div>
+                                          )}
+                                      </div>
+                                  </div>
+                              </article>
+                          );
+                      })}
+                  </div>
+              )}
+          </section>
       )}
 
       {activeTab === 'SETTINGS' && (

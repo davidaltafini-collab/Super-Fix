@@ -9,11 +9,13 @@ import { Home } from './pages/Home';
 import { HeroesList } from './pages/HeroesList';
 import { HeroProfile } from './pages/HeroProfile';
 import { RegisterHero } from './pages/RegisterHero';
+import { Recruiter } from './pages/Recruiter';
 import { Admin } from './pages/Admin';
 import { HeroPortal } from './pages/HeroPortal';
 import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
 import HeroOnboarding from './pages/HeroOnboarding';
+import { PasswordReset } from './pages/PasswordReset';
 
 // === MODIFICARE AICI: Importăm toate paginile legale ===
 // Asigură-te că fișierul tău cu paginile legale se numește exact 'LegalPages.tsx' 
@@ -53,9 +55,11 @@ const App: React.FC = () => {
               <Route path="/heroes" element={<HeroesList />} />
               <Route path="/hero/:slug" element={<HeroProfile />} />
               <Route path="/register" element={<RegisterHero />} />
+              <Route path="/recruiter" element={<Recruiter />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/onboarding" element={<HeroOnboarding />} />
               <Route path="/portal" element={<HeroPortal />} />
+              <Route path="/reset-password" element={<PasswordReset />} />
 
               {/* === MODIFICARE AICI: Rutele legale specifice === */}
               {/* Acestea rezolvă erorile "No routes matched" */}

@@ -1,0 +1,14 @@
+# === Secrete — NU se comit NICIODATĂ ===
+.env
+.env.*
+!.env.example
+
+# === Dependențe & build ===
+node_modules/
+dist/
+server/node_modules/
+server/dist/
+
+# === Diverse ===
+*.log
+.DS_Store

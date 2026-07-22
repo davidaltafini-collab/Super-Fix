@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { RomaniaMap } from '../components/RomaniaMap';
-
-const CLOUD_NAME = "dnsmgqllf";
-const UPLOAD_PRESET = "superfix_upload";
+import { API_URL } from '../config/api';
+import { uploadSignedMedia } from '../services/mediaUpload';
 
 // Limite fișiere
-const MAX_VIDEO_SIZE_MB = 100;
+const MAX_VIDEO_SIZE_MB = 50;
 const MAX_IMAGE_SIZE_MB = 10;
 
 // Lista județe
@@ -33,7 +32,9 @@ const COUNTY_NAMES: Record<string, string> = {
 
 const HeroOnboarding = () => {
   const [searchParams] = useSearchParams();
-  const heroId = searchParams.get('id');
+  const inviteToken = searchParams.get('token');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [formData, setFormData] = useState({
     alias: '',
@@ -59,21 +60,13 @@ const HeroOnboarding = () => {
       return;
     }
 
-    const data = new FormData();
-    data.append('file', file);
-    data.append('upload_preset', UPLOAD_PRESET);
-    
     setUploading(true);
     setErrorMsg('');
     
     try {
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${field === 'videoUrl' ? 'video' : 'image'}/upload`, { 
-        method: 'POST', 
-        body: data 
-      });
-      const resData = await res.json();
-      if(resData.secure_url) {
-        setFormData(prev => ({ ...prev, [field]: resData.secure_url }));
+      const secureUrl = await uploadSignedMedia(file, field === 'videoUrl' ? 'video' : 'image', { onboardingToken: inviteToken || undefined });
+      if(secureUrl) {
+        setFormData(prev => ({ ...prev, [field]: secureUrl }));
         setErrorMsg(''); 
       } else {
         setErrorMsg("Am întâmpinat o problemă la încărcare. Te rugăm să încerci din nou.");
@@ -100,9 +93,17 @@ const HeroOnboarding = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!heroId) return;
+    if (!inviteToken) return;
     if (!formData.alias.trim()) {
         setErrorMsg("Orice Erou are nevoie de un nume! Alege-ți numele de Erou înainte de a continua.");
+        return;
+    }
+    if (password.length < 10 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+        setErrorMsg('Parola trebuie să aibă minimum 10 caractere, literă mare, literă mică și cifră.');
+        return;
+    }
+    if (password !== confirmPassword) {
+        setErrorMsg('Parolele nu corespund.');
         return;
     }
 
@@ -110,17 +111,17 @@ const HeroOnboarding = () => {
     setErrorMsg('');
     
     try {
-      const res = await fetch('https://api.super-fix.ro/api/hero/public-submit-update', {
+      const res = await fetch(`${API_URL}/auth/hero-onboarding/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ heroId, ...formData })
+        body: JSON.stringify({ token: inviteToken, password, ...formData })
       });
       const data = await res.json();
       
-      if (data.success) {
+      if (res.ok && typeof data.token === 'string') {
         setIsSuccess(true);
       } else {
-        setErrorMsg(data.error || "A apărut o eroare la salvarea datelor. Te rugăm să verifici informațiile.");
+        setErrorMsg(data.message || data.error || "A apărut o eroare la salvarea datelor. Te rugăm să verifici informațiile.");
       }
     } catch (err) { 
         setErrorMsg("A apărut o problemă de server. Te rugăm să dai un refresh paginii și să încerci din nou."); 
@@ -128,8 +129,8 @@ const HeroOnboarding = () => {
     finally { setUploading(false); }
   };
 
-  // === ECRAN LIPSĂ ID (Securitate) ===
-  if (!heroId) {
+  // === ECRAN LIPSĂ TOKEN (Securitate) ===
+  if (!inviteToken) {
       return (
           <div className="min-h-screen bg-black flex items-center justify-center p-4 font-sans relative overflow-hidden">
               <div className="absolute inset-0 bg-yellow-600 opacity-20" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 20px, #000 20px, #000 40px)' }}></div>
@@ -235,6 +236,16 @@ const HeroOnboarding = () => {
                     value={formData.alias} 
                     onChange={e => setFormData({...formData, alias: e.target.value})} 
                 />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div>
+                        <label className="font-black text-sm block mb-2 uppercase">Alege parola</label>
+                        <input type="password" required minLength={10} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border-4 border-black p-4 font-bold" placeholder="Minimum 10 caractere" />
+                    </div>
+                    <div>
+                        <label className="font-black text-sm block mb-2 uppercase">Confirmă parola</label>
+                        <input type="password" required minLength={10} autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full border-4 border-black p-4 font-bold" placeholder="Repetă parola" />
+                    </div>
+                </div>
             </div>
 
             {/* PASUL 2: IDENTITATE VIZUALĂ */}

@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { JobCategory } from '../types';
+import { API_URL } from '../config/api';
+
+type GrowthCodeType = 'REFERRAL' | 'RECRUITER';
+
+const normalizeGrowthCode = (value: string) =>
+    value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
 export const RegisterHero: React.FC = () => {
     const navigate = useNavigate();
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const [searchParams] = useSearchParams();
     // State-uri
     const [formData, setFormData] = useState({
         name: '',
@@ -16,16 +22,66 @@ export const RegisterHero: React.FC = () => {
     
     const [isCustomCategory, setIsCustomCategory] = useState(false); // Flag pentru input custom
     const [loading, setLoading] = useState(false);
+    const [growthCode, setGrowthCode] = useState('');
+    const [detectedCode, setDetectedCode] = useState('');
+    const [detectedType, setDetectedType] = useState<GrowthCodeType | null>(null);
+    const [codeError, setCodeError] = useState('');
+
+    useEffect(() => {
+        const referralCode = normalizeGrowthCode(searchParams.get('ref') || '');
+        const recruiterCode = normalizeGrowthCode(searchParams.get('recruiter') || '');
+
+        if (referralCode && recruiterCode) {
+            setGrowthCode('');
+            setDetectedCode('');
+            setDetectedType(null);
+            setCodeError('Linkul conține două coduri. Introdu mai jos un singur cod.');
+            return;
+        }
+
+        const code = referralCode || recruiterCode;
+        setGrowthCode(code);
+        setDetectedCode(code);
+        setDetectedType(referralCode ? 'REFERRAL' : recruiterCode ? 'RECRUITER' : null);
+        setCodeError('');
+    }, [searchParams]);
+
+    const resolveGrowthCode = async (code: string): Promise<GrowthCodeType> => {
+        const response = await fetch(`${API_URL}/growth/code/${encodeURIComponent(code)}`);
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.valid || !['REFERRAL', 'RECRUITER'].includes(data.type)) {
+            throw new Error(data.message || 'Codul introdus nu este valid sau nu mai este activ.');
+        }
+
+        return data.type as GrowthCodeType;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setCodeError('');
 
         try {
+            const normalizedCode = normalizeGrowthCode(growthCode);
+            const codePayload: { referralCode?: string; recruiterCode?: string } = {};
+
+            if (normalizedCode) {
+                try {
+                    const codeType = await resolveGrowthCode(normalizedCode);
+                    if (codeType === 'REFERRAL') codePayload.referralCode = normalizedCode;
+                    if (codeType === 'RECRUITER') codePayload.recruiterCode = normalizedCode;
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Codul nu a putut fi verificat.';
+                    setCodeError(message);
+                    return;
+                }
+            }
+
             const res = await fetch(`${API_URL}/apply-hero`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({ ...formData, ...codePayload })
             });
             const data = await res.json();
 
@@ -33,7 +89,7 @@ export const RegisterHero: React.FC = () => {
                 alert("📩 DOSAR ÎNREGISTRAT! Verifică-ți emailul pentru confirmare.");
                 navigate('/');
             } else {
-                alert("Eroare: " + (data.error || "Ceva nu a mers bine."));
+                alert("Eroare: " + (data.message || data.error || "Ceva nu a mers bine."));
             }
         } catch (err) {
             alert("Eroare de conexiune cu sediul central.");
@@ -83,6 +139,49 @@ export const RegisterHero: React.FC = () => {
                                     onChange={e => setFormData({...formData, email: e.target.value})} />
                             </div>
                         </div>
+                    </div>
+
+                    {/* UN SINGUR COD DE INVITAȚIE SAU RECRUITER */}
+                    <div className="bg-green-50 p-4 border-2 border-dashed border-black relative mt-6">
+                        <div className="absolute -top-3 -left-3 bg-black text-white px-2 font-bold text-xs">COD OPȚIONAL</div>
+
+                        {detectedCode && (
+                            <div className="mb-4 border-2 border-black bg-white p-3" role="status">
+                                <p className="text-xs font-bold uppercase text-gray-600">Cod detectat din link</p>
+                                <p className="mt-1 font-mono text-lg font-black break-all">{detectedCode}</p>
+                                <p className="mt-1 text-xs text-gray-600">
+                                    {detectedType === 'REFERRAL' ? 'Invitație de la un erou' : 'Cod de recruiter'}
+                                </p>
+                            </div>
+                        )}
+
+                        <label htmlFor="growth-code" className="block font-bold text-sm uppercase mb-1">
+                            Cod de invitație sau recruiter
+                        </label>
+                        <input
+                            id="growth-code"
+                            type="text"
+                            maxLength={80}
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            className="w-full border-2 border-black p-2 bg-white font-mono uppercase focus:bg-yellow-50 focus:outline-none focus:ring-4 focus:ring-comic-yellow/50"
+                            placeholder="Ex: ERO-... sau REC-..."
+                            value={growthCode}
+                            onChange={event => {
+                                setGrowthCode(event.target.value.toUpperCase());
+                                setCodeError('');
+                            }}
+                            aria-describedby="growth-code-help growth-code-error"
+                            aria-invalid={Boolean(codeError)}
+                        />
+                        <p id="growth-code-help" className="mt-2 text-xs text-gray-600">
+                            Poți folosi un singur cod. Dacă ai ajuns dintr-un link, câmpul este completat automat.
+                        </p>
+                        {codeError && (
+                            <p id="growth-code-error" className="mt-2 border-l-4 border-red-600 pl-2 text-sm font-bold text-red-700" role="alert">
+                                {codeError}
+                            </p>
+                        )}
                     </div>
 
                     {/* SECTIUNE ABILITATI & MESAJ */}

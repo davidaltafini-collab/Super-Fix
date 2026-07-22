@@ -45,7 +45,6 @@ export const Navbar: React.FC = () => {
             <Link to="/heroes" className={navLinkClass('/heroes')}>Găsește Eroul</Link>
             {/* === FIX: Ruta corectă este /portal, nu /hero-portal === */}
             <Link to="/portal" className={navLinkClass('/portal')}>PORTAL EROI</Link>
-            <Link to="/admin" className={navLinkClass('/admin')}>Admin HQ</Link>
           </div>
         </div>
 
@@ -56,7 +55,6 @@ export const Navbar: React.FC = () => {
             <Link to="/heroes" onClick={() => setIsOpen(false)} className={navLinkClass('/heroes')}>Găsește Eroul</Link>
             {/* === FIX: Ruta corectă este /portal === */}
             <Link to="/portal" onClick={() => setIsOpen(false)} className={navLinkClass('/portal')}>PORTAL EROI</Link>
-            <Link to="/admin" onClick={() => setIsOpen(false)} className={navLinkClass('/admin')}>Admin HQ</Link>
           </div>
         )}
       </div>
