@@ -46,10 +46,10 @@
 /* Aceeași formă pe telefon (nu bară full-width + hamburger), doar scalată mai mic. */
 @media (max-width: 480px) {
   .pill-nav {
-    --nav-h: 44px;
-    --logo: 36px;
-    --pill-pad-x: 12px;
-    gap: 5px;
+    --nav-h: 48px;
+    --logo: 40px;
+    --pill-pad-x: 14px;
+    gap: 6px;
     padding: 5px;
   }
 }
@@ -152,7 +152,7 @@
 
 @media (max-width: 480px) {
   .pill-link {
-    font-size: 10.5px;
+    font-size: 11.5px;
     letter-spacing: 0.1px;
   }
 }

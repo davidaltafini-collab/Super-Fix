@@ -36,6 +36,17 @@ input[type='radio'] {
   touch-action: manipulation;
 }
 
+/* Recreează pe telefon zoom-ul din Safari (aA din bara de adrese) pe care
+   userul l-a încercat manual și i s-a părut că "se adună" mai bine: text și
+   spații cu ~6% mai mici. Navbar-ul e dimensionat în px ficși, nu în rem
+   (vezi PillNav.css), deci nu se atinge de regula asta — rămâne la mărimea
+   lui, adică relativ mai mare față de restul, exact ce a cerut. */
+@media (max-width: 480px) {
+  html {
+    font-size: 15px;
+  }
+}
+
 /* Anton e un font condensat: fără tracking pozitiv, literele se lipesc și devine
    greu de citit, mai ales cu majuscule și la corp mic. */
 .font-heading {
