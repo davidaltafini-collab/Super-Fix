@@ -19,28 +19,13 @@
   padding: 7px;
   border-radius: 9999px;
   transform-origin: top center;
-  transform: scale(1) translateY(0);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* `--nav-p` (0 = mare, 1 = mic) e scris cadru cu cadru din PillNav.tsx, direct
+     din cat s-a derulat. Fara `transition`: aici transformarea NU sare intre doua
+     stari, ci urmeaza derularea — o tranzitie ar face-o sa alerge dupa deget.
+     Netezirea e facuta in JS, prin interpolare spre tinta. */
+  transform: scale(calc(1 - 0.27 * var(--nav-p, 0))) translateY(calc(-14px * var(--nav-p, 0)));
   /* fara `isolation: isolate`: creeaza un stacking context izolat, iar backdrop-filter
      al sticlei nu mai poate esantiona corect fundalul din spate -> taietura vizibila. */
-}
-
-/* Micsorare la scroll-down (clasa CSS, nu GSAP inline). */
-.pill-nav-container.is-compact .pill-nav {
-  transform: scale(0.73) translateY(-14px);
-}
-
-/* Hover -> revine la marime maxima, chiar si in stare mica. */
-@media (hover: hover) and (pointer: fine) {
-  .pill-nav-container.is-compact .pill-nav:hover {
-    transform: scale(1) translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pill-nav {
-    transition: none;
-  }
 }
 
 /* Aceeași formă pe telefon (nu bară full-width + hamburger), doar scalată mai mic. */

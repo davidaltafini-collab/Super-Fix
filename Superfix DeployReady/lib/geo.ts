@@ -18,7 +18,39 @@ export interface ClientLocation extends GeoPoint {
 
 export type LocationResult =
   | { ok: true; location: ClientLocation }
-  | { ok: false; reason: 'denied' | 'blocked' | 'unavailable' | 'insecure' | 'error' };
+  | { ok: false; reason: 'denied' | 'blocked' | 'timeout' | 'unavailable' | 'insecure' | 'error' };
+
+/* Proiectul nu e pe `strict`, iar fara `strictNullChecks` TypeScript nu mai
+   ingusteaza uniunile dupa un discriminant boolean: dupa `if (!result.ok)`
+   crede in continuare ca ar putea fi ramura de succes si se plange ca `reason`
+   nu exista. Garda asta ii spune explicit ce ramura e. */
+export const isLocationError = (
+  result: LocationResult,
+): result is Extract<LocationResult, { ok: false }> => !result.ok;
+
+/* Textul pentru om, într-un singur loc.
+
+   Era scris de trei ori, în trei pagini, și toate trei îi spuneau să apese
+   iconița de lângă adresa paginii. Pe iPhone nu există iconița aia: permisiunea
+   de locație stă în meniul „aA" din bara de adresă, la Setări site web. Adică
+   exact oamenii care aveau problema primeau instrucțiuni pentru un buton care
+   nu e pe ecranul lor. */
+export function locationErrorText(reason: Extract<LocationResult, { ok: false }>['reason']): string {
+  switch (reason) {
+    case 'blocked':
+      return 'Locația e blocată pentru site. Pe iPhone: „aA" în bara de adresă → Setări site web → Locație → Permite. Pe Android: iconița de lângă adresă → Permisiuni → Locație.';
+    case 'denied':
+      return 'N-am primit locația. Apasă din nou și alege „Permite" când întreabă browserul.';
+    case 'timeout':
+      return 'Semnalul de locație se lasă așteptat. Încearcă din nou peste câteva secunde, de preferat lângă o fereastră.';
+    case 'unavailable':
+      return 'Telefonul nu dă locația acum. Verifică dacă ai Serviciile de localizare pornite în setările telefonului.';
+    case 'insecure':
+      return 'Locația merge doar pe conexiune securizată — deschide direct super-fix.ro.';
+    default:
+      return 'N-am putut afla locația. Scrie adresa de mână, e la fel de bine.';
+  }
+}
 
 const valid = (lat: number, lng: number) =>
   Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
@@ -120,32 +152,61 @@ export async function getCurrentLocation(): Promise<LocationResult> {
     return { ok: false, reason: 'insecure' };
   }
 
-  /* Dacă omul a respins promptul de mai multe ori, Chrome blochează site-ul
-     de-a binelea: nu mai întreabă niciodată, indiferent câte ori chemăm
-     getCurrentPosition — doar loghează un avertisment în consolă de fiecare
-     dată. Verificăm dinainte, ca să dăm mesajul corect ("resetează din site
-     settings") în loc de generalul "n-am putut" și să nu mai spamăm consola. */
-  if (typeof navigator.permissions?.query === 'function') {
-    try {
-      const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-      if (status.state === 'denied') return { ok: false, reason: 'blocked' };
-    } catch { /* API-ul poate lipsi sau eșua — mergem mai departe, încercăm oricum */ }
+  /* Aici era o verificare a permisiunii ÎNAINTE de a cere poziția, ca să dăm un
+     mesaj mai bun când Chrome blochează definitiv un site. Făcea două rele, și
+     amândouă cădeau taman pe iPhone:
+
+     1. Renunța de tot. Dacă `permissions.query` zicea `denied`, nu se mai chema
+        niciodată `getCurrentPosition`. Numai că pe Safari starea aia nu e de
+        încredere: implementarea reflectă și comutatoare de sistem, răspunde
+        `denied` în situații în care o cerere reală ar fi întrebat frumos, iar
+        pentru geolocație numele nici măcar nu e susținut peste tot. Rezultat:
+        omul apăsa și primea „n-ai dat permisiunea" fără ca browserul să fi fost
+        întrebat vreodată.
+
+     2. Consuma gestul. `await` pe query se interpune între atingerea omului și
+        cererea propriu-zisă, iar Safari leagă promptul de permisiune de
+        activarea utilizatorului. Cu un await la mijloc, lanțul se rupe și
+        promptul poate să nu mai apară deloc.
+
+     Acum ordinea e invers: încercăm întâi (prima operație după atingere, deci
+     gestul e intact), și abia dacă browserul chiar refuză întrebăm Permissions
+     API — doar ca să știm dacă refuzul e de-o clipă sau permanent, adică dacă
+     merită să-i spunem omului să reseteze din setări. */
+  const attempt = (highAccuracy: boolean) =>
+    new Promise<GeolocationPosition | number>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => resolve(err.code),
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 10000 : 20000, maximumAge: 60000 },
+      );
+    });
+
+  let outcome = await attempt(true);
+
+  /* GPS-ul de mare precizie cere cerul liber: în casă, într-un bloc sau într-un
+     subsol expiră sau răspunde „poziție indisponibilă". A doua încercare
+     acceptă precizia din rețea/Wi-Fi, care pentru „ce erou e mai aproape" e
+     mai mult decât suficientă. Nu mai apare al doilea prompt: permisiunea a
+     fost deja dată la prima cerere. */
+  if (outcome === 2 /* POSITION_UNAVAILABLE */ || outcome === 3 /* TIMEOUT */) {
+    outcome = await attempt(false);
   }
 
-  const position = await new Promise<GeolocationPosition | null>((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
-    );
-  });
+  if (typeof outcome === 'number') {
+    if (outcome === 1 /* PERMISSION_DENIED */) {
+      let permanent = false;
+      try {
+        const status = await navigator.permissions?.query({ name: 'geolocation' as PermissionName });
+        permanent = status?.state === 'denied';
+      } catch { /* Safari poate să nu susțină numele ăsta — atunci nu știm, și e ok */ }
+      return { ok: false, reason: permanent ? 'blocked' : 'denied' };
+    }
+    return { ok: false, reason: outcome === 3 ? 'timeout' : 'unavailable' };
+  }
 
-  // Browserul nu spune de ce a eșuat într-un fel pe care merită să-l traducem
-  // în trei mesaje diferite: pentru om, „n-am putut lua locația" e același lucru.
-  if (!position) return { ok: false, reason: 'denied' };
-
-  const lat = position.coords.latitude;
-  const lng = position.coords.longitude;
+  const lat = outcome.coords.latitude;
+  const lng = outcome.coords.longitude;
   if (!valid(lat, lng)) return { ok: false, reason: 'error' };
 
   const address = await reverseGeocode({ lat, lng });

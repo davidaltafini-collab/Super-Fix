@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FlipHorizontal, ArrowsClockwise, PaperPlaneTilt } from '@phosphor-icons/react';
 import './camera.css';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 interface CameraCaptureProps {
   onCapture: (base64Image: string) => void;
@@ -96,9 +97,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   // pagina de dedesubt n-are voie să se miște cât ține ecranul tot
   useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return lockBodyScroll();
   }, []);
 
   // Escape închide, ca la orice fereastră care acoperă tot

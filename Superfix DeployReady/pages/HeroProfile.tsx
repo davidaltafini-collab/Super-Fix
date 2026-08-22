@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Sheet } from '../components/Sheet';
 import { Lightbox } from '../components/Lightbox';
 import { useToast } from '../components/Toast';
-import { getCurrentLocation, geocodeAddress } from '../lib/geo';
+import { getCurrentLocation, geocodeAddress, isLocationError, locationErrorText } from '../lib/geo';
 /* Leaflet are ~150 KB si se foloseste abia daca omul deschide formularul SI apasa
    pe locatie. In pachetul de start n-are ce cauta: il aducem la nevoie. */
 const MapPicker = lazy(() => import('../components/Map').then(m => ({ default: m.MapPicker })));
@@ -113,8 +113,8 @@ export const HeroProfile: React.FC = () => {
     setLocating(true);
     const result = await getCurrentLocation();
     setLocating(false);
-    if (!result.ok) {
-      toast.error('N-am putut lua locația. Scrie adresa de mână, e la fel de bine.');
+    if (isLocationError(result)) {
+      toast.error(locationErrorText(result.reason));
       return;
     }
     setCoords({ lat: result.location.lat, lng: result.location.lng });
@@ -796,6 +796,35 @@ export const HeroProfile: React.FC = () => {
         title="Trimite un semnal"
         subtitle={`${hero.alias} primeste coordonatele si o notificare pe email.`}
         variant="modal"
+        footer={submitSuccess ? undefined : (
+          <>
+            {/* `form="sos-form"`: butonul e in afara <form>, ca sa nu se duca la
+                vale odata cu campurile, dar trimite acelasi formular. */}
+            <GlassButton
+              type="submit"
+              form="sos-form"
+              tone="red"
+              full
+              disabled={isSubmitting}
+              aria-describedby={formReady ? undefined : 'sos-hint'}
+              style={{
+                filter: formReady ? 'saturate(1.12)' : 'saturate(0.35)',
+                opacity: formReady ? 1 : 0.72,
+                boxShadow: formReady
+                  ? '0 18px 38px -14px rgba(225,55,70,0.75)'
+                  : '0 8px 18px -12px rgba(97,99,104,0.5)',
+                transition: 'filter 320ms ease, opacity 320ms ease, box-shadow 320ms ease',
+              }}
+            >
+              {isSubmitting ? 'Se trimite…' : 'Trimite SOS'}
+            </GlassButton>
+            {!formReady && (
+              <p id="sos-hint" className="mt-2 text-center text-xs text-graphite-soft">
+                Se aprinde când e totul completat.
+              </p>
+            )}
+          </>
+        )}
       >
           {submitSuccess ? (
             <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 p-5 ring-1 ring-emerald-200" role="alert">
@@ -806,7 +835,7 @@ export const HeroProfile: React.FC = () => {
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <form id="sos-form" onSubmit={handleSubmit} noValidate className="space-y-3.5">
               {/* Adresa e primul câmp: „unde venim" e întrebarea de care depinde
                   tot restul. Butonul de locație completează adresa singur, prin
                   reverse-geocode, ca omul să nu scrie nimic dacă nu vrea. */}
@@ -851,10 +880,10 @@ export const HeroProfile: React.FC = () => {
                   <>
                     <div className="mt-3">
                       {/* aceeasi inaltime ca harta: cand soseste, nu impinge nimic */}
-                      <Suspense fallback={<Skel className="h-[220px] w-full rounded-[20px]" />}>
+                      <Suspense fallback={<Skel className="h-[180px] w-full rounded-[20px]" />}>
                         <MapPicker
                           point={coords}
-                          height={220}
+                          height={180}
                           onChange={(next, address) => {
                             setCoords(next);
                             if (address) setFormData(f => ({ ...f, address }));
@@ -984,28 +1013,6 @@ export const HeroProfile: React.FC = () => {
                 </p>
               )}
 
-              <GlassButton
-                type="submit"
-                tone="red"
-                full
-                disabled={isSubmitting}
-                aria-describedby={formReady ? undefined : 'sos-hint'}
-                style={{
-                  filter: formReady ? 'saturate(1.12)' : 'saturate(0.35)',
-                  opacity: formReady ? 1 : 0.72,
-                  boxShadow: formReady
-                    ? '0 18px 38px -14px rgba(225,55,70,0.75)'
-                    : '0 8px 18px -12px rgba(97,99,104,0.5)',
-                  transition: 'filter 320ms ease, opacity 320ms ease, box-shadow 320ms ease',
-                }}
-              >
-                {isSubmitting ? 'Se trimite…' : 'Trimite SOS'}
-              </GlassButton>
-              {!formReady && (
-                <p id="sos-hint" className="text-center text-xs text-graphite-soft">
-                  Se aprinde când e totul completat.
-                </p>
-              )}
             </form>
           )}
       </Sheet>

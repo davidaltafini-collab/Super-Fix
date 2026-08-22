@@ -6,7 +6,7 @@ import { RomaniaMap } from '../components/RomaniaMap';
 import { thumb } from '../lib/img';
 import { Tilt } from '../components/motion';
 import { GlassButton } from '../components/Button';
-import { getCurrentLocation, geocodeAddress, haversineKm, type GeoPoint } from '../lib/geo';
+import { getCurrentLocation, geocodeAddress, haversineKm, isLocationError, locationErrorText, type GeoPoint } from '../lib/geo';
 import { searchHeroes } from '../lib/heroSearch';
 import {
   MagnifyingGlass, MapPin, Plus, CaretDown, Check, X, ArrowCounterClockwise,
@@ -77,6 +77,7 @@ export const HeroesList: React.FC = () => {
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null);
   const [userLoc, setUserLoc] = useState<GeoPoint | null>(null);
   const [heroDistances, setHeroDistances] = useState<Record<string, number>>({});
+  const [distancesPending, setDistancesPending] = useState(false);
 
   const toggleNearby = async () => {
     if (sortNearby) { setSortNearby(false); return; }
@@ -84,40 +85,47 @@ export const HeroesList: React.FC = () => {
     setLocating(true);
     const result = await getCurrentLocation();
     setLocating(false);
-    if (!result.ok) {
-      setGeoErrorMsg(
-        result.reason === 'insecure'
-          ? 'Locația merge doar pe conexiune securizată — deschide direct superfix.ro pe telefon.'
-          : result.reason === 'blocked'
-          ? 'Ai blocat locația pentru acest site. Apasă pe iconița de lângă adresa paginii din browser, resetează permisiunea de Locație și încearcă din nou.'
-          : result.reason === 'unavailable'
-          ? 'Browserul tău nu oferă localizare.'
-          : 'Nu am putut afla locația ta. Verifică permisiunea de localizare și încearcă din nou.',
-      );
+    if (isLocationError(result)) {
+      setGeoErrorMsg(locationErrorText(result.reason));
       return;
     }
     setUserLoc(result.location);
     setSortNearby(true);
   };
 
-  // Închide dropdown-urile (județe + harta pe PC) dacă dai click în afara lor
+  /* Închide panourile deschise dacă atingi oriunde în afara lor.
+
+     Era pe `mousedown`, și de-aia nu se închidea nimic pe telefon: Safari pe iOS
+     trimite evenimente de mouse „false" doar pentru elementele pe care le
+     consideră apăsabile — o atingere pe fundalul gol al paginii nu producea
+     niciun `mousedown`, deci ascultătorul nu se declanșa niciodată. `pointerdown`
+     vine de la orice atingere, indiferent unde, și acoperă și mouse-ul. */
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    function handlePointerOutside(event: PointerEvent) {
+      const target = event.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setIsDropdownOpen(false);
       }
-      if (mapPanelRef.current && !mapPanelRef.current.contains(event.target as Node)) {
+      if (mapPanelRef.current && !mapPanelRef.current.contains(target)) {
         setShowMap(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('pointerdown', handlePointerOutside);
+    return () => document.removeEventListener('pointerdown', handlePointerOutside);
   }, []);
 
-  // Odată ce avem locația omului, geocodăm orașul fiecărui erou (o dată, cu cache) și calculăm distanța
+  /* Odată ce avem locația omului, geocodăm orașul fiecărui erou (o dată, cu
+     cache) și calculăm distanța.
+
+     `distancesPending` există pentru că pasul ăsta durează: serviciul de
+     geocodare e public și acceptă o cerere pe secundă, deci se merge pe rând,
+     erou cu erou. Între „am dat voie browserului" și primul număr afișat treceau
+     câteva secunde în care pe ecran nu se schimba absolut nimic — exact
+     intervalul în care omul trage concluzia că nu merge. */
   useEffect(() => {
     if (!sortNearby || !userLoc) return;
     let cancelled = false;
+    setDistancesPending(true);
     (async () => {
       const entries: [string, number][] = [];
       for (const hero of heroes) {
@@ -126,7 +134,10 @@ export const HeroesList: React.FC = () => {
         const point = await geocodeAddress(hero.location);
         if (point) entries.push([hero.id, haversineKm(userLoc, point)]);
       }
-      if (!cancelled) setHeroDistances(Object.fromEntries(entries));
+      if (!cancelled) {
+        setHeroDistances(Object.fromEntries(entries));
+        setDistancesPending(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [sortNearby, userLoc, heroes]);
@@ -400,6 +411,19 @@ export const HeroesList: React.FC = () => {
                 </div>
               </div>
         </div>
+        {sortNearby && distancesPending && (
+            <p className="-mt-4 text-center text-xs text-graphite-soft">Calculez distanțele…</p>
+        )}
+
+        {/* Reușită fără niciun rezultat: serviciul public de geocodare n-a
+            răspuns. Omul n-are ce repara, deci nu-i cerem nimic — îi spunem doar
+            ce vede pe ecran, ca să nu creadă că filtrul e stricat. */}
+        {sortNearby && !distancesPending && Object.keys(heroDistances).length === 0 && (
+            <p className="-mt-4 max-w-sm text-center text-xs text-graphite-soft">
+                Ți-am luat locația, dar distanțele n-au putut fi calculate acum. Lista rămâne în ordinea obișnuită.
+            </p>
+        )}
+
         {geoErrorMsg && (
             <p className="-mt-4 max-w-sm text-center text-xs text-super-red">{geoErrorMsg}</p>
         )}
@@ -499,6 +523,25 @@ export const HeroesList: React.FC = () => {
                       to={`/hero/${hero.slug || hero.id}`}
                       className="group sf-glass relative flex h-full flex-col overflow-hidden rounded-[20px] transition-shadow duration-300 sm:rounded-[28px]"
                     >
+                      {/* Cât de departe e, odată ce știm unde ești.
+
+                          Fără asta, „Aproape de mine" nu producea NIMIC vizibil:
+                          singurul lui efect era ordinea din listă, iar eroii de
+                          acum au toți același oraș, deci ordinea rămânea
+                          identică. Adică mergea, dar arăta exact ca și cum nu
+                          merge. Distanța scrisă pe card e dovada că locația a
+                          fost preluată și folosită, indiferent de ordine. */}
+                      {sortNearby && heroDistances[hero.id] !== undefined && (
+                        <div className="absolute left-2 top-2 z-20 sm:left-4 sm:top-4">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-super-red px-2 py-1 font-heading text-[9px] font-semibold text-white shadow-clay-red sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                                <Target size={12} weight="fill" aria-hidden="true" />
+                                {heroDistances[hero.id] < 1
+                                    ? 'sub 1 km'
+                                    : `${Math.round(heroDistances[hero.id])} km`}
+                            </span>
+                        </div>
+                      )}
+
                       {/* Badge Categorie */}
                       <div className="absolute right-2 top-2 z-20 sm:right-4 sm:top-4">
                           <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-heading font-semibold text-graphite shadow-clay-sm backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
@@ -516,7 +559,7 @@ export const HeroesList: React.FC = () => {
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                         <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
-                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-lg font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
+                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-base font-bold sf-thicken text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
                             {hero.alias}
                         </h3>
                       </div>
@@ -527,27 +570,27 @@ export const HeroesList: React.FC = () => {
                         {/* Stats */}
                         <div className="flex items-center justify-between gap-1 rounded-xl bg-white/55 px-2 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2.5">
                             <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-sm font-semibold text-graphite sm:text-base">
-                                    <ShieldCheck size={14} weight="fill" className="text-emerald-600" aria-hidden="true" />
+                                <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
+                                    <ShieldCheck size={13} weight="fill" className="text-emerald-600" aria-hidden="true" />
                                     {hero.trustFactor}
                                 </span>
-                                <span className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
                                     <span className="sm:hidden">Încr.</span>
                                     <span className="hidden sm:inline">Încredere</span>
                                 </span>
                             </div>
                             <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
                             <div className="flex flex-col items-center">
-                                <span className="font-heading text-sm font-semibold text-graphite sm:text-base">{hero.missionsCompleted}</span>
-                                <span className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
+                                <span className="font-heading text-xs sf-thicken text-graphite sm:text-base">{hero.missionsCompleted}</span>
+                                <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
                             </div>
                             <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
                             <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-sm font-semibold text-graphite sm:text-base">
-                                    <Star size={14} weight="fill" className="text-comic-yellow" aria-hidden="true" />
+                                <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
+                                    <Star size={13} weight="fill" className="text-comic-yellow" aria-hidden="true" />
                                     {avgRating > 0 ? avgRating.toFixed(1) : '–'}
                                 </span>
-                                <span className="mt-0.5 whitespace-nowrap text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                <span className="mt-0.5 whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
                                     {hero.reviews?.length || 0} rec.
                                 </span>
                             </div>

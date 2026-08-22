@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { collapseOnto, prefersReducedMotion, EASE } from '@/lib/flip';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 /* ============================================================
    Sheet — panoul care crește din butonul apăsat.
@@ -30,9 +31,13 @@ interface SheetProps {
       margine vizibilă pe toate laturile pe orice ecran — pentru formulare scurte
       care nu trebuie să arate ca un drawer fixat pe ecran. */
   variant?: 'sheet' | 'modal';
+  /** Rămâne lipit jos, în afara zonei care se derulează: acțiunea principală nu
+      trebuie să dispară din ecran cât timp completezi câmpurile. Un buton de
+      trimitere pus aici se leagă de formularul din `children` prin `form="id"`. */
+  footer?: React.ReactNode;
 }
 
-export function Sheet({ open, onClose, title, subtitle, originRect, children, variant = 'sheet' }: SheetProps) {
+export function Sheet({ open, onClose, title, subtitle, originRect, children, variant = 'sheet', footer }: SheetProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [fade, setFade] = useState<'none' | 'top' | 'bottom' | 'both'>('none');
@@ -111,9 +116,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
   // blocarea scroll-ului, în efect separat care depinde DOAR de open
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return lockBodyScroll();
   }, [open]);
 
   /* Cât mai e de derulat: de asta depinde unde se stinge conținutul.
@@ -184,34 +187,61 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           'sf-glass relative z-10 flex w-full flex-col overflow-hidden',
           variant === 'modal'
             // card centrat, compact, cu margine vizibilă în jur pe orice ecran
-            ? 'max-h-[85svh] max-w-md rounded-[28px]'
+            ? 'max-h-[80svh] max-w-md rounded-[28px]'
             // telefon: foaie lipită de jos, colțuri rotunjite doar sus; desktop: card centrat
             : 'max-h-[92svh] rounded-t-[28px] sm:max-w-lg sm:rounded-[28px]',
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-graphite/10 px-6 pb-4 pt-5">
+        <div
+          className={cn(
+            'flex items-start justify-between gap-4 border-b border-graphite/10',
+            variant === 'modal' ? 'px-5 pb-3 pt-4' : 'px-6 pb-4 pt-5',
+          )}
+        >
           <div className="min-w-0">
-            <h2 className="font-heading text-xl font-semibold text-graphite">{title}</h2>
-            {subtitle && <p className="mt-1 text-sm text-graphite-soft">{subtitle}</p>}
+            <h2 className={cn('font-heading font-semibold text-graphite', variant === 'modal' ? 'text-lg' : 'text-xl')}>{title}</h2>
+            {subtitle && <p className={cn('mt-1 text-graphite-soft', variant === 'modal' ? 'text-xs' : 'text-sm')}>{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={close}
             aria-label="Închide"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-graphite/10 bg-white/80 text-graphite transition-transform hover:scale-105 active:scale-95"
+            className={cn(
+              'flex shrink-0 items-center justify-center rounded-full border border-graphite/10 bg-white/80 text-graphite transition-transform hover:scale-105 active:scale-95',
+              variant === 'modal' ? 'h-9 w-9' : 'h-10 w-10',
+            )}
           >
-            <X size={18} weight="bold" />
+            <X size={variant === 'modal' ? 16 : 18} weight="bold" />
           </button>
         </div>
 
         <div
           ref={bodyRef}
           data-fade={fade}
-          className="sf-scroll overflow-y-auto px-6 pt-5"
-          style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+          className={cn('sf-scroll overflow-y-auto', variant === 'modal' ? 'px-5 pt-4' : 'px-6 pt-5')}
+          style={
+            footer
+              // cu subsol lipit, marginea de siguranță de jos e treaba subsolului
+              ? { paddingBottom: '1rem' }
+              : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }
+          }
         >
           <div>{children}</div>
         </div>
+
+        {/* Subsolul nu se derulează niciodată: `shrink-0` îl scoate din
+            împărțirea spațiului, deci zona de deasupra e cea care cedează. */}
+        {footer && (
+          <div
+            className={cn(
+              'shrink-0 border-t border-graphite/10 bg-white/45',
+              variant === 'modal' ? 'px-5 pt-3' : 'px-6 pt-4',
+            )}
+            style={{ paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom))' }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

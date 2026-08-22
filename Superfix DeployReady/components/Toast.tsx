@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle, WarningCircle, Info, X } from '@phosphor-icons/react';
 
 import './toast.css';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 /* ============================================================
    Notificări și confirmări, în locul ferestrelor sistemului de operare.
@@ -140,13 +141,12 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ request, onAnswer }) => {
       if (e.key === 'Enter') answerRef.current(true);
     };
     window.addEventListener('keydown', onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const unlock = lockBodyScroll();
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(t);
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previousOverflow;
+      unlock();
     };
   }, []);
 

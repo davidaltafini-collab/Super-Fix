@@ -95,34 +95,69 @@ const PillNav: React.FC<PillNavProps> = ({
     };
   }, [targetIndex, ease, items]);
 
-  // Mic la scroll-down / mare la scroll-up — prin clasă CSS, exact ca în versiunea
-  // care funcționa. NU prin GSAP: GSAP scrie transform inline pe element, iar stilul
-  // inline bate clasa CSS, ceea ce bloca complet micșorarea.
-  const [isCompact, setIsCompact] = useState(false);
+  /* Micșorarea urmează derularea, nu o comută.
+
+     Înainte era o stare cu două valori: sub prag mare, peste prag mic, cu o
+     tranziție CSS de 0.35s între ele. Oricât de bine alegeai pragul, momentul
+     în care îl treceai nu avea nicio legătură cu cât de repede mișcai degetul:
+     navbarul pleca singur în sus, cu ritmul lui, în timp ce pagina mergea cu
+     al ei. Peste asta, bara de sus a browserului pe telefon se retrage tot
+     atunci, cu încă o mișcare independentă — trei lucruri care se mișcă
+     nesincronizat, de-acolo senzația de glitch.
+
+     Acum e o singură mărime continuă: cât ai derulat între START și END se
+     traduce direct în cât e de mic navbarul. Dacă miști încet, se micșorează
+     încet; dacă te oprești la jumătate, rămâne la jumătate. Fiind legat de
+     poziție, nu de direcție, e mereu în pas cu pagina.
+
+     `EASING` (interpolare spre țintă, ~0.18/cadru) nu întârzie mișcarea, doar
+     rotunjește tremurul de sub-pixel de la rubber-band-ul iOS. */
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef(0);
+  const hoverRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+  const kickRef = useRef<() => void>(() => {});
+
   useEffect(() => {
-    const THRESHOLD = 60;
-    let lastY = window.scrollY;
-    let ticking = false;
+    const el = containerRef.current;
+    if (!el) return;
+    // cu mișcare redusă, navbarul rămâne pur și simplu la mărimea lui
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const evaluate = () => {
-      ticking = false;
+    const START = 24;
+    const END = 170;
+    const EASING = 0.18;
+
+    const target = () => {
+      if (hoverRef.current) return 0; // mouse deasupra -> revine la mărime maximă
       const y = window.scrollY;
-      const goingDown = y > lastY;
-      lastY = y;
-
-      if (y > THRESHOLD && goingDown) setIsCompact(true);
-      else if (y <= THRESHOLD || !goingDown) setIsCompact(false);
+      return Math.min(1, Math.max(0, (y - START) / (END - START)));
     };
 
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(evaluate);
-      }
+    const tick = () => {
+      const want = target();
+      const next = progressRef.current + (want - progressRef.current) * EASING;
+      const settled = Math.abs(want - next) < 0.0015;
+      progressRef.current = settled ? want : next;
+      el.style.setProperty('--nav-p', progressRef.current.toFixed(4));
+      rafRef.current = settled ? null : requestAnimationFrame(tick);
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const kick = () => {
+      if (rafRef.current === null) rafRef.current = requestAnimationFrame(tick);
+    };
+    kickRef.current = kick;
+
+    kick(); // poziția corectă și la intrarea pe pagină derulată (revenire din back)
+    window.addEventListener('scroll', kick, { passive: true });
+    window.addEventListener('resize', kick);
+
+    return () => {
+      window.removeEventListener('scroll', kick);
+      window.removeEventListener('resize', kick);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
   }, []);
 
   /* Pe touch nu intram NICIODATA in stare de hover.
@@ -148,8 +183,14 @@ const PillNav: React.FC<PillNavProps> = ({
   };
 
   return (
-    <div className={`pill-nav-container${isCompact ? ' is-compact' : ''}`}>
-      <nav ref={pillNavRef} className={`pill-nav ${className}`} aria-label="Primary">
+    <div className="pill-nav-container" ref={containerRef}>
+      <nav
+        ref={pillNavRef}
+        className={`pill-nav ${className}`}
+        aria-label="Primary"
+        onPointerEnter={(e) => { if (isMouse(e)) { hoverRef.current = true; kickRef.current(); } }}
+        onPointerLeave={(e) => { if (isMouse(e)) { hoverRef.current = false; kickRef.current(); } }}
+      >
         <GlassSurface
           className="pill-nav-glass"
           width="100%"

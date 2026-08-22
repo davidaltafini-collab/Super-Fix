@@ -13,6 +13,7 @@ import { collapseOnto, prefersReducedMotion } from '@/lib/flip';
 
 import './mission-viewer.css';
 import { thumb, full } from '@/lib/img';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 /* ============================================================
    AnimatedFolder — dosar 3D care se deschide la hover și scoate
@@ -272,9 +273,7 @@ function MissionViewer({
   // Blocarea scroll-ului stă în efect separat, care depinde DOAR de isOpen.
   useEffect(() => {
     if (!isOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return lockBodyScroll();
   }, [isOpen]);
 
   if (!mounted || !project || typeof document === 'undefined') return null;
@@ -518,7 +517,15 @@ export function AnimatedFolder({ title, subtitle, projects, className }: Animate
         setPeek(true);
         teaseTimer.current = window.setTimeout(() => setPeek(false), 900);
       },
-      { threshold: 0.5 },
+      /* Se pornea la `threshold: 0.5` — adica in clipa in care jumatate din dosar
+         intra in ecran, deci de multe ori cat inca era jos, la marginea de sus a
+         privirii, in timp ce omul citea prima parte a profilului. Pana ajungea cu
+         ochii acolo, pozele isi terminasera deja iesirea si dosarul arata ca
+         oricare altul: semnalul ca se poate deschide se pierdea complet.
+
+         `rootMargin` negativ sus si jos strange zona de declansare la banda din
+         mijlocul ecranului: se aprinde abia cand dosarul ajunge sub ochi. */
+      { threshold: 0, rootMargin: '-42% 0px -42% 0px' },
     );
     io.observe(el);
 

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import { collapseOnto, prefersReducedMotion, EASE } from '@/lib/flip';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 /* ============================================================
    Lightbox — conținutul pe tot ecranul, curat, fără nimic în jur.
@@ -97,9 +98,7 @@ export function Lightbox({ open, onClose, label, originRect, children }: Lightbo
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return lockBodyScroll();
   }, [open]);
 
   if (!mounted || typeof document === 'undefined') return null;

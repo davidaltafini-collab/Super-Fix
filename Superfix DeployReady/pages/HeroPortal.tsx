@@ -7,7 +7,7 @@ import {
 } from '../services/dataService';
 import { Skel, SkeletonPage } from '../components/Loader';
 import { searchMissions } from '../lib/search';
-import { getCurrentLocation, haversineKm, routeMatrix, GeoPoint, Leg } from '../lib/geo';
+import { getCurrentLocation, haversineKm, routeMatrix, isLocationError, locationErrorText, GeoPoint, Leg } from '../lib/geo';
 import { CameraCapture } from '../components/CameraCapture';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
@@ -360,13 +360,13 @@ export const HeroPortal: React.FC = () => {
   const askHere = async () => {
     setGeo('asking');
     const result = await getCurrentLocation();
-    if (result.ok) {
-      setHere({ lat: result.location.lat, lng: result.location.lng });
-      setGeo('ok');
-    } else {
+    if (isLocationError(result)) {
       setGeo('off');
-      toast.error('N-am putut lua locația ta. Verifică permisiunea din browser.');
+      toast.error(locationErrorText(result.reason));
+      return;
     }
+    setHere({ lat: result.location.lat, lng: result.location.lng });
+    setGeo('ok');
   };
 
 

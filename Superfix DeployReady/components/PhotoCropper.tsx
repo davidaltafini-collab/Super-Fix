@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Check, MagnifyingGlassMinus, MagnifyingGlassPlus } from '@phosphor-icons/react';
 import './cropper.css';
+import { lockBodyScroll } from '@/lib/scrollLock';
 
 /* ============================================================
    Așezarea pozei de profil.
@@ -52,9 +53,7 @@ export const PhotoCropper: React.FC<PhotoCropperProps> = ({
 
   // pagina de dedesubt stă pe loc cât ține ecranul tot
   useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return lockBodyScroll();
   }, []);
 
   useEffect(() => {
