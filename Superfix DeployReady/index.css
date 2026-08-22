@@ -19,6 +19,23 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Taie întârzierea de ~300ms de pe telefon.
+
+   Fără asta, browserul așteaptă după fiecare atingere ca să vadă dacă nu cumva
+   urmează a doua (dublu-tap = zoom). Pe orice buton sau link înseamnă o treime
+   de secundă în care nu se întâmplă nimic, și de-acolo senzația că apăsarea
+   „n-a intrat". `manipulation` păstrează derularea și pinch-ul, dar renunță la
+   dublu-tap-zoom exact pe elementele pe care oricum le apeși ca să acționezi. */
+a,
+button,
+[role='button'],
+label,
+summary,
+input[type='checkbox'],
+input[type='radio'] {
+  touch-action: manipulation;
+}
+
 /* Anton e un font condensat: fără tracking pozitiv, literele se lipesc și devine
    greu de citit, mai ales cu majuscule și la corp mic. */
 .font-heading {

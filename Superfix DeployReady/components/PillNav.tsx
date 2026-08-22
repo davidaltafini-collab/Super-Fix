@@ -125,7 +125,18 @@ const PillNav: React.FC<PillNavProps> = ({
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const handleLogoEnter = () => {
+  /* Pe touch nu intram NICIODATA in stare de hover.
+
+     Aici era `onMouseEnter`. Pe telefon, primul deget pe un link declanseaza
+     mai intai `mouseenter` sintetic: componenta se redeseneaza (culoarea
+     linkului se schimba, indicatorul de sticla aluneca), iar Safari trateaza
+     atingerea aia ca simpla trecere cu mouse-ul si NU mai trimite click-ul.
+     De-acolo venea „trebuie sa apas de doua ori". `pointerType` ne spune exact
+     ce a atins ecranul, deci hover-ul ramane doar pentru mouse real. */
+  const isMouse = (e: React.PointerEvent) => e.pointerType === 'mouse';
+
+  const handleLogoEnter = (e: React.PointerEvent) => {
+    if (!isMouse(e)) return;
     const disc = discRef.current;
     if (!disc) return;
     logoTweenRef.current?.kill();
@@ -160,7 +171,7 @@ const PillNav: React.FC<PillNavProps> = ({
           to={items[0]?.href ?? '/'}
           className="pill-logo"
           aria-label="Home"
-          onMouseEnter={handleLogoEnter}
+          onPointerEnter={handleLogoEnter}
         >
           <SuperfixMark discRef={discRef} />
         </Link>
@@ -198,8 +209,8 @@ const PillNav: React.FC<PillNavProps> = ({
                     className="pill-link"
                     aria-label={item.ariaLabel || item.label}
                     aria-current={activeHref === item.href ? 'page' : undefined}
-                    onMouseEnter={() => setHoveredIndex(i)}
-                    onMouseLeave={() => setHoveredIndex(null)}
+                    onPointerEnter={(e) => { if (isMouse(e)) setHoveredIndex(i); }}
+                    onPointerLeave={(e) => { if (isMouse(e)) setHoveredIndex(null); }}
                     style={{ color: selected ? activeTextColor : textColor }}
                   >
                     {item.label}

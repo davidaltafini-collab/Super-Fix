@@ -95,7 +95,16 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
         width={377}
         height={712}
         fetchPriority="high"
-        className="relative w-auto max-h-[42svh] md:max-h-[74svh] drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
+        /* Marime fixa, nu procent din inaltimea ecranului.
+
+           Era `max-h-[42svh] md:max-h-[74svh]`. Pe telefon, orice unitate legata
+           de viewport se reevalueaza cand bara de adrese a browserului se retrage
+           la scroll — adica mascota se facea mai mica si mai mare in timp ce
+           derulai, si tragea dupa ea inaltimea hero-ului. In rem, mascota are
+           aceeasi marime ca inainte pe un ecran obisnuit (22rem = 352px, cat
+           dadea 42svh pe un iPhone), dar nu mai depinde de interfata browserului.
+           `max-w-full` o tine in coloana si pe telefoanele inguste. */
+        className="relative h-auto w-auto max-h-[22rem] max-w-full md:max-h-[41rem] drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
       />
     </div>
     <div className="mx-auto mt-1 w-40 md:w-56 h-4 rounded-[100%] bg-graphite/25 blur-md" aria-hidden="true" />
@@ -176,7 +185,7 @@ export const Home: React.FC = () => {
         <div className="absolute -top-24 right-0 w-[38rem] h-[38rem] rounded-full bg-spark/20 blur-3xl -z-10 animate-float-slow" aria-hidden="true" />
         <div className="absolute -bottom-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-super-red/10 blur-3xl -z-10" aria-hidden="true" />
 
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-28 pb-14 md:pb-16 min-h-[100svh] grid md:grid-cols-2 gap-8 md:gap-6 items-center">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-28 pb-14 md:pb-16 min-h-[var(--sf-vh,100svh)] grid md:grid-cols-2 gap-8 md:gap-6 items-center">
           <motion.div variants={heroCopy} initial={reduce ? false : 'hidden'} animate="show" className="text-center md:text-left order-2 md:order-1">
             <motion.span variants={reduce ? undefined : heroItem} className="inline-flex items-center gap-2 bg-white text-graphite font-heading font-semibold text-sm px-4 py-2 rounded-full shadow-clay-sm">
               <SealCheck size={18} weight="fill" className="text-super-red" aria-hidden="true" />

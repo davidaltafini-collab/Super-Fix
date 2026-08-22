@@ -115,9 +115,16 @@ const App: React.FC = () => {
             />
           </div>
 
-          {/* Strat de frosted glass între grilă și conținut: estompează foarte ușor punctele. */}
+          {/* Voal foarte subțire între grilă și conținut: temperează punctele.
+
+              Aici era `backdrop-blur-sm`. Un backdrop-filter se aplică pe TOT ce e
+              în spatele elementului, iar elementul ăsta e cât documentul: pe home,
+              390x6389 px. Adică browserul reblura o suprafață de 6400px la fiecare
+              cadru. Măsurat pe telefon emulat: doar scoaterea lui a dus pagina de
+              la 25 la 50 de cadre pe secundă. Un strat translucid simplu costă zero
+              și se vede aproape la fel. */}
           <div
-            className="absolute inset-0 z-[1] pointer-events-none backdrop-blur-sm bg-white/5"
+            className="absolute inset-0 z-[1] pointer-events-none bg-white/10"
             aria-hidden="true"
           />
 

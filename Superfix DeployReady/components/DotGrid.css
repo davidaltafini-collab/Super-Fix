@@ -1,22 +1,28 @@
 .dot-grid {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  width: 100%;
-  position: relative;
-}
-
-.dot-grid__wrap {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.dot-grid__canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  overflow: hidden;
   pointer-events: none;
+}
+
+/* Panza sta pe ecran, nu pe pagina. Derularea o muta cu un transform aplicat din
+   JS (grila e periodica, deci se vede exact ca una ancorata in document), iar
+   memoria ramane cat un ecran in loc de cat toata pagina. */
+.dot-grid__canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Varianta pentru touch si pentru „miscare redusa": aceleasi puncte, dar ca
+   fundal tiled. O singura pictura, fara panza, fara cadre, fara memorie video. */
+.dot-grid--static {
+  background-image: radial-gradient(
+    var(--dot-color, #e9eef4) var(--dot-radius, 2.5px),
+    transparent calc(var(--dot-radius, 2.5px) + 0.5px)
+  );
+  background-size: var(--dot-cell, 22px) var(--dot-cell, 22px);
+  background-position: center top;
 }
