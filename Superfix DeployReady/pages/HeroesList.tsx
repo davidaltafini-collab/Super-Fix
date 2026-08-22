@@ -6,6 +6,7 @@ import { RomaniaMap } from '../components/RomaniaMap';
 import { thumb } from '../lib/img';
 import { Tilt } from '../components/motion';
 import { GlassButton } from '../components/Button';
+import { Mascot } from '../components/Mascot';
 import { getCurrentLocation, geocodeAddress, haversineKm, isLocationError, locationErrorText, type GeoPoint } from '../lib/geo';
 import { searchHeroes } from '../lib/heroSearch';
 import {
@@ -351,24 +352,34 @@ export const HeroesList: React.FC = () => {
         {/* --- FILTRU ZONĂ + CEI MAI APROPIAȚI --- */}
         {/* Un singur rând, compact, la fel pe telefon și pe PC — harta se deschide
             într-un panou plutitor ancorat de buton, nu mai împinge pagina în jos. */}
-        <div ref={mapPanelRef} className="relative flex flex-wrap items-center justify-center gap-3">
+        <div ref={mapPanelRef} className="relative flex flex-nowrap items-center justify-center gap-2 sm:gap-3">
               <button
                   type="button"
                   onClick={() => setShowMap(v => !v)}
                   aria-expanded={showMap}
-                  className="sf-glass relative z-40 flex items-center gap-2.5 rounded-full py-3 pl-4 pr-3 font-heading text-sm font-semibold transition-colors hover:bg-white/60 sm:gap-3 sm:pl-5 sm:pr-4"
+                  className="sf-glass relative z-40 flex shrink-0 items-center gap-1.5 rounded-full py-2.5 pl-3 pr-2.5 font-heading text-[13px] font-semibold transition-colors hover:bg-white/60 sm:gap-3 sm:py-3 sm:pl-5 sm:pr-4 sm:text-sm"
               >
-                  <MapPin size={18} weight="duotone" className="text-super-red" aria-hidden="true" />
-                  Filtru zonă
-                  <span className="h-4 w-px bg-graphite/15" aria-hidden="true" />
+                  <MapPin size={18} weight="duotone" className="shrink-0 text-super-red" aria-hidden="true" />
+                  {/* Pe telefon cele doua butoane trebuie sa incapa pe acelasi rand,
+                      deci textul lung ramane doar unde e loc pentru el. */}
+                  <span className="hidden sm:inline">Filtru zonă</span>
+                  <span className="sm:hidden">Zonă</span>
+                  <span className="hidden h-4 w-px bg-graphite/15 sm:block" aria-hidden="true" />
                   <span className="flex items-center gap-1.5 font-normal text-graphite-soft sm:gap-2">
-                      {filterCounties.length === 0
-                          ? 'Toată România'
-                          : `${filterCounties.length} ${filterCounties.length === 1 ? 'județ' : 'județe'}`}
+                      <span className="hidden sm:inline">
+                          {filterCounties.length === 0
+                              ? 'Toată România'
+                              : `${filterCounties.length} ${filterCounties.length === 1 ? 'județ' : 'județe'}`}
+                      </span>
+                      {filterCounties.length > 0 && (
+                          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-super-red px-1 text-[10px] font-bold text-white sm:hidden">
+                              {filterCounties.length}
+                          </span>
+                      )}
                       <CaretDown
-                          size={16}
+                          size={15}
                           weight="bold"
-                          className={`transition-transform duration-200 ${showMap ? 'rotate-180' : ''}`}
+                          className={`shrink-0 transition-transform duration-200 ${showMap ? 'rotate-180' : ''}`}
                           aria-hidden="true"
                       />
                   </span>
@@ -381,10 +392,11 @@ export const HeroesList: React.FC = () => {
                   disabled={locating}
                   aria-pressed={sortNearby}
                   title="Sortează după cei mai apropiați de tine"
-                  className="sf-glass relative z-40 inline-flex items-center gap-2 rounded-full py-2 pl-3.5 pr-2 font-heading text-sm font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70"
+                  className="sf-glass relative z-40 inline-flex shrink-0 items-center gap-1.5 rounded-full py-2 pl-3 pr-1.5 font-heading text-[13px] font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70 sm:gap-2 sm:pl-3.5 sm:pr-2 sm:text-sm"
               >
-                  <Target size={16} weight={sortNearby ? 'fill' : 'regular'} className={sortNearby ? 'text-super-red' : ''} aria-hidden="true" />
-                  <span>{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
+                  <Target size={16} weight={sortNearby ? 'fill' : 'regular'} className={`shrink-0 ${sortNearby ? 'text-super-red' : ''}`} aria-hidden="true" />
+                  <span className="hidden sm:inline">{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
+                  <span className="sm:hidden">{locating ? 'Caut…' : 'Aproape'}</span>
                   <span
                       aria-hidden="true"
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${sortNearby ? 'bg-super-red' : 'bg-graphite/20'}`}
@@ -502,13 +514,9 @@ export const HeroesList: React.FC = () => {
         <>
           {filteredHeroes.length === 0 ? (
             <div className="sf-glass mx-auto max-w-2xl rounded-[32px] px-6 py-14 text-center">
-              <img
-                src="/mascot.png"
-                alt=""
-                aria-hidden="true"
-                width={377}
-                height={712}
-                className="mx-auto mb-6 w-auto max-h-44 opacity-90 drop-shadow-[0_18px_26px_rgba(46,51,59,0.3)]"
+              <Mascot
+                className="mx-auto mb-6 w-auto max-h-44 opacity-90"
+                shadow="drop-shadow-[0_18px_26px_rgba(46,51,59,0.3)]"
               />
               <h3 className="font-heading text-2xl font-bold">Niciun erou pe potrivă</h3>
               <p className="mx-auto mt-3 max-w-sm text-graphite-soft">

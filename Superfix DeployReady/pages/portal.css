@@ -121,7 +121,9 @@
   transition: transform 200ms ease, box-shadow 200ms ease;
 }
 
-.portal-action:hover { transform: translateY(-2px); }
+@media (hover: hover) {
+  .portal-action:hover { transform: translateY(-2px); }
+}
 .portal-action:active { transform: scale(0.97); }
 
 /* Butonul principal poartă culoarea stării cardului, ca bara din listă. Erau
@@ -167,9 +169,11 @@
   transition: transform 200ms ease, background-color 200ms ease, color 200ms ease;
 }
 
-.portal-link:hover {
-  transform: translateY(-2px);
-  background: #fff;
+@media (hover: hover) {
+  .portal-link:hover {
+    transform: translateY(-2px);
+    background: #fff;
+  }
 }
 
 .portal-link--out {
@@ -177,10 +181,12 @@
   border-color: hsl(355 55% 62% / 0.4);
 }
 
-.portal-link--out:hover {
-  color: #fff;
-  background: hsl(355 74% 55%);
-  border-color: hsl(355 74% 55%);
+@media (hover: hover) {
+  .portal-link--out:hover {
+    color: #fff;
+    background: hsl(355 74% 55%);
+    border-color: hsl(355 74% 55%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -250,9 +256,11 @@
   transition: background-color 200ms ease, transform 200ms ease;
 }
 
-.mission-card__phone:hover {
-  transform: translateY(-2px);
-  background: hsl(160 84% 33% / 0.2);
+@media (hover: hover) {
+  .mission-card__phone:hover {
+    transform: translateY(-2px);
+    background: hsl(160 84% 33% / 0.2);
+  }
 }
 
 .mission-card__email {
@@ -284,13 +292,15 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  @media (hover: hover) {
   .mission-card:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      0 34px 62px -22px rgba(46, 51, 59, 0.45),
-      0 3px 10px -4px rgba(46, 51, 59, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 1);
-  }
+      transform: translateY(-3px);
+      box-shadow:
+        0 34px 62px -22px rgba(46, 51, 59, 0.45),
+        0 3px 10px -4px rgba(46, 51, 59, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+}
 }
 
 /* apelurile la care încă n-a răspuns nimeni ies în față printr-un fir roșu */
@@ -336,7 +346,9 @@
   transition: gap 200ms ease;
 }
 
-.mission-card__open:hover { gap: 0.6rem; }
+@media (hover: hover) {
+  .mission-card__open:hover { gap: 0.6rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .mission-card__open { transition: none; }
@@ -379,13 +391,15 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  @media (hover: hover) {
   .mcard:hover {
-    transform: translateY(-3px);
-    box-shadow:
-      0 32px 60px -24px rgba(46, 51, 59, 0.45),
-      0 3px 10px -4px rgba(46, 51, 59, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 1);
-  }
+      transform: translateY(-3px);
+      box-shadow:
+        0 32px 60px -24px rgba(46, 51, 59, 0.45),
+        0 3px 10px -4px rgba(46, 51, 59, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    }
+}
 }
 
 /* misiunile încheiate nu mai cer nimic: se retrag un pas în spate */
@@ -544,7 +558,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.mcard__tel:hover { filter: brightness(0.85); }
+@media (hover: hover) {
+  .mcard__tel:hover { filter: brightness(0.85); }
+}
 
 /* ---------------- bara de acțiune ---------------- */
 
@@ -585,7 +601,9 @@
   color: #fff;
 }
 
-.mcard__bar:hover .mcard__fill { filter: brightness(1.07); }
+@media (hover: hover) {
+  .mcard__bar:hover .mcard__fill { filter: brightness(1.07); }
+}
 .mcard__bar:active .mcard__fill { filter: brightness(0.95); }
 .mcard__bar:focus-visible { outline: 2px solid #2e333b; outline-offset: -3px; }
 
@@ -600,7 +618,9 @@
   color: #8b929c;
 }
 
-.mcard__refuse:hover { color: #2e333b; }
+@media (hover: hover) {
+  .mcard__refuse:hover { color: #2e333b; }
+}
 
 /* misiune încheiată: nu mai e nimic de apăsat, doar de citit */
 .mcard__done {
@@ -708,9 +728,13 @@
   transition: background-color 180ms ease, color 180ms ease;
 }
 
-.portal-search__clear:hover { background: rgba(46, 51, 59, 0.07); color: #2e333b; }
+@media (hover: hover) {
+  .portal-search__clear:hover { background: rgba(46, 51, 59, 0.07); color: #2e333b; }
+}
 
-.portal-search__here:hover { background: hsl(355 74% 55% / 0.1); color: hsl(355 66% 45%); }
+@media (hover: hover) {
+  .portal-search__here:hover { background: hsl(355 74% 55% / 0.1); color: hsl(355 66% 45%); }
+}
 .portal-search__here[data-on='true'] { color: #fff; background: hsl(355 74% 55%); }
 
 /* ---------------- ce am înțeles ---------------- */
@@ -771,7 +795,9 @@
   transition: color 180ms ease, background-color 200ms ease, border-color 200ms ease;
 }
 
-.portal-chip:hover { filter: brightness(0.97); }
+@media (hover: hover) {
+  .portal-chip:hover { filter: brightness(0.97); }
+}
 
 /* Culoarea stă în SCRIS, nu în pastilă.
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import GlassSurface from './GlassSurface';
 import { SuperfixMark } from './SuperfixMark';
@@ -217,6 +217,44 @@ const PillNav: React.FC<PillNavProps> = ({
      ce a atins ecranul, deci hover-ul ramane doar pentru mouse real. */
   const isMouse = (e: React.PointerEvent) => e.pointerType === 'mouse';
 
+  /* Plasa de siguranta pentru atingerea pe care iOS o inghite.
+
+     Cat timp pagina inca aluneca din inertie, Safari foloseste prima atingere
+     ca sa opreasca derularea si NU mai trimite `click` — de-aici „la primul tap
+     se opreste din derulat si abia dupa pot sa apas pe buton". Evenimentele de
+     pointer ajung insa normal la noi.
+
+     Deci: la ridicarea degetului pornim un ceas scurt. Daca `click` vine (cazul
+     obisnuit), il oprim si nu facem nimic — navigheaza linkul, ca pana acum.
+     Daca nu vine deloc, mergem noi la pagina. Pragul de 12px face diferenta
+     intre o apasare si inceputul unui gest de derulare, iar `pointercancel`
+     (cand degetul ia pagina la vale) anuleaza tot. */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const tapStartRef = useRef<{ x: number; y: number } | null>(null);
+  const tapTimerRef = useRef<number | null>(null);
+
+  const cancelTapRescue = () => {
+    if (tapTimerRef.current !== null) {
+      window.clearTimeout(tapTimerRef.current);
+      tapTimerRef.current = null;
+    }
+  };
+
+  const rescueTap = (e: React.PointerEvent, href: string) => {
+    const start = tapStartRef.current;
+    tapStartRef.current = null;
+    if (isMouse(e) || !start) return;
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) return;
+    cancelTapRescue();
+    tapTimerRef.current = window.setTimeout(() => {
+      tapTimerRef.current = null;
+      if (location.pathname !== href) navigate(href);
+    }, 320);
+  };
+
+  useEffect(() => cancelTapRescue, []);
+
   const handleLogoEnter = (e: React.PointerEvent) => {
     if (!isMouse(e)) return;
     const disc = discRef.current;
@@ -237,7 +275,12 @@ const PillNav: React.FC<PillNavProps> = ({
         aria-label="Primary"
         onPointerEnter={(e) => { if (isMouse(e)) { hoverRef.current = true; kickRef.current(); } }}
         onPointerLeave={(e) => { if (isMouse(e)) { hoverRef.current = false; kickRef.current(); } }}
-        onPointerDown={(e) => { if (!isMouse(e)) freezeRef.current(true); }}
+        onPointerDown={(e) => {
+          if (isMouse(e)) return;
+          freezeRef.current(true);
+          tapStartRef.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerCancel={() => { tapStartRef.current = null; cancelTapRescue(); }}
       >
         <GlassSurface
           className="pill-nav-glass"
@@ -261,6 +304,8 @@ const PillNav: React.FC<PillNavProps> = ({
           className="pill-logo"
           aria-label="Home"
           onPointerEnter={handleLogoEnter}
+          onPointerUp={(e) => rescueTap(e, items[0]?.href ?? '/')}
+          onClick={cancelTapRescue}
         >
           <SuperfixMark discRef={discRef} />
         </Link>
@@ -300,6 +345,8 @@ const PillNav: React.FC<PillNavProps> = ({
                     aria-current={activeHref === item.href ? 'page' : undefined}
                     onPointerEnter={(e) => { if (isMouse(e)) setHoveredIndex(i); }}
                     onPointerLeave={(e) => { if (isMouse(e)) setHoveredIndex(null); }}
+                    onPointerUp={(e) => rescueTap(e, item.href)}
+                    onClick={cancelTapRescue}
                     style={{ color: selected ? activeTextColor : textColor }}
                   >
                     {item.label}

@@ -78,7 +78,9 @@
 }
 
 .sub-plan:not(:disabled) { cursor: pointer; }
-.sub-plan:not(:disabled):hover { transform: translateY(-2px); }
+@media (hover: hover) {
+  .sub-plan:not(:disabled):hover { transform: translateY(-2px); }
+}
 
 /* Planul care încă nu se poate cumpăra nu se ascunde și nu se preface: se stinge
    și spune de ce. Un card gri fără explicație e mai enervant decât lipsa lui. */

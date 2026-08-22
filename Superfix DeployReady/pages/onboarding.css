@@ -77,7 +77,9 @@
   transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.onb-county:hover { background: #fff; }
+@media (hover: hover) {
+  .onb-county:hover { background: #fff; }
+}
 .onb-county:active { transform: scale(0.97); }
 
 .onb-county[aria-pressed='true'] {

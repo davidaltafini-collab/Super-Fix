@@ -1,5 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  /* Stilurile de hover doar unde exista mouse.
+
+     Fara asta, Tailwind scoate `.hover\:x:hover` fara nicio conditie, deci
+     regulile se aplica si pe telefon. iOS trateaza atunci prima atingere ca pe
+     o trecere cu mouse-ul: intra in starea de hover si INGHITE click-ul, care
+     vine abia la a doua atingere. Starea ramane lipita pe elementul ala pana
+     atingi altundeva — de-aici „in zona aia a ecranului se strica si trebuie sa
+     apas de doua ori", inclusiv pe lucruri care nici macar nu sunt butoane
+     (mascota, un titlu), fiindca stau intr-un container care are hover.
+
+     Comutatorul ambaleaza fiecare utilitar `hover:` in `@media (hover: hover)`.
+     Pe desktop nu se schimba absolut nimic. */
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   content: [
     './index.html',
     './*.{js,ts,jsx,tsx}',

@@ -51,7 +51,9 @@
 .origin-cell:nth-child(3n + 3) .origin-panel { transform: rotate(-0.25deg); }
 
 @media (hover: hover) and (pointer: fine) {
+  @media (hover: hover) {
   .origin-cell .origin-panel:hover { transform: rotate(0deg) translateY(-3px); }
+}
 }
 
 /* caseta de legendă: stă peste colțul din stânga-sus al cadrului */
@@ -123,7 +125,9 @@
   transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.origin-arsenal__shot:hover { transform: translateY(-4px); }
+@media (hover: hover) {
+  .origin-arsenal__shot:hover { transform: translateY(-4px); }
+}
 
 .origin-arsenal__shot img {
   display: block;
@@ -200,10 +204,12 @@
   transition: border-color 220ms ease, color 220ms ease, transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.origin-arsenal__add:hover {
-  transform: translateY(-4px);
-  border-color: hsl(355 74% 55% / 0.55);
-  color: hsl(355 66% 45%);
+@media (hover: hover) {
+  .origin-arsenal__add:hover {
+    transform: translateY(-4px);
+    border-color: hsl(355 74% 55% / 0.55);
+    color: hsl(355 66% 45%);
+  }
 }
 
 /* alegerea misiunii de care e mândru */
@@ -236,7 +242,9 @@
   text-align: center;
 }
 
-.origin-pick:hover { transform: translateY(-3px); }
+@media (hover: hover) {
+  .origin-pick:hover { transform: translateY(-3px); }
+}
 
 .origin-pick[data-picked='false'] img { filter: saturate(0.6) brightness(0.96); }
 

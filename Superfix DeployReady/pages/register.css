@@ -221,7 +221,9 @@
     color 180ms ease, box-shadow 180ms ease;
 }
 
-.reg-trade:hover { transform: translateY(-1px); background: #fff; }
+@media (hover: hover) {
+  .reg-trade:hover { transform: translateY(-1px); background: #fff; }
+}
 .reg-trade:active { transform: scale(0.97); }
 
 .reg-trade[aria-pressed='true'] {

@@ -30,11 +30,13 @@
 }
 
 /* Hover effect */
-.romania-map-container:not(.read-only) .county:hover {
-  fill: #e0e0e0;
-  transform: translate(-1px, -1px);
-  filter: drop-shadow(3px 3px 0px rgba(0, 0, 0, 1)); /* Hard black shadow on hover */
-  z-index: 10; /* Note: z-index doesn't strictly work on SVG elements this way, but useful if wrapper logic changes */
+@media (hover: hover) {
+  .romania-map-container:not(.read-only) .county:hover {
+    fill: #e0e0e0;
+    transform: translate(-1px, -1px);
+    filter: drop-shadow(3px 3px 0px rgba(0, 0, 0, 1)); /* Hard black shadow on hover */
+    z-index: 10; /* Note: z-index doesn't strictly work on SVG elements this way, but useful if wrapper logic changes */
+  }
 }
 
 /* Selected State - Comic Book Pop-out */
@@ -58,11 +60,15 @@
 .romania-map-container.read-only .county {
   cursor: default;
 }
-.romania-map-container.read-only .county:hover {
-  transform: none;
-  filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.2));
+@media (hover: hover) {
+  .romania-map-container.read-only .county:hover {
+    transform: none;
+    filter: drop-shadow(1px 1px 0px rgba(0, 0, 0, 0.2));
+  }
 }
-.romania-map-container.read-only .county.is-selected:hover {
-  transform: translate(-2px, -2px);
-  filter: drop-shadow(4px 4px 0px #000000);
+@media (hover: hover) {
+  .romania-map-container.read-only .county.is-selected:hover {
+    transform: translate(-2px, -2px);
+    filter: drop-shadow(4px 4px 0px #000000);
+  }
 }

@@ -195,7 +195,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           'sf-glass relative z-10 flex w-full flex-col overflow-hidden',
           variant === 'modal'
             // card centrat, compact, cu margine vizibilă în jur pe orice ecran
-            ? 'my-auto max-w-md rounded-[28px]'
+            ? 'my-auto max-w-[21rem] rounded-[24px]'
             // telefon: foaie lipită de jos, colțuri rotunjite doar sus; desktop: card centrat
             : 'max-h-[92svh] rounded-t-[28px] sm:max-w-lg sm:rounded-[28px]',
         )}
@@ -203,11 +203,11 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
         <div
           className={cn(
             'flex items-start justify-between gap-4 border-b border-graphite/10',
-            variant === 'modal' ? 'px-5 pb-3 pt-4' : 'px-6 pb-4 pt-5',
+            variant === 'modal' ? 'px-4 pb-2.5 pt-3.5' : 'px-6 pb-4 pt-5',
           )}
         >
           <div className="min-w-0">
-            <h2 className={cn('font-heading font-semibold text-graphite', variant === 'modal' ? 'text-lg' : 'text-xl')}>{title}</h2>
+            <h2 className={cn('font-heading font-semibold text-graphite', variant === 'modal' ? 'text-base' : 'text-xl')}>{title}</h2>
             {subtitle && <p className={cn('mt-1 text-graphite-soft', variant === 'modal' ? 'text-xs' : 'text-sm')}>{subtitle}</p>}
           </div>
           <button
@@ -216,17 +216,17 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
             aria-label="Închide"
             className={cn(
               'flex shrink-0 items-center justify-center rounded-full border border-graphite/10 bg-white/80 text-graphite transition-transform hover:scale-105 active:scale-95',
-              variant === 'modal' ? 'h-9 w-9' : 'h-10 w-10',
+              variant === 'modal' ? 'h-8 w-8' : 'h-10 w-10',
             )}
           >
-            <X size={variant === 'modal' ? 16 : 18} weight="bold" />
+            <X size={variant === 'modal' ? 15 : 18} weight="bold" />
           </button>
         </div>
 
         <div
           ref={bodyRef}
           data-fade={fade}
-          className={cn(variant === 'modal' ? 'px-5 pt-4' : 'sf-scroll overflow-y-auto px-6 pt-5')}
+          className={cn(variant === 'modal' ? 'px-4 pt-3.5' : 'sf-scroll overflow-y-auto px-6 pt-5')}
           style={
             footer
               // cu subsol lipit, marginea de siguranță de jos e treaba subsolului
@@ -246,7 +246,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           <div
             className={cn(
               'shrink-0 border-t border-graphite/10 bg-white/45',
-              variant === 'modal' ? 'px-5 pb-4 pt-3' : 'px-6 pt-4',
+              variant === 'modal' ? 'px-4 pb-3.5 pt-3' : 'px-6 pt-4',
             )}
             style={variant === 'modal' ? undefined : { paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom))' }}
           >

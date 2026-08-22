@@ -39,8 +39,10 @@
   transition: background-color 180ms ease;
 }
 
-.sf-map .leaflet-control-zoom a:hover {
-  background: #fff;
+@media (hover: hover) {
+  .sf-map .leaflet-control-zoom a:hover {
+    background: #fff;
+  }
 }
 
 .sf-map .leaflet-control-attribution {
@@ -140,9 +142,11 @@
   transition: transform 200ms ease, background-color 200ms ease;
 }
 
-.sf-map-picker__recenter:hover {
-  transform: translateY(-2px);
-  background: #fff;
+@media (hover: hover) {
+  .sf-map-picker__recenter:hover {
+    transform: translateY(-2px);
+    background: #fff;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

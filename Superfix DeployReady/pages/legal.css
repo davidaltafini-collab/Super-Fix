@@ -52,7 +52,9 @@
   transition: color 180ms ease;
 }
 
-.legal-body a:hover { color: hsl(355 66% 45%); }
+@media (hover: hover) {
+  .legal-body a:hover { color: hsl(355 66% 45%); }
+}
 
 .legal-body ul {
   display: flex;
@@ -103,7 +105,9 @@
   transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
-.legal-tab:hover { background: #fff; transform: translateY(-1px); }
+@media (hover: hover) {
+  .legal-tab:hover { background: #fff; transform: translateY(-1px); }
+}
 
 .legal-tab[aria-current='page'] {
   color: #fff;

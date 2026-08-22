@@ -835,7 +835,7 @@ export const HeroProfile: React.FC = () => {
               </div>
             </div>
           ) : (
-            <form id="sos-form" onSubmit={handleSubmit} noValidate className="space-y-3.5">
+            <form id="sos-form" onSubmit={handleSubmit} noValidate className="space-y-3">
               {/* Adresa e primul câmp: „unde venim" e întrebarea de care depinde
                   tot restul. Butonul de locație completează adresa singur, prin
                   reverse-geocode, ca omul să nu scrie nimic dacă nu vrea. */}
@@ -880,10 +880,10 @@ export const HeroProfile: React.FC = () => {
                   <>
                     <div className="mt-3">
                       {/* aceeasi inaltime ca harta: cand soseste, nu impinge nimic */}
-                      <Suspense fallback={<Skel className="h-[180px] w-full rounded-[20px]" />}>
+                      <Suspense fallback={<Skel className="h-[140px] w-full rounded-[20px]" />}>
                         <MapPicker
                           point={coords}
-                          height={180}
+                          height={140}
                           onChange={(next, address) => {
                             setCoords(next);
                             if (address) setFormData(f => ({ ...f, address }));

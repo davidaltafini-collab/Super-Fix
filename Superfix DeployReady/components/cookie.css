@@ -103,7 +103,9 @@
   border: 1px solid rgba(46, 51, 59, 0.12);
 }
 
-.ck__btn--no:hover { background: #fff; }
+@media (hover: hover) {
+  .ck__btn--no:hover { background: #fff; }
+}
 
 .ck__btn--yes {
   color: #fff;
@@ -112,7 +114,9 @@
   box-shadow: 0 14px 28px -14px rgba(225, 55, 70, 0.85);
 }
 
-.ck__btn--yes:hover { filter: brightness(1.06); }
+@media (hover: hover) {
+  .ck__btn--yes:hover { filter: brightness(1.06); }
+}
 
 .ck__btn:focus-visible {
   outline: 3px solid hsl(355 74% 55% / 0.45);

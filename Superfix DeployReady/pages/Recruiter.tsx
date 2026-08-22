@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { API_URL } from '../config/api';
 import { Reveal } from '../components/motion';
 import { GlassButton } from '../components/Button';
+import { Mascot } from '../components/Mascot';
 import { Field, FieldPassword } from '../components/Field';
 import {
   checkAll, first, required, minLength, maxLength, email as emailCheck,
@@ -343,13 +344,9 @@ export const Recruiter: React.FC = () => {
           <div className="hidden justify-center md:flex">
             <div className="relative">
               <div className="absolute inset-0 -z-10 m-auto h-[70%] w-[70%] rounded-full bg-spark/20 blur-2xl" aria-hidden="true" />
-              <img
-                src="/mascot.png"
-                alt=""
-                aria-hidden="true"
-                width={377}
-                height={712}
-                className="animate-float w-auto max-h-[38vh] drop-shadow-[0_28px_38px_rgba(46,51,59,0.35)]"
+              <Mascot
+                className="animate-float w-auto max-h-[38vh]"
+                shadow="drop-shadow-[0_28px_38px_rgba(46,51,59,0.35)]"
               />
             </div>
           </div>

@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { motion, useSpring, useReducedMotion } from 'framer-motion';
 import { Reveal, BlurIn, Magnetic, Tilt, ClickSpark, EASE_OUT } from '../components/motion';
 import { Pill3D, NeuButton } from '../components/Button';
+import { Mascot } from '../components/Mascot';
 import { getHeroes, peekHeroes } from '../services/dataService';
 import { thumb } from '../lib/img';
 import { Hero } from '../types';
@@ -89,11 +90,8 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
   <motion.div style={{ x: mx, y: my }} className="relative">
     <div className="absolute inset-0 -z-10 m-auto w-[78%] h-[78%] rounded-full bg-spark/25 blur-2xl" aria-hidden="true" />
     <div className="animate-float">
-      <img
-        src="/mascot.png"
+      <Mascot
         alt="Superfix, robotul erou meseriaș"
-        width={377}
-        height={712}
         fetchPriority="high"
         /* Marime fixa, nu procent din inaltimea ecranului.
 
@@ -104,7 +102,8 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
            aceeasi marime ca inainte pe un ecran obisnuit (22rem = 352px, cat
            dadea 42svh pe un iPhone), dar nu mai depinde de interfata browserului.
            `max-w-full` o tine in coloana si pe telefoanele inguste. */
-        className="relative h-auto w-auto max-h-[22rem] max-w-full md:max-h-[41rem] drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
+        className="relative h-auto w-auto max-h-[22rem] max-w-full md:max-h-[41rem]"
+        shadow="drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
       />
     </div>
     <div className="mx-auto mt-1 w-40 md:w-56 h-4 rounded-[100%] bg-graphite/25 blur-md" aria-hidden="true" />
@@ -384,7 +383,7 @@ export const Home: React.FC = () => {
               </div>
               <div className="relative flex justify-center md:justify-end">
                 <div className="animate-float">
-                  <img src="/mascot.png" alt="" aria-hidden="true" width={377} height={712} className="w-auto max-h-64 md:max-h-80 drop-shadow-[0_26px_36px_rgba(0,0,0,0.5)]" />
+                  <Mascot className="w-auto max-h-64 md:max-h-80" shadow="drop-shadow-[0_26px_36px_rgba(0,0,0,0.5)]" />
                 </div>
               </div>
             </div>

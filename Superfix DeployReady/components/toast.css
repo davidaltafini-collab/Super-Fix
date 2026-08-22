@@ -112,9 +112,11 @@
   transition: background-color 180ms ease, color 180ms ease;
 }
 
-.sf-toast__close:hover {
-  background: rgba(46, 51, 59, 0.09);
-  color: #2e333b;
+@media (hover: hover) {
+  .sf-toast__close:hover {
+    background: rgba(46, 51, 59, 0.09);
+    color: #2e333b;
+  }
 }
 
 /* bara care se scurge: se vede cât timp mai stă mesajul pe ecran */
@@ -241,7 +243,9 @@
   transition: transform 200ms ease, box-shadow 200ms ease;
 }
 
-.sf-confirm__btn:hover { transform: translateY(-2px); }
+@media (hover: hover) {
+  .sf-confirm__btn:hover { transform: translateY(-2px); }
+}
 .sf-confirm__btn:active { transform: scale(0.97); }
 
 .sf-confirm__btn--ghost {
