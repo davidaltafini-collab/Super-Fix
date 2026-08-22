@@ -1,0 +1,214 @@
+/* ============================================================
+   Starea de așteptare: însemnul care se asamblează, vălul alb și scheletele.
+
+   Un cerculeț care se învârte e semnul universal pentru „nu știm cât mai
+   durează". Aici se întâmplă altceva: însemnul Superfix se adună din piese —
+   discul, glifa, banda care se lipește peste ele, apoi literele — iar discul
+   din spate se rotește tot timpul. E aceeași poveste ca restul sitului.
+
+   Însemnul NU se rotește niciodată în întregime. Un wordmark întors invers se
+   citește ca greșeală, nu ca animație. Se rotește doar discul de dedesubt.
+   ============================================================ */
+
+.sf-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ---------------- discul care se învârte ---------------- */
+
+/* Lumina mătură discul. Cercul singur, rotit, ar arăta perfect nemișcat —
+   ea e cea care arată că se învârte. */
+.sf-mark--live .sf-mark__spin {
+  transform-box: view-box;
+  transform-origin: 526.5px 515.55px;
+  animation: sf-mark-spin 3.4s linear infinite;
+}
+
+@keyframes sf-mark-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------- lipirea pieselor ---------------- */
+
+/* `both`: piesele stau în poziția de start înainte să înceapă, altfel ar clipi
+   întregi pe primul cadru și abia apoi s-ar aduna. */
+.sf-mark--live .sf-mark__disc {
+  transform-box: view-box;
+  transform-origin: 526.5px 515.55px;
+  animation: sf-mark-disc 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sf-mark-disc {
+  from { opacity: 0; transform: scale(0.78) rotate(-24deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Banda vine de sus, ușor strâmbă și puțin mai mare, și se așază cu un salt —
+   ca o ștampilă. De-aia are curba cu depășire, nu una liniștită. */
+.sf-mark--live .sf-mark__banner {
+  transform-box: view-box;
+  transform-origin: 512px 512px;
+  animation: sf-mark-stamp 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 280ms both;
+}
+
+@keyframes sf-mark-stamp {
+  from { opacity: 0; transform: translateY(-42px) rotate(-4deg) scale(1.1); }
+  25%  { opacity: 1; }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Glifa albă vine DUPĂ bandă, deși stă sub ea.
+
+   În desen e tăiată exact pe marginile benzii, deci fără bandă se vede ca două
+   cioburi albe plutind pe disc — arată ca o greșeală. Odată ce banda e la locul
+   ei, tăieturile au ce să le explice. */
+.sf-mark--live .sf-mark__glyph {
+  animation: sf-mark-fade 300ms ease-out 540ms both;
+}
+
+/* Literele apar după ce banda s-a lipit: întâi suportul, apoi ce scrie pe el. */
+.sf-mark--live .sf-mark__word {
+  transform-box: view-box;
+  transform-origin: 512px 512px;
+  animation: sf-mark-word 420ms cubic-bezier(0.22, 1, 0.36, 1) 640ms both;
+}
+
+@keyframes sf-mark-word {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes sf-mark-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---------------- însemnul, ca element de sine stătător ---------------- */
+
+.sf-loader {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.sf-loader__badge {
+  width: var(--sf-loader-size, 120px);
+  height: var(--sf-loader-size, 120px);
+  filter: drop-shadow(0 16px 30px rgba(46, 51, 59, 0.18));
+}
+
+.sf-loader__label {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8b929c;
+  animation: sf-loader-label 2.4s ease-in-out infinite;
+}
+
+@keyframes sf-loader-label {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* ---------------- vălul alb ---------------- */
+
+/* Acoperă tot, inclusiv navbarul: cât se lucrează, nu mai e nimic de apăsat.
+   Intră mai repede decât iese — apariția trebuie să prindă din urmă apăsarea,
+   ieșirea are voie să se lase dorită, ca pagina de dedesubt să se așeze. */
+.sf-veil {
+  position: fixed;
+  inset: 0;
+  /* peste tot: navbar (99), Sheet (200), notificări (250-300) */
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 26%, #ffffff 0%, #f4f7fb 100%);
+  transition:
+    opacity 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 420ms;
+}
+
+.sf-veil--on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  /* cât e vizibil, pagina de dedesubt se estompează în loc să dispară sec */
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(16px) saturate(120%);
+  transition:
+    opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear;
+}
+
+/* ============================================================
+   Scheletele.
+
+   `animate-pulse` face tot blocul să clipească — se citește ca eroare. O dâră
+   de lumină care trece peste el se citește ca încărcare.
+
+   Raza și fundalul sunt puse cu `:where()`, adică specificitate zero: orice
+   clasă Tailwind pusă pe element (`rounded-[28px]`, `h-40`) câștigă fără `!`.
+   ============================================================ */
+
+:where(.sf-skel) {
+  border-radius: 999px;
+  background: rgba(46, 51, 59, 0.07);
+}
+
+.sf-skel {
+  position: relative;
+  overflow: hidden;
+}
+
+.sf-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.72),
+    transparent
+  );
+  animation: sf-skel-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes sf-skel-sweep {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Rămâne semnul că se lucrează, dar fără nimic care se mișcă pe traseu. */
+  .sf-mark--live .sf-mark__spin,
+  .sf-mark--live .sf-mark__disc,
+  .sf-mark--live .sf-mark__glyph,
+  .sf-mark--live .sf-mark__banner,
+  .sf-mark--live .sf-mark__word {
+    animation: none;
+  }
+
+  .sf-loader__label {
+    animation: sf-loader-label 3s ease-in-out infinite;
+  }
+
+  .sf-skel::after {
+    animation: sf-skel-breathe 1.8s ease-in-out infinite;
+    transform: none;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  @keyframes sf-skel-breathe {
+    0%, 100% { opacity: 0; }
+    50%      { opacity: 1; }
+  }
+}

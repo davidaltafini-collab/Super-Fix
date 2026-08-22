@@ -1,0 +1,259 @@
+/* ============================================================
+   „Cine e sub costum" — pagina de origine a eroului.
+
+   Conceptul: benzi desenate. Fiecare răspuns e un cadru, iar întrebarea stă
+   într-o casetă de legendă peste colțul lui, ușor înclinată, ca în comics.
+   E singurul loc de pe site unde apăsăm pedala asta, tocmai pentru că aici
+   nu vorbim despre servicii, ci despre om.
+
+   Restul sitului rămâne sticlă și clay: cadrele sunt tot sticlă, doar
+   compoziția e de bandă desenată. Fără contururi negre groase.
+   ============================================================ */
+
+.origin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.75rem;
+}
+
+/* Celula din grilă e wrapperul lui Reveal, nu panoul: el ține lățimea.
+   Panoul rămâne înăuntru și se ocupă doar de aspect. */
+@media (min-width: 768px) {
+  .origin-grid {
+    /* asimetric intenționat: cadrele nu au aceeași lățime, ca într-o planșă */
+    grid-template-columns: repeat(6, 1fr);
+    gap: 2rem 1.75rem;
+  }
+  .origin-cell--wide { grid-column: span 6; }
+  .origin-cell--big { grid-column: span 4; }
+  .origin-cell--small { grid-column: span 2; }
+}
+
+.origin-cell { display: block; }
+
+.origin-panel {
+  position: relative;
+  padding: 2.6rem 1.75rem 1.75rem;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 26px 52px -26px rgba(46, 51, 59, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* înclinări mici, alternate: planșa nu stă în linie perfectă */
+.origin-cell:nth-child(3n + 1) .origin-panel { transform: rotate(-0.5deg); }
+.origin-cell:nth-child(3n + 2) .origin-panel { transform: rotate(0.4deg); }
+.origin-cell:nth-child(3n + 3) .origin-panel { transform: rotate(-0.25deg); }
+
+@media (hover: hover) and (pointer: fine) {
+  .origin-cell .origin-panel:hover { transform: rotate(0deg) translateY(-3px); }
+}
+
+/* caseta de legendă: stă peste colțul din stânga-sus al cadrului */
+.origin-panel__caption {
+  position: absolute;
+  top: -0.85rem;
+  left: 1.25rem;
+  max-width: calc(100% - 2.5rem);
+  padding: 0.5rem 0.9rem;
+  border-radius: 12px;
+  transform: rotate(-1.4deg);
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(160deg, #e84756, #c42335);
+  box-shadow:
+    0 8px 18px -8px rgba(196, 35, 53, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.origin-panel[data-tone='calm'] .origin-panel__caption {
+  background: linear-gradient(160deg, #4a515d, #363c46);
+  box-shadow:
+    0 8px 18px -8px rgba(46, 51, 59, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.origin-panel__answer {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: #474e59;
+}
+
+/* răspunsurile scurte (unealta, echipa) merită să fie afirmații, nu proză */
+.origin-cell--small .origin-panel__answer {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: #2e333b;
+}
+
+/* ---------------- arsenalul ---------------- */
+
+.origin-arsenal {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.origin-arsenal::-webkit-scrollbar { display: none; }
+
+.origin-arsenal__shot {
+  flex: 0 0 auto;
+  width: min(70vw, 15rem);
+  scroll-snap-align: start;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #eef3fb;
+  box-shadow: 0 18px 40px -20px rgba(46, 51, 59, 0.55);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.origin-arsenal__shot:hover { transform: translateY(-4px); }
+
+.origin-arsenal__shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .origin-panel,
+  .origin-arsenal__shot {
+    transition: none;
+  }
+}
+
+/* ============================================================
+   Editorul: aceleași cadre, dar se scrie în ele.
+   Eroul vede pagina construindu-se, nu completează un formular orb.
+   ============================================================ */
+
+.origin-panel__input {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: #2e333b;
+}
+
+.origin-panel__input::placeholder {
+  color: #8b929c;
+}
+
+/* răspunsurile scurte se scriu mare, ca să arate exact ca pe pagina publică */
+.origin-cell--small .origin-panel__input {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.45rem;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+
+.origin-panel__count {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(46, 51, 59, 0.09);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b929c;
+}
+
+/* butonul de adăugat poză, în aceeași bandă cu pozele deja urcate */
+.origin-arsenal__add {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: min(70vw, 15rem);
+  aspect-ratio: 4 / 3;
+  border-radius: 20px;
+  cursor: pointer;
+  color: #474e59;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px dashed rgba(46, 51, 59, 0.22);
+  transition: border-color 220ms ease, color 220ms ease, transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.origin-arsenal__add:hover {
+  transform: translateY(-4px);
+  border-color: hsl(355 74% 55% / 0.55);
+  color: hsl(355 66% 45%);
+}
+
+/* alegerea misiunii de care e mândru */
+.origin-pick {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #eef3fb;
+  box-shadow: 0 12px 26px -16px rgba(46, 51, 59, 0.5);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 320ms ease;
+}
+
+.origin-pick img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  transition: filter 260ms ease;
+}
+
+.origin-pick span {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  color: #474e59;
+  text-align: center;
+}
+
+.origin-pick:hover { transform: translateY(-3px); }
+
+.origin-pick[data-picked='false'] img { filter: saturate(0.6) brightness(0.96); }
+
+.origin-pick[data-picked='true'] {
+  box-shadow:
+    0 0 0 3px hsl(355 74% 55%),
+    0 18px 34px -18px hsl(355 74% 55% / 0.7);
+}
+
+.origin-pick[data-picked='true'] span {
+  color: #fff;
+  background: hsl(355 74% 55%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .origin-arsenal__add,
+  .origin-pick {
+    transition: none;
+  }
+}

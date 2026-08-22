@@ -1,0 +1,165 @@
+.pill-nav-container {
+  position: fixed;
+  top: 1.2em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+}
+
+.pill-nav {
+  --nav-h: 64px;
+  --logo: 52px;
+  --pill-pad-x: 26px;
+  position: relative;
+  width: max-content;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 7px;
+  border-radius: 9999px;
+  transform-origin: top center;
+  transform: scale(1) translateY(0);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  /* fara `isolation: isolate`: creeaza un stacking context izolat, iar backdrop-filter
+     al sticlei nu mai poate esantiona corect fundalul din spate -> taietura vizibila. */
+}
+
+/* Micsorare la scroll-down (clasa CSS, nu GSAP inline). */
+.pill-nav-container.is-compact .pill-nav {
+  transform: scale(0.73) translateY(-14px);
+}
+
+/* Hover -> revine la marime maxima, chiar si in stare mica. */
+@media (hover: hover) and (pointer: fine) {
+  .pill-nav-container.is-compact .pill-nav:hover {
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-nav {
+    transition: none;
+  }
+}
+
+/* Aceeași formă pe telefon (nu bară full-width + hamburger), doar scalată mai mic. */
+@media (max-width: 480px) {
+  .pill-nav {
+    --nav-h: 44px;
+    --logo: 36px;
+    --pill-pad-x: 12px;
+    gap: 5px;
+    padding: 5px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .pill-nav {
+    --nav-h: 52px;
+    --logo: 42px;
+    --pill-pad-x: 16px;
+  }
+}
+
+/* GlassSurface ca fundal real (nu CSS blur fals): umple toata capsula, sub continut. */
+.pill-nav-glass {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  --glass-blur: 8px; /* frosted real, cu ~20% mai slab */
+}
+
+.pill-indicator .glass-surface {
+  --glass-blur: 5px;
+}
+
+.pill-logo {
+  position: relative;
+  z-index: 1;
+  width: var(--nav-h);
+  height: var(--nav-h);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  /* fara fundal/padding proprii: discul din SuperfixMark e deja cercul,
+     dimensionat sa umple exact acest cerc — un cerc CSS separat in spate
+     dubla conturul. */
+}
+
+.pill-logo svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pill-list-wrap {
+  position: relative;
+  z-index: 1;
+  height: var(--nav-h);
+}
+
+/* Indicatorul glisant: un singur "blob" de sticlă (mecanismul de "switch"),
+   se mută/redimensionează spre link-ul hover-uit sau pagina curentă. */
+.pill-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 9999px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, width;
+}
+
+.pill-list {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  display: flex;
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.pill-list > li {
+  display: flex;
+  height: 100%;
+}
+
+.pill-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 var(--pill-pad-x);
+  text-decoration: none;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 17px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.25s ease;
+}
+
+@media (max-width: 480px) {
+  .pill-link {
+    font-size: 10.5px;
+    letter-spacing: 0.1px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .pill-link {
+    font-size: 13px;
+    letter-spacing: 0.2px;
+  }
+}

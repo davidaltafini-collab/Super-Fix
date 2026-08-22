@@ -1,0 +1,244 @@
+/* ============================================================
+   Legitimația de erou.
+
+   Formularul de înscriere are o problemă pe care n-o rezolvă niciun stil: nu se
+   vede nimic din ce iese. Completezi șase câmpuri, apeși un buton și pleci.
+   Aici, cât timp scrii, sus se completează singură legitimația — numele tău,
+   meseria ta, inițialele tale. Nu e decor: e chiar ce vede clientul mai târziu.
+
+   E singurul obiect închis la culoare de pe o pagină deschisă, dinadins. Așa
+   pare un lucru, nu o secțiune — ceva ce ți se dă, nu ceva ce completezi.
+   ============================================================ */
+
+.badge {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  padding: 1.25rem 1.35rem 1.1rem;
+  color: #fff;
+  background:
+    radial-gradient(120% 95% at 12% -10%, rgba(255, 255, 255, 0.16), transparent 58%),
+    radial-gradient(90% 80% at 105% 108%, rgba(225, 55, 70, 0.28), transparent 62%),
+    linear-gradient(158deg, #363c46, #23272e 62%, #1b1f25);
+  box-shadow:
+    0 26px 52px -22px rgba(20, 23, 28, 0.75),
+    0 6px 16px -8px rgba(20, 23, 28, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  /* mișcarea de urmărire a cursorului se scrie în variabilele astea din TSX */
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Luciul holografic: o dâră care trece rar, ca lumina peste un card adevărat
+   ținut în mână. La 9 secunde nu se transformă în tic nervos. */
+.badge::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.13) 48%,
+    rgba(255, 255, 255, 0.03) 54%,
+    transparent 60%
+  );
+  animation: badge-sheen 9s ease-in-out infinite;
+}
+
+@keyframes badge-sheen {
+  0%, 62% { transform: translateX(-45%); }
+  86%, 100% { transform: translateX(45%); }
+}
+
+.badge__top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.badge__kind {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.badge__body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+/* Discul cu inițiale. Cât timp nu știm cum îl cheamă, stă un contur gol —
+   se vede clar că are unde să se scrie ceva. */
+.badge__disc {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(150deg, hsl(355 74% 58%), hsl(355 66% 42%));
+  box-shadow:
+    0 12px 24px -12px rgba(225, 55, 70, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: background 300ms ease, box-shadow 300ms ease;
+}
+
+.badge__disc[data-empty='true'] {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.24);
+  box-shadow: none;
+}
+
+.badge__lines { min-width: 0; flex: 1; }
+
+.badge__name {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.4rem;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.badge__role {
+  margin-top: 0.3rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: hsl(355 80% 74%);
+}
+
+.badge__contact {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.5);
+  overflow-wrap: anywhere;
+}
+
+/* Rândurile care încă n-au conținut. Nu scriem „Numele tău" cu gri, pentru că
+   textul-fantomă se citește ca text scris; o bară se citește ca loc gol. */
+.badge__ghost {
+  display: block;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.badge__foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.badge__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.badge__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.badge__status[data-live='true'] { color: hsl(355 82% 76%); }
+.badge__status[data-live='true'] .badge__dot {
+  background: hsl(355 78% 60%);
+  box-shadow: 0 0 0 0 hsl(355 78% 60% / 0.6);
+  animation: badge-pulse 2.4s ease-out infinite;
+}
+
+@keyframes badge-pulse {
+  0% { box-shadow: 0 0 0 0 hsl(355 78% 60% / 0.55); }
+  70%, 100% { box-shadow: 0 0 0 7px hsl(355 78% 60% / 0); }
+}
+
+.badge__code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+/* ---------------- foaia de dedesubt ---------------- */
+
+/* Titlurile de secțiune sunt singurul lucru care desparte grupurile. Casetele
+   colorate din varianta veche rupeau formularul în trei formulare. */
+.reg-section {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8b929c;
+}
+
+/* Meseriile ca pastile: se apasă o dată, cu degetul, fără listă derulantă care
+   pe telefon acoperă tot ecranul. */
+.reg-trade {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.6rem;
+  padding: 0 1.05rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(46, 51, 59, 0.1);
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.32, 0.72, 0, 1), background-color 180ms ease,
+    color 180ms ease, box-shadow 180ms ease;
+}
+
+.reg-trade:hover { transform: translateY(-1px); background: #fff; }
+.reg-trade:active { transform: scale(0.97); }
+
+.reg-trade[aria-pressed='true'] {
+  color: #fff;
+  background: linear-gradient(150deg, hsl(355 74% 57%), hsl(355 66% 46%));
+  border-color: transparent;
+  box-shadow: 0 12px 24px -12px rgba(225, 55, 70, 0.8);
+}
+
+.reg-trade:focus-visible {
+  outline: 3px solid hsl(355 74% 55% / 0.4);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge { transition: none; transform: none; }
+  .badge::after { animation: none; opacity: 0; }
+  .badge__dot { animation: none; }
+  .reg-trade { transition: none; }
+}

@@ -1,0 +1,354 @@
+/* ============================================================
+   Cartierul general.
+
+   Aici regulile se schimbă față de restul sitului, și e intenționat. Paginile
+   publice se citesc; asta se folosește. Cine o deschide caută un rând anume
+   într-o listă, apasă un buton și pleacă — de zece ori pe zi.
+
+   Deci: rază mai mică (16px, nu 28px), aer mai puțin, cifre aliniate în coloană,
+   tabele care se derulează în cutia lor. Sticla rămâne, ca să nu pară alt sit,
+   dar nu mai e nimic decorativ pe ecran.
+
+   Culoarea stărilor e separată de roșul mărcii. Roșul de aici înseamnă „acțiune
+   principală", nu „problemă"; o stare se citește din paleta de mai jos, care e
+   folosită la fel peste tot: recruiteri, plăți, misiuni.
+   ============================================================ */
+
+.adm {
+  --wait: hsl(36 74% 38%);   /* așteaptă pe cineva */
+  --live: hsl(160 62% 28%);  /* merge */
+  --stop: hsl(355 62% 46%);  /* oprit sau respins */
+  --info: hsl(211 68% 42%);  /* doar de știut */
+  --off: hsl(220 9% 46%);    /* nu mai contează */
+}
+
+/* ---------------- panouri ---------------- */
+
+.adm-card {
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.72), rgba(226, 232, 241, 0.52));
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 14px 30px -18px rgba(46, 51, 59, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .adm-card {
+    background: #eef2f8;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ---------------- taburi ---------------- */
+
+.adm-tabs {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: rgba(46, 51, 59, 0.06);
+}
+
+.adm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.3rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  color: #474e59;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.adm-tab:hover { background: rgba(255, 255, 255, 0.7); }
+
+.adm-tab[aria-selected='true'] {
+  color: #fff;
+  background: #2e333b;
+  box-shadow: 0 8px 18px -10px rgba(46, 51, 59, 0.8);
+}
+
+/* Numărul de lucruri care așteaptă. Stă lipit de numele tabului, nu într-un
+   colț: acolo l-ar căuta cineva care nu știe deja că există. */
+.adm-tab__count {
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #fff;
+  background: hsl(355 74% 55%);
+}
+
+.adm-tab[aria-selected='true'] .adm-tab__count {
+  color: #2e333b;
+  background: #fff;
+}
+
+/* ---------------- stări ---------------- */
+
+/* Culoarea stă în text, nu în fundal. Zece rânduri cu pastile pline devin un
+   tablou de culori din care nu se mai desprinde niciunul. */
+.adm-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tone, var(--off));
+  background: color-mix(in srgb, var(--tone, var(--off)) 11%, transparent);
+}
+
+.adm-state::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.adm-state[data-tone='wait'] { --tone: var(--wait); }
+.adm-state[data-tone='live'] { --tone: var(--live); }
+.adm-state[data-tone='stop'] { --tone: var(--stop); }
+.adm-state[data-tone='info'] { --tone: var(--info); }
+.adm-state[data-tone='off'] { --tone: var(--off); }
+
+/* ---------------- tabele ---------------- */
+
+.adm-scroll {
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+.adm-table {
+  width: 100%;
+  min-width: 40rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.adm-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: rgba(238, 242, 248, 0.96);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.adm-table tbody td {
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid rgba(46, 51, 59, 0.08);
+  color: #474e59;
+  vertical-align: middle;
+}
+
+.adm-table tbody tr:hover td { background: rgba(255, 255, 255, 0.55); }
+
+/* `.adm-table thead th` are specificitate mai mare decât o clasă utilitară, deci
+   `text-right` pusă în markup n-ar avea niciun efect. O prindem aici. */
+.adm-table th.text-right,
+.adm-table td.text-right { text-align: right; }
+
+.adm-num { font-variant-numeric: tabular-nums; }
+
+/* ---------------- butoane ---------------- */
+
+.adm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.32, 0.72, 0, 1), background-color 160ms ease,
+    filter 160ms ease;
+}
+
+.adm-btn:active { transform: scale(0.97); }
+.adm-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.adm-btn--main {
+  color: #fff;
+  background: linear-gradient(150deg, hsl(355 74% 57%), hsl(355 66% 46%));
+  box-shadow: 0 12px 24px -14px rgba(225, 55, 70, 0.9);
+}
+.adm-btn--main:hover:not(:disabled) { filter: brightness(1.06); }
+
+.adm-btn--dark {
+  color: #fff;
+  background: #2e333b;
+}
+.adm-btn--dark:hover:not(:disabled) { background: #3b424c; }
+
+.adm-btn--quiet {
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+}
+.adm-btn--quiet:hover:not(:disabled) { background: #fff; }
+
+/* Ce nu se poate desface arată altfel de la bun început. */
+.adm-btn--danger {
+  color: hsl(355 62% 44%);
+  background: hsl(355 74% 55% / 0.09);
+  border: 1px solid hsl(355 74% 55% / 0.25);
+}
+.adm-btn--danger:hover:not(:disabled) { background: hsl(355 74% 55% / 0.16); }
+
+.adm-btn:focus-visible {
+  outline: 3px solid hsl(355 74% 55% / 0.4);
+  outline-offset: 2px;
+}
+
+/* ---------------- câmpuri dese ---------------- */
+
+.adm-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(46, 51, 59, 0.14);
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.adm-input::placeholder { color: #98a0ab; }
+
+.adm-input:focus {
+  background: #fff;
+  border-color: hsl(355 74% 55% / 0.4);
+  box-shadow: 0 0 0 3px hsl(355 74% 55% / 0.14);
+}
+
+textarea.adm-input { min-height: 5rem; padding: 0.6rem 0.85rem; line-height: 1.6; }
+
+.adm-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+/* ---------------- fișa eroului ---------------- */
+
+.adm-hero {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 26px -16px rgba(46, 51, 59, 0.45);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 220ms ease;
+}
+
+.adm-hero:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px -20px rgba(46, 51, 59, 0.6);
+}
+
+.adm-hero__pic {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #e4eaf3;
+}
+
+.adm-hero__pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Scorul stă peste poză, pe un strat închis, ca să se citească indiferent ce e
+   dedesubt. */
+.adm-hero__trust {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(27, 31, 37, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ---------------- fereastra mare ---------------- */
+
+.adm-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background: rgba(20, 23, 28, 0.62);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: adm-veil-in 200ms ease both;
+}
+
+@keyframes adm-veil-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.adm-sheet {
+  width: 100%;
+  max-width: 62rem;
+  margin: auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #f4f7fb;
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.7);
+  animation: adm-sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes adm-sheet-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-tab, .adm-btn, .adm-hero, .adm-input { transition: none; }
+  .adm-veil, .adm-sheet { animation: none; }
+}

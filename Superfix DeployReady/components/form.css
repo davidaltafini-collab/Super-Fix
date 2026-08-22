@@ -1,0 +1,189 @@
+/* ============================================================
+   Câmpuri de formular — stilul stă aici, nu repetat inline la fiecare input.
+
+   Validarea nativă a browserului e scoasă din joc (`noValidate` pe formular),
+   pentru că afișează un balon cu stilul sistemului de operare, în engleză, în
+   altă parte a ecranului decât câmpul. Mesajele apar acum sub câmpul lor, în
+   limba și în designul sitului.
+   ============================================================ */
+
+.sf-field {
+  display: block;
+}
+
+.sf-field__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2e333b;
+}
+
+.sf-field__input {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(46, 51, 59, 0.15);
+  outline: none;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.sf-field__input::placeholder {
+  color: #8b929c;
+}
+
+.sf-field__input:focus {
+  background: #fff;
+  border-color: hsl(355 74% 55% / 0.4);
+  box-shadow: 0 0 0 4px hsl(355 74% 55% / 0.15);
+}
+
+/* Starea de eroare e un semn, nu o alarmă. Un câmp gol nu e o catastrofă:
+   marcăm doar conturul, discret, fără halou gros și fără roșu strident. */
+.sf-field__input[aria-invalid='true'] {
+  border-color: hsl(355 55% 62%);
+  box-shadow: 0 0 0 3px hsl(355 74% 55% / 0.09);
+}
+
+.sf-field__input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 4px hsl(355 74% 55% / 0.16);
+}
+
+/* Fără iconiță de avertizare: textul spune singur ce lipsește, deci nu are
+   nevoie de un semn de alarmă lângă el. Roșu desaturat, greutate normală. */
+.sf-field__error {
+  margin-top: 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: hsl(355 42% 52%);
+  animation: sf-field-error-in 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes sf-field-error-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* caseta de acord (GDPR) */
+.sf-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 260ms ease;
+}
+
+.sf-consent[data-invalid='true'] {
+  box-shadow: inset 0 0 0 1.5px hsl(355 55% 62% / 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-field__error {
+    animation: none;
+  }
+}
+
+/* butonul de preluare a locației, sub câmpul de adresă */
+.sf-locate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  color: hsl(211 70% 38%);
+  background: hsl(211 100% 62% / 0.1);
+  border: 1px solid hsl(211 100% 62% / 0.25);
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.sf-locate:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: hsl(211 100% 62% / 0.18);
+}
+
+.sf-locate:disabled { opacity: 0.6; }
+
+.sf-locate__ok {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(160 84% 28%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-locate { transition: none; }
+}
+
+/* ============================================================
+   Zona în care se lasă o poză sau un clip.
+
+   Stătea până acum doar în `hero-origin.css`, dar era folosită și din
+   `HeroBasics`, care nu importă foaia aia. Cu împărțirea pe pachete, stilul
+   ajungea în pagină doar dacă omul trecuse mai întâi prin „cine e sub costum" —
+   altfel butoanele apăreau ca text simplu, fără chenar. Aici, în foaia pe care
+   o importă toate formularele, nu se mai poate întâmpla.
+   ============================================================ */
+
+.sf-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  /* Pătrat cât timp încape, dar nu mai înalt de atât: pe o coloană singură,
+     un pătrat de 350px umple ecranul telefonului cu o casetă goală. */
+  aspect-ratio: 1 / 1;
+  max-height: 14rem;
+  border-radius: 20px;
+  cursor: pointer;
+  color: #474e59;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px dashed rgba(46, 51, 59, 0.22);
+  transition: border-color 220ms ease, color 220ms ease, transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sf-drop:hover {
+  transform: translateY(-3px);
+  border-color: hsl(355 74% 55% / 0.55);
+  color: hsl(355 66% 45%);
+}
+
+/* `:focus-within` și nu `:focus`: câmpul de fișier e ascuns cu `sr-only`
+   înăuntru, deci focusul cade pe el, nu pe etichetă. */
+.sf-drop:focus-within {
+  outline: 3px solid hsl(355 74% 55% / 0.4);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-drop { transition: none; }
+}

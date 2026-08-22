@@ -1,24 +1,87 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft } from '@phosphor-icons/react';
 import { LEGAL, legalIdentityParts } from '../config/legal';
+
+import './legal.css';
 
 const UPDATED_AT = '13.07.2026';
 
-const LegalLayout: React.FC<{ title: string; lastUpdated: string; children: React.ReactNode }> = ({ title, lastUpdated, children }) => (
-  <div className="container mx-auto px-4 py-12 max-w-4xl bg-white border-4 border-black shadow-[8px_8px_0_#000] my-8">
-    <Helmet>
-      <title>{title} | Superfix</title>
-      <meta name="description" content={`Informații legale Superfix: ${title}. Ultima actualizare: ${lastUpdated}.`} />
-      <meta property="og:title" content={`${title} | Superfix`} />
-      <meta property="og:description" content={`Citește despre ${title} pe platforma Superfix.`} />
-      <meta property="og:type" content="website" />
-    </Helmet>
+/* Cele patru documente se citesc unul dintr-altul: din politica de cookies
+   vrei de obicei confidențialitatea, din termeni vrei drepturile. Linkurile din
+   subsol te scot din pagină ca să te întorci; rândul ăsta te lasă înăuntru. */
+const DOCS = [
+  { to: '/terms', short: 'Termeni' },
+  { to: '/privacy', short: 'Confidențialitate' },
+  { to: '/cookies', short: 'Cookies' },
+  { to: '/gdpr', short: 'Drepturile tale' },
+];
 
-    <h1 className="text-3xl md:text-4xl font-heading mb-2 text-super-red">{title}</h1>
-    <p className="text-sm text-gray-500 font-mono mb-8 border-b-2 border-gray-200 pb-4">Ultima actualizare: {lastUpdated}</p>
-    <div className="prose prose-lg font-comic text-gray-800 max-w-none">{children}</div>
-  </div>
-);
+const LegalLayout: React.FC<{ title: string; lastUpdated: string; children: React.ReactNode }> = ({
+  title, lastUpdated, children,
+}) => {
+  const { pathname } = useLocation();
+
+  return (
+    <div className="pb-20 font-sans text-graphite">
+      <Helmet>
+        <title>{title} | Superfix</title>
+        <meta name="description" content={`Informații legale Superfix: ${title}. Ultima actualizare: ${lastUpdated}.`} />
+        <meta property="og:title" content={`${title} | Superfix`} />
+        <meta property="og:description" content={`Citește despre ${title} pe platforma Superfix.`} />
+        <meta property="og:type" content="website" />
+      </Helmet>
+
+      <header className="mx-auto max-w-3xl px-5 pt-28 sm:px-6">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-graphite-soft transition-colors hover:text-graphite"
+        >
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+          Înapoi acasă
+        </Link>
+
+        <h1 className="mt-7 font-heading text-[2rem] font-bold leading-[1.08] text-graphite sm:text-[2.75rem]">
+          {title}
+        </h1>
+        <p className="mt-3 text-sm font-semibold text-graphite-soft">
+          Ultima actualizare: <span className="tabular-nums">{lastUpdated}</span>
+        </p>
+
+        <nav className="legal-tabs mt-6" aria-label="Documente legale">
+          {DOCS.map(doc => (
+            <Link
+              key={doc.to}
+              to={doc.to}
+              className="legal-tab"
+              aria-current={pathname === doc.to ? 'page' : undefined}
+            >
+              {doc.short}
+            </Link>
+          ))}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-5 sm:px-6">
+        <article className="sf-glass mt-8 rounded-[28px] p-6 sm:p-9">
+          <div className="legal-body">{children}</div>
+        </article>
+
+        <p className="mt-6 px-1 text-sm leading-relaxed text-graphite-soft">
+          Ai o întrebare la care textul nu răspunde? Scrie-ne la{' '}
+          <a
+            href={`mailto:${LEGAL.supportEmail}`}
+            className="font-bold text-graphite underline decoration-super-red/45 underline-offset-2"
+          >
+            {LEGAL.supportEmail}
+          </a>
+          {' '}și îți răspunde un om.
+        </p>
+      </main>
+    </div>
+  );
+};
 
 const OperatorIdentity: React.FC = () => (
   <>
@@ -54,7 +117,7 @@ export const Terms: React.FC = () => (
     <ul>
       <li>Invitația este calificată numai după aprobarea contului invitat și validarea metodei sale de plată. Conturile duplicate, proprii, frauduloase sau anulate nu sunt eligibile.</li>
       <li>În configurația curentă, invitatul eligibil primește 12 luni gratuite, iar Eroul care invită primește o lună gratuită pentru fiecare prag de 5 invitați calificați.</li>
-      <li>Un cont poate fi atribuit unui singur cod, introdus la înscriere: fie cod de invitație, fie cod de recruiter. Atribuirea nu se face retroactiv.</li>
+      <li>Un cont poate fi atribuit unui singur cod, introdus la înscriere sau oricând înainte de activarea abonamentului: fie cod de invitație, fie cod de recruiter. După activare, atribuirea nu se mai poate face.</li>
       <li>Recruiterii sunt aprobați manual. Comisionul curent este 50% din primele 6 facturi de abonament efectiv încasate pentru fiecare Erou atribuit.</li>
       <li>Lunile gratuite și plățile eșuate, anulate sau rambursate nu generează comision. Un refund sau chargeback anulează comisionul aferent.</li>
       <li>Comisioanele sunt verificate înainte de plată. Recruiterul furnizează un IBAN propriu valid și răspunde pentru obligațiile fiscale care îi revin.</li>

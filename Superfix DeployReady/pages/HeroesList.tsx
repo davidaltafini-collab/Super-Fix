@@ -3,6 +3,33 @@ import { Link } from 'react-router-dom';
 import { Hero, JobCategory } from '../types';
 import { getHeroes } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
+import { thumb } from '../lib/img';
+import { Tilt } from '../components/motion';
+import { GlassButton } from '../components/Button';
+import { getCurrentLocation, geocodeAddress, haversineKm, type GeoPoint } from '../lib/geo';
+import { searchHeroes } from '../lib/heroSearch';
+import {
+  MagnifyingGlass, MapPin, Plus, CaretDown, Check, X, ArrowCounterClockwise,
+  Star, ShieldCheck, Sparkle, Lightning, Drop, Wrench, PaintRoller, Hammer,
+  Key, Broom, Toolbox, Users, ArrowRight, Target,
+} from '@phosphor-icons/react';
+
+// Iconița pentru fiecare meserie — același limbaj vizual ca pe homepage,
+// ca filtrele de aici să se lege de secțiunea "Alege după putere".
+const TRADE_ICONS: Record<string, React.ElementType> = {
+  ELECTRICIAN: Lightning,
+  INSTALATOR: Drop,
+  MECANIC: Wrench,
+  ZUGRAV: PaintRoller,
+  TÂMPLAR: Hammer,
+  TAMPLAR: Hammer,
+  LĂCĂTUȘ: Key,
+  LACATUS: Key,
+  CURĂȚENIE: Broom,
+  CURATENIE: Broom,
+};
+const iconForTrade = (name: string): React.ElementType =>
+  TRADE_ICONS[name.toUpperCase()] || Toolbox;
 
 // Lista completă de județe
 const COUNTIES = [
@@ -33,19 +60,76 @@ export const HeroesList: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Harta e închisă implicit — altfel ocupă tot ecranul chiar la intrarea pe pagină.
+  // Pe PC devine un panou plutitor ancorat de buton, ca sa nu se mai intinda pe toata latimea.
+  const [showMap, setShowMap] = useState(false);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
+
   // State pentru categoriile dinamice (Admin + DB + Default)
   const [allCategories, setAllCategories] = useState<string[]>([]);
 
-  // Închide dropdown dacă dai click în afara lui
+  // === SORTARE DUPĂ CEI MAI APROPIAȚI ===
+  // Toggle discret (nu deschide nimic vizibil) — ia locația din browser o
+  // singură dată, geocodează orașul fiecărui erou (cache-uit în lib/geo) și
+  // sortează după distanța în linie dreaptă.
+  const [sortNearby, setSortNearby] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null);
+  const [userLoc, setUserLoc] = useState<GeoPoint | null>(null);
+  const [heroDistances, setHeroDistances] = useState<Record<string, number>>({});
+
+  const toggleNearby = async () => {
+    if (sortNearby) { setSortNearby(false); return; }
+    setGeoErrorMsg(null);
+    setLocating(true);
+    const result = await getCurrentLocation();
+    setLocating(false);
+    if (!result.ok) {
+      setGeoErrorMsg(
+        result.reason === 'insecure'
+          ? 'Locația merge doar pe conexiune securizată — deschide direct superfix.ro pe telefon.'
+          : result.reason === 'blocked'
+          ? 'Ai blocat locația pentru acest site. Apasă pe iconița de lângă adresa paginii din browser, resetează permisiunea de Locație și încearcă din nou.'
+          : result.reason === 'unavailable'
+          ? 'Browserul tău nu oferă localizare.'
+          : 'Nu am putut afla locația ta. Verifică permisiunea de localizare și încearcă din nou.',
+      );
+      return;
+    }
+    setUserLoc(result.location);
+    setSortNearby(true);
+  };
+
+  // Închide dropdown-urile (județe + harta pe PC) dacă dai click în afara lor
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
+      if (mapPanelRef.current && !mapPanelRef.current.contains(event.target as Node)) {
+        setShowMap(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Odată ce avem locația omului, geocodăm orașul fiecărui erou (o dată, cu cache) și calculăm distanța
+  useEffect(() => {
+    if (!sortNearby || !userLoc) return;
+    let cancelled = false;
+    (async () => {
+      const entries: [string, number][] = [];
+      for (const hero of heroes) {
+        if (cancelled) return;
+        if (!hero.location) continue;
+        const point = await geocodeAddress(hero.location);
+        if (point) entries.push([hero.id, haversineKm(userLoc, point)]);
+      }
+      if (!cancelled) setHeroDistances(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [sortNearby, userLoc, heroes]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,276 +170,401 @@ export const HeroesList: React.FC = () => {
       return sum / hero.reviews.length;
   };
 
-  const renderStars = (rating: number) => {
-      const rounded = Math.round(rating);
-      return (
-          <span className="text-yellow-400 text-lg tracking-tighter">
-              {'★'.repeat(rounded)}
-              <span className="text-gray-300">{'★'.repeat(5 - rounded)}</span>
-          </span>
-      );
-  };
 
   // === LOGICĂ FILTRARE EROI ===
+  // Căutarea e fuzzy și pe tot profilul (alias, meserie, descriere, puteri,
+  // locație, telefon), nu doar un `includes` pe nume — vezi lib/heroSearch.ts.
   // Aceasta doar ASCUNDE eroii, NU modifică starea hărții (filterCounties)
-  const filteredHeroes = heroes.filter(hero => {
+  const isSearching = searchTerm.trim().length > 0;
+  const searchedHeroes = isSearching ? searchHeroes(heroes, searchTerm) : heroes;
+
+  const filteredHeroes = searchedHeroes.filter(hero => {
     // 1. Categorie
     const matchesCategory = filterCategory === 'ALL' || hero.category.toUpperCase() === filterCategory.toUpperCase();
-    
-    // 2. Căutare
-    const matchesSearch = hero.alias.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (hero.realName && hero.realName.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    // 3. Hartă (Dacă eroul acoperă MĂCAR UNUL din județele selectate)
+
+    // 2. Hartă (Dacă eroul acoperă MĂCAR UNUL din județele selectate)
     // Dacă nu e selectat niciun județ, îi arătăm pe toți.
     const heroAreas = Array.isArray(hero.actionAreas) ? hero.actionAreas : [];
-    const matchesMap = filterCounties.length === 0 || 
+    const matchesMap = filterCounties.length === 0 ||
                        heroAreas.some(area => filterCounties.includes(area));
-    
-    return matchesCategory && matchesSearch && matchesMap;
-  }).sort((a, b) => b.trustFactor - a.trustFactor);
+
+    return matchesCategory && matchesMap;
+  }).sort((a, b) => {
+    // Cu o căutare activă păstrăm ordinea de relevanță dată de searchHeroes.
+    if (isSearching) return 0;
+    if (sortNearby) {
+      const da = heroDistances[a.id];
+      const db = heroDistances[b.id];
+      if (da != null && db != null) return da - db;
+      if (da != null) return -1;
+      if (db != null) return 1;
+    }
+    return b.trustFactor - a.trustFactor;
+  });
+
+  // Harta + controalele ei — identice pentru varianta mobil (accordion inline)
+  // și varianta desktop (panou plutitor), ca sa nu se scrie de doua ori.
+  const mapControls = (
+    <div className="flex flex-col-reverse items-start gap-6 lg:flex-row lg:gap-8">
+      {/* Partea Stângă: Harta Interactivă */}
+      <div className="w-full rounded-[24px] bg-white/50 p-3 lg:w-2/3">
+          <RomaniaMap
+              key={filterCounties.join(',')}
+              value={filterCounties}
+              onToggle={toggleCounty}
+          />
+      </div>
+
+      {/* Partea Dreaptă: Controale */}
+      <div className="flex w-full flex-col gap-4 lg:w-1/3">
+          <p className="text-sm text-graphite-soft">
+              Selectează județele unde ai nevoie de ajutor.
+          </p>
+
+          {/* === DROPDOWN CUSTOM BRANDED (Se deschide ÎN JOS) === */}
+          <div className="relative" ref={dropdownRef}>
+              <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  aria-expanded={isDropdownOpen}
+                  className="flex w-full items-center justify-between rounded-full bg-white px-5 py-3 font-heading text-sm font-semibold shadow-clay-sm transition-all duration-200 hover:-translate-y-0.5 hover:text-super-red active:translate-y-0 active:scale-[0.98]"
+              >
+                  <span className="flex items-center gap-2">
+                      <Plus size={16} weight="bold" aria-hidden="true" />
+                      Adaugă județ
+                  </span>
+                  <CaretDown
+                      size={16}
+                      weight="bold"
+                      className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                  />
+              </button>
+
+              {/* MENIUL PROPRIU-ZIS (Absolut, sub buton) */}
+              {isDropdownOpen && (
+                  <div className="absolute left-0 top-full z-50 mt-2 max-h-60 w-full overflow-y-auto rounded-[20px] border border-white/70 bg-white/95 p-2 shadow-clay backdrop-blur-xl">
+                      {COUNTIES.map(c => {
+                          const isSelected = filterCounties.includes(c.code);
+                          return (
+                              <div
+                                  key={c.code}
+                                  onClick={() => toggleCounty(c.code)}
+                                  className={`flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${isSelected ? 'bg-super-red/10 font-semibold text-super-red' : 'hover:bg-cloud'}`}
+                              >
+                                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isSelected ? 'bg-super-red' : 'bg-graphite/10'}`}>
+                                      {isSelected && <Check size={11} weight="bold" className="text-white" aria-hidden="true" />}
+                                  </div>
+                                  <span>{c.name}</span>
+                              </div>
+                          );
+                      })}
+                  </div>
+              )}
+          </div>
+
+          {/* ZONA DE ETICHETE (TAG-uri) */}
+          <div className="flex min-h-[120px] flex-col rounded-[20px] bg-white/50 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-graphite-soft">Județe selectate</div>
+
+              <div className="mb-2 flex flex-wrap gap-2">
+                  {filterCounties.length === 0 && (
+                      <span className="py-1 text-sm text-graphite-soft">Toată România (niciun filtru activ)</span>
+                  )}
+                  {filterCounties.map(code => (
+                      <button
+                          key={code}
+                          onClick={() => toggleCounty(code)}
+                          className="group inline-flex items-center gap-2 rounded-full bg-super-red px-3.5 py-1.5 text-xs font-semibold text-white shadow-clay-red transition-transform hover:scale-105 active:scale-95"
+                          title="Elimină județ"
+                      >
+                          {COUNTIES.find(c => c.code === code)?.name || code}
+                          <X size={12} weight="bold" aria-hidden="true" />
+                      </button>
+                  ))}
+              </div>
+
+              {filterCounties.length > 0 && (
+                  <button
+                      onClick={() => setFilterCounties([])}
+                      className="mt-auto inline-flex items-center gap-1.5 self-end rounded-full px-3 py-1.5 text-xs font-semibold text-graphite-soft transition-colors hover:bg-super-red/10 hover:text-super-red"
+                  >
+                      <ArrowCounterClockwise size={14} weight="bold" aria-hidden="true" />
+                      Resetează harta
+                  </button>
+              )}
+          </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="container mx-auto px-4 py-8 min-h-screen relative">
-      
+    <div className="relative mx-auto min-h-screen max-w-7xl px-5 pb-16 pt-28 sm:px-6 font-sans text-graphite">
+
       {/* Header */}
-      <div className="mb-8 text-center relative z-10">
-        <h1 className="font-heading text-4xl md:text-5xl text-super-blue mb-2 uppercase drop-shadow-[2px_2px_0_#000]">
-          CARTIERUL GENERAL
+      <div className="relative z-10 mb-10 text-center">
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-heading font-semibold shadow-clay-sm">
+          <Users size={18} weight="fill" className="text-super-red" aria-hidden="true" />
+          Cartierul general
+        </span>
+        <h1 className="mt-5 font-heading text-[2.4rem] font-bold leading-[1.1] sm:text-5xl md:text-6xl">
+          Alege <span className="text-super-red">eroul</span> potrivit
         </h1>
-        <p className="text-gray-600 font-comic text-lg">Alege specialistul potrivit pentru misiunea ta.</p>
+        <p className="mx-auto mt-4 max-w-md text-lg text-graphite-soft">
+          Filtrează după meserie și zonă, apoi vezi profilul complet.
+        </p>
       </div>
 
       {/* === ZONA SEARCH & FILTRE === */}
-      <div className="relative z-30 mb-12 flex flex-col items-center gap-8">
-        
+      <div className="relative z-30 mb-12 flex flex-col items-center gap-6">
+
         {/* Search Bar */}
-        <div className="w-full max-w-xl relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 text-xl">
-                🔍
+        <div className="relative w-full max-w-xl">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5 text-graphite-soft">
+                <MagnifyingGlass size={22} weight="bold" aria-hidden="true" />
             </div>
-            <input 
+            <input
                 type="text"
-                placeholder="Caută erou (nume, alias)..."
+                placeholder="Caută nume, meserie, oraș, telefon..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-4 border-black font-comic text-lg shadow-comic focus:outline-none focus:translate-y-1 focus:shadow-none transition-all rounded-none"
+                className="w-full rounded-full border border-graphite/15 bg-white/85 py-4 pl-14 pr-5 text-base text-graphite shadow-clay-sm outline-none transition-all placeholder:text-graphite-soft/70 focus:border-super-red/40 focus:bg-white focus:ring-4 focus:ring-super-red/15"
             />
         </div>
 
-        {/* --- SECȚIUNE FILTRU GEOGRAFIC (HARTĂ + CONTROALE) --- */}
-        <div className="w-full max-w-6xl bg-white border-4 border-black p-4 shadow-comic">
-            <div className="flex flex-col-reverse lg:flex-row gap-8 items-start">
-                
-                {/* Partea Stângă: Harta Interactivă */}
-                <div className="w-full lg:w-2/3 border-2 border-dashed border-gray-300 p-2 bg-blue-50/30">
-                    <RomaniaMap 
-                        key={filterCounties.join(',')}
-                        value={filterCounties}
-                        onToggle={toggleCounty}
-                    />
+        {/* --- FILTRU ZONĂ + CEI MAI APROPIAȚI --- */}
+        {/* Un singur rând, compact, la fel pe telefon și pe PC — harta se deschide
+            într-un panou plutitor ancorat de buton, nu mai împinge pagina în jos. */}
+        <div ref={mapPanelRef} className="relative flex flex-wrap items-center justify-center gap-3">
+              <button
+                  type="button"
+                  onClick={() => setShowMap(v => !v)}
+                  aria-expanded={showMap}
+                  className="sf-glass flex items-center gap-2.5 rounded-full py-3 pl-4 pr-3 font-heading text-sm font-semibold transition-colors hover:bg-white/60 sm:gap-3 sm:pl-5 sm:pr-4"
+              >
+                  <MapPin size={18} weight="duotone" className="text-super-red" aria-hidden="true" />
+                  Filtru zonă
+                  <span className="h-4 w-px bg-graphite/15" aria-hidden="true" />
+                  <span className="flex items-center gap-1.5 font-normal text-graphite-soft sm:gap-2">
+                      {filterCounties.length === 0
+                          ? 'Toată România'
+                          : `${filterCounties.length} ${filterCounties.length === 1 ? 'județ' : 'județe'}`}
+                      <CaretDown
+                          size={16}
+                          weight="bold"
+                          className={`transition-transform duration-200 ${showMap ? 'rotate-180' : ''}`}
+                          aria-hidden="true"
+                      />
+                  </span>
+              </button>
+
+              {/* Toggle: sortează după cei mai apropiați de tine (geolocalizare) */}
+              <button
+                  type="button"
+                  onClick={toggleNearby}
+                  disabled={locating}
+                  aria-pressed={sortNearby}
+                  title="Sortează după cei mai apropiați de tine"
+                  className="sf-glass inline-flex items-center gap-2 rounded-full py-2 pl-3.5 pr-2 font-heading text-sm font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70"
+              >
+                  <Target size={16} weight={sortNearby ? 'fill' : 'regular'} className={sortNearby ? 'text-super-red' : ''} aria-hidden="true" />
+                  <span className="hidden sm:inline">{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
+                  <span
+                      aria-hidden="true"
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${sortNearby ? 'bg-super-red' : 'bg-graphite/20'}`}
+                  >
+                      <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${sortNearby ? 'translate-x-[18px]' : 'translate-x-1'}`}
+                      />
+                  </span>
+              </button>
+
+              <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showMap ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} absolute left-1/2 top-full z-40 mt-3 w-[92vw] -translate-x-1/2 sm:left-0 sm:w-[720px] sm:max-w-[80vw] sm:translate-x-0`}>
+                <div className="overflow-hidden">
+                  {/* px-7/pb-14, nu p-6 uniform: umbra lui .sf-glass (0 22px 46px -20px)
+                      are nevoie de ~48px jos și ~28px pe laterale ca să se stingă complet
+                      înainte să lovească marginea overflow-hidden de mai sus — cu doar
+                      24px se tăia brusc, fără să apuce să se disipe. */}
+                  <div className="px-7 pt-6 pb-14">
+                    <div className="sf-glass overflow-hidden rounded-[28px] shadow-clay">
+                      <div className="max-h-[75vh] overflow-y-auto p-5 sm:p-6">
+                        {mapControls}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-
-                {/* Partea Dreaptă: Controale */}
-                <div className="w-full lg:w-1/3 flex flex-col gap-4">
-                    <div className="border-b-4 border-black pb-2 mb-2">
-                        <h3 className="font-heading text-xl uppercase text-super-red">
-                            📍 FILTRU ZONĂ
-                        </h3>
-                        <p className="font-comic text-xs text-gray-500">
-                            Selectează județele unde ai nevoie de ajutor.
-                        </p>
-                    </div>
-
-                    {/* === DROPDOWN CUSTOM BRANDED (Se deschide ÎN JOS) === */}
-                    <div className="relative" ref={dropdownRef}>
-                        <button 
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="w-full bg-white border-4 border-black p-3 flex justify-between items-center font-heading text-sm uppercase shadow-[4px_4px_0_#000] hover:bg-yellow-50 active:translate-y-1 active:shadow-none transition-all"
-                        >
-                            <span>➕ ADAUGĂ JUDEȚ</span>
-                            <span className={`transform transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
-                        </button>
-
-                        {/* MENIUL PROPRIU-ZIS (Absolut, sub buton) */}
-                        {isDropdownOpen && (
-                            <div className="absolute top-full left-0 w-full mt-2 bg-white border-4 border-black shadow-2xl max-h-60 overflow-y-auto z-50 animate-fade-in">
-                                {COUNTIES.map(c => {
-                                    const isSelected = filterCounties.includes(c.code);
-                                    return (
-                                        <div 
-                                            key={c.code} 
-                                            onClick={() => toggleCounty(c.code)}
-                                            className={`p-2 cursor-pointer border-b border-gray-100 flex items-center justify-between hover:bg-yellow-100 font-sans text-sm ${isSelected ? 'bg-yellow-50 font-bold' : ''}`}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                {/* Checkbox Vizual */}
-                                                <div className={`w-4 h-4 border-2 border-black flex items-center justify-center ${isSelected ? 'bg-super-red' : 'bg-white'}`}>
-                                                    {isSelected && <span className="text-white text-[10px]">✓</span>}
-                                                </div>
-                                                <span>{c.name}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ZONA DE ETICHETE (TAG-uri) */}
-                    <div className="bg-gray-100 p-4 border-2 border-black min-h-[120px] flex flex-col shadow-inner">
-                        <div className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest">JUDEȚE SELECTATE:</div>
-                        
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {filterCounties.length === 0 && (
-                                <span className="text-gray-400 italic text-sm py-1">Toată România (Niciun filtru activ)</span>
-                            )}
-                            {filterCounties.map(code => (
-                                <button 
-                                    key={code} 
-                                    onClick={() => toggleCounty(code)}
-                                    className="bg-super-red text-white text-xs font-bold px-3 py-1 border-2 border-black shadow-sm hover:bg-red-700 hover:scale-105 transition-all flex items-center gap-2 group"
-                                    title="Elimină județ"
-                                >
-                                    {COUNTIES.find(c => c.code === code)?.name || code} 
-                                    <div className="bg-white text-red-600 w-4 h-4 rounded-full flex items-center justify-center text-[10px] border border-red-600">✕</div>
-                                </button>
-                            ))}
-                        </div>
-
-                        {filterCounties.length > 0 && (
-                            <button 
-                                onClick={() => setFilterCounties([])} 
-                                className="mt-auto self-end text-xs font-bold underline text-gray-600 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded"
-                            >
-                                🗑️ Resetează Harta
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
+              </div>
         </div>
+        {geoErrorMsg && (
+            <p className="-mt-4 max-w-sm text-center text-xs text-super-red">{geoErrorMsg}</p>
+        )}
 
         {/* Butoane Categorii (TOATE, INCLUSIV CELE DIN ADMIN) */}
-        <div className="flex flex-wrap justify-center gap-3 w-full max-w-6xl">
-            <button 
+        <div className="flex w-full max-w-6xl flex-wrap justify-center gap-2.5">
+            <button
               onClick={() => setFilterCategory('ALL')}
-              className={`px-6 py-2 font-heading text-sm border-2 border-black transition-all shadow-[2px_2px_0_#000] hover:-translate-y-1 hover:shadow-[4px_4px_0_#000]
-                ${filterCategory === 'ALL' ? 'bg-super-blue text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
+              aria-pressed={filterCategory === 'ALL'}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-heading text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
+                ${filterCategory === 'ALL' ? 'bg-graphite text-white shadow-clay-dark' : 'bg-white/80 text-graphite shadow-clay-sm hover:text-super-red'}`}
             >
-              TOȚI EROII
+              <Sparkle size={17} weight={filterCategory === 'ALL' ? 'fill' : 'duotone'} aria-hidden="true" />
+              Toți eroii
             </button>
-            
-            {allCategories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`px-6 py-2 font-heading text-sm border-2 border-black transition-all shadow-[2px_2px_0_#000] hover:-translate-y-1 hover:shadow-[4px_4px_0_#000] uppercase
-                  ${filterCategory === cat ? 'bg-super-red text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-              >
-                {cat}
-              </button>
-            ))}
+
+            {allCategories.map((cat) => {
+              const Icon = iconForTrade(cat);
+              const active = filterCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-heading text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
+                    ${active ? 'bg-super-red text-white shadow-clay-red' : 'bg-white/80 text-graphite shadow-clay-sm hover:text-super-red'}`}
+                >
+                  <Icon size={17} weight={active ? 'fill' : 'duotone'} aria-hidden="true" />
+                  {cat}
+                </button>
+              );
+            })}
         </div>
+
+        {/* Contor rezultate */}
+        {!loading && (
+          <p className="text-sm font-semibold text-graphite-soft" aria-live="polite">
+            {filteredHeroes.length === 0
+              ? 'Niciun erou găsit'
+              : `${filteredHeroes.length} ${filteredHeroes.length === 1 ? 'erou disponibil' : 'eroi disponibili'}`}
+          </p>
+        )}
       </div>
 
       {/* === GRID EROI === */}
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-super-red"></div>
+        // Schelete în forma cardului final (nu spinner generic) — pagina nu "sare" la încărcare.
+        <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4" aria-live="polite" aria-busy="true">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="sf-glass overflow-hidden rounded-[20px] sm:rounded-[28px]">
+              <div className="aspect-square animate-pulse bg-graphite/10 sm:aspect-auto sm:h-60" />
+              <div className="p-3 sm:p-5">
+                <div className="h-5 w-2/3 animate-pulse rounded-full bg-graphite/10" />
+                <div className="mt-4 h-3 w-full animate-pulse rounded-full bg-graphite/10" />
+                <div className="mt-2 h-3 w-4/5 animate-pulse rounded-full bg-graphite/10" />
+                <div className="mt-5 h-8 w-1/2 animate-pulse rounded-full bg-graphite/10" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <>
           {filteredHeroes.length === 0 ? (
-            <div className="text-center py-20 bg-white border-4 border-black shadow-comic max-w-2xl mx-auto px-4">
-              <div className="text-6xl mb-4">🕵️‍♂️</div>
-              <h3 className="text-2xl font-heading mb-2">NICIUN EROU GĂSIT</h3>
-              <p className="text-gray-500 font-comic">Nu avem eroi care să corespundă criteriilor tale (Categorie + Zonă).</p>
-              <button 
-                onClick={() => {setFilterCategory('ALL'); setSearchTerm(''); setFilterCounties([])}} 
-                className="mt-6 text-white bg-black px-6 py-2 font-heading border-2 border-transparent hover:border-gray-500"
-              >
-                RESETEAZĂ CĂUTAREA
-              </button>
+            <div className="sf-glass mx-auto max-w-2xl rounded-[32px] px-6 py-14 text-center">
+              <img
+                src="/mascot.png"
+                alt=""
+                aria-hidden="true"
+                className="mx-auto mb-6 w-auto max-h-44 opacity-90 drop-shadow-[0_18px_26px_rgba(46,51,59,0.3)]"
+              />
+              <h3 className="font-heading text-2xl font-bold">Niciun erou pe potrivă</h3>
+              <p className="mx-auto mt-3 max-w-sm text-graphite-soft">
+                Nu găsim eroi pentru meseria și zona alese. Încearcă alt județ sau altă meserie.
+              </p>
+              <div className="mt-7 flex justify-center">
+                <GlassButton
+                  type="button"
+                  tone="red"
+                  onClick={() => { setFilterCategory('ALL'); setSearchTerm(''); setFilterCounties([]); }}
+                >
+                  <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
+                  Resetează căutarea
+                </GlassButton>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 relative z-10">
+            <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4">
               {filteredHeroes.map(hero => {
                 const avgRating = getAverageRating(hero);
+                const TradeIcon = iconForTrade(hero.category);
                 return (
-                  // CARD EROU
-                  <Link
-                    to={`/hero/${hero.slug || hero.id}`}
-                    key={hero.id}
-                    className="block bg-white border-4 border-black rounded-xl overflow-hidden shadow-[8px_8px_0_#000] hover:-translate-y-2 hover:shadow-[12px_12px_0_#000] transition-all duration-200 flex flex-col h-full group relative"
-                  >
-                    {/* Badge Categorie */}
-                    <div className="absolute top-4 right-4 z-20">
-                        <span className="bg-comic-yellow border-2 border-black px-3 py-1 text-xs font-black uppercase shadow-sm transform rotate-3 inline-block group-hover:rotate-6 transition-transform">
-                            {hero.category}
-                        </span>
-                    </div>
-
-                    {/* Imagine */}
-                    <div className="h-64 bg-gray-200 border-b-4 border-black overflow-hidden relative">
-                      <img 
-                        src={hero.avatarUrl || DEFAULT_AVATAR} 
-                        alt={hero.alias} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      />
-                      <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </div>
-
-                    {/* Conținut */}
-                    <div className="p-5 flex-grow flex flex-col">
-                      
-                      <div className="flex justify-between items-start mb-1">
-                          <h3 className="font-heading text-2xl truncate pr-2 text-gray-900 group-hover:text-super-red transition-colors">
-                              {hero.alias}
-                          </h3>
+                  // CARD EROU — tilt 3D + glare la hover (doar pe pointer fin, vezi componenta Tilt)
+                  <Tilt key={hero.id} max={8} className="h-full rounded-[20px] sm:rounded-[28px]">
+                    <Link
+                      to={`/hero/${hero.slug || hero.id}`}
+                      className="group sf-glass relative flex h-full flex-col overflow-hidden rounded-[20px] transition-shadow duration-300 sm:rounded-[28px]"
+                    >
+                      {/* Badge Categorie */}
+                      <div className="absolute right-2 top-2 z-20 sm:right-4 sm:top-4">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-heading font-semibold text-graphite shadow-clay-sm backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                              <TradeIcon size={12} weight="fill" className="text-super-red" aria-hidden="true" />
+                              {hero.category}
+                          </span>
                       </div>
 
-                      {/* Stats */}
-                      <div className="flex items-center justify-between mb-4 border-b-2 border-gray-100 pb-3">
-                          <div className="flex flex-col">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">TRUST</span>
-                              <span className="font-heading text-lg text-green-600 flex items-center gap-1">
-                                  🛡️ {hero.trustFactor}
-                              </span>
-                          </div>
-                          <div className="flex flex-col items-center px-2 border-l border-r border-gray-100">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">MISIUNI</span>
-                              <span className="font-heading text-lg text-blue-600">
-                                  {hero.missionsCompleted}
-                              </span>
-                          </div>
-                          <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">RECENZII</span>
-                              <div className="flex items-center gap-1">
-                                  {renderStars(avgRating)}
-                                  <span className="text-xs font-bold text-gray-500 ml-1">({hero.reviews?.length || 0})</span>
-                              </div>
-                          </div>
+                      {/* Imagine — patrat, ca sa respecte safe-space-ul circular din cropper-ul de poza profil */}
+                      <div className="relative aspect-square overflow-hidden bg-cloud sm:aspect-auto sm:h-60">
+                        <img
+                          src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 640, { square: true })}
+                          alt={hero.alias}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
+                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-base font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
+                            {hero.alias}
+                        </h3>
                       </div>
 
-                      {/* Descriere scurtă */}
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 mb-4 flex-grow text-sm italic font-comic text-gray-600 relative">
-                        <span className="absolute -top-3 -left-2 text-3xl text-gray-300 leading-none select-none">"</span>
-                        {hero.description ? (hero.description.length > 70 ? hero.description.substring(0, 70) + "..." : hero.description) : "Erou gata de acțiune!"}
-                      </div>
+                      {/* Conținut */}
+                      <div className="flex flex-grow flex-col p-3 sm:p-5">
 
-                      {/* Footer Card */}
-                      <div className="mt-auto flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">TARIF ORAR</p>
-                          <p className="font-heading text-xl text-super-red">{hero.hourlyRate} RON</p>
+                        {/* Stats */}
+                        <div className="flex items-center justify-between gap-1 rounded-xl bg-white/55 px-2 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2.5">
+                            <div className="flex flex-col items-center">
+                                <span className="flex items-center gap-1 font-heading text-xs font-semibold text-graphite sm:text-base">
+                                    <ShieldCheck size={13} weight="fill" className="text-emerald-600" aria-hidden="true" />
+                                    {hero.trustFactor}
+                                </span>
+                                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                    <span className="sm:hidden">Încr.</span>
+                                    <span className="hidden sm:inline">Încredere</span>
+                                </span>
+                            </div>
+                            <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
+                            <div className="flex flex-col items-center">
+                                <span className="font-heading text-xs font-semibold text-graphite sm:text-base">{hero.missionsCompleted}</span>
+                                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
+                            </div>
+                            <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
+                            <div className="flex flex-col items-center">
+                                <span className="flex items-center gap-1 font-heading text-xs font-semibold text-graphite sm:text-base">
+                                    <Star size={13} weight="fill" className="text-comic-yellow" aria-hidden="true" />
+                                    {avgRating > 0 ? avgRating.toFixed(1) : '–'}
+                                </span>
+                                <span className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                    {hero.reviews?.length || 0} rec.
+                                </span>
+                            </div>
                         </div>
-                        <div className="bg-black text-white text-xs font-bold px-3 py-1 rounded uppercase tracking-wider group-hover:bg-super-blue transition-colors">
-                            VEZI PROFIL →
+
+                        {/* Descriere scurtă */}
+                        <p className="mt-2.5 flex-grow text-xs leading-snug text-graphite-soft sm:mt-4 sm:text-sm sm:leading-relaxed">
+                          {hero.description ? (hero.description.length > 80 ? hero.description.substring(0, 80) + "…" : hero.description) : "Erou gata de acțiune."}
+                        </p>
+
+                        {/* Footer Card */}
+                        <div className="mt-3 flex items-end justify-between gap-1.5 sm:mt-5">
+                          <div>
+                            <p className="text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Tarif orar</p>
+                            <p className="font-heading text-base font-bold text-super-red sm:text-xl">{hero.hourlyRate} RON</p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-graphite px-2.5 py-1.5 text-[10px] font-heading font-semibold text-white transition-all duration-200 group-hover:bg-super-red sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs sm:group-hover:gap-2.5">
+                              <span className="sm:hidden">Profil</span>
+                              <span className="hidden sm:inline">Vezi profil</span>
+                              <ArrowRight size={12} weight="bold" aria-hidden="true" />
+                          </span>
                         </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </Tilt>
                 );
               })}
             </div>

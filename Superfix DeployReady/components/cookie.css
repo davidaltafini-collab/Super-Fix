@@ -1,0 +1,136 @@
+/* ============================================================
+   Banda de cookies.
+
+   Vine peste tot ce e pe ecran la prima vizită, deci e primul lucru pe care îl
+   vede lumea din site. Varianta veche era galben plin cu chenar negru, două
+   emoji și `whitespace-nowrap` pe butoane — care, pe un telefon de 390px, o
+   făcea mai lată decât ecranul și tăia textul.
+
+   Acum e o bandă de sticlă, jos, care nu acoperă pagina și nu strigă.
+   ============================================================ */
+
+.ck {
+  position: fixed;
+  z-index: 200;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  margin-inline: auto;
+  max-width: 46rem;
+  border-radius: 24px;
+  padding: 1.1rem 1.15rem;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.88), rgba(233, 238, 246, 0.82));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 26px 54px -22px rgba(46, 51, 59, 0.5),
+    0 6px 16px -8px rgba(46, 51, 59, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  animation: ck-in 460ms cubic-bezier(0.22, 1, 0.36, 1) 500ms both;
+}
+
+/* Întârzierea de o jumătate de secundă e intenționată: banda care sare odată cu
+   pagina se citește ca o eroare de încărcare, nu ca o întrebare. */
+@keyframes ck-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.ck__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.ck__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  color: hsl(355 66% 47%);
+  background: hsl(355 74% 55% / 0.12);
+}
+
+.ck__title {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: #2e333b;
+}
+
+.ck__text {
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #474e59;
+}
+
+.ck__link {
+  font-weight: 700;
+  color: #2e333b;
+  text-decoration: underline;
+  text-decoration-color: hsl(355 74% 55% / 0.45);
+  text-underline-offset: 2px;
+}
+
+.ck__buttons {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.95rem;
+}
+
+.ck__btn {
+  flex: 1;
+  min-height: 2.85rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.32, 0.72, 0, 1), background-color 180ms ease,
+    filter 180ms ease;
+}
+
+.ck__btn:active { transform: scale(0.97); }
+
+.ck__btn--no {
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+}
+
+.ck__btn--no:hover { background: #fff; }
+
+.ck__btn--yes {
+  color: #fff;
+  background: linear-gradient(150deg, hsl(355 74% 57%), hsl(355 66% 46%));
+  border: 0;
+  box-shadow: 0 14px 28px -14px rgba(225, 55, 70, 0.85);
+}
+
+.ck__btn--yes:hover { filter: brightness(1.06); }
+
+.ck__btn:focus-visible {
+  outline: 3px solid hsl(355 74% 55% / 0.45);
+  outline-offset: 2px;
+}
+
+/* De la lățimea la care încap una lângă alta, textul și butoanele stau pe un
+   singur rând — banda se face mai scundă și acoperă mai puțin din pagină. */
+@media (min-width: 40rem) {
+  .ck { padding: 1.15rem 1.35rem; }
+  .ck__row { align-items: center; }
+  .ck__buttons { margin-top: 0; flex: none; }
+  .ck__btn { flex: none; }
+  .ck__inner { display: flex; align-items: center; gap: 1.25rem; }
+  .ck__copy { flex: 1; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck { animation: none; }
+  .ck__btn { transition: none; }
+}

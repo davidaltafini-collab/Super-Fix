@@ -1,0 +1,822 @@
+/* ============================================================
+   Portalul eroului — stilul stă aici, nu împrăștiat în clase.
+
+   Trece de la benzi desenate cu contururi negre groase la limbajul restului
+   sitului: sticlă, clay, Anton. Statusurile rămân colorate, pentru că
+   informația e reală și trebuie citită dintr-o privire, dar tonul e potolit.
+   ============================================================ */
+
+/* ============================================================
+   O SINGURĂ PALETĂ DE STĂRI, pentru tot portalul.
+
+   Regula, de aici înainte: un card = o culoare. Tot ce e colorat pe el —
+   cuvântul de stare, punctul, bara de acțiune — ia aceeași nuanță, cea a
+   stării în care se află. Înainte, o misiune în lucru avea textul albastru și
+   butonul verde, iar pe pagina de detalii aceeași misiune avea eticheta
+   chihlimbar: trei culori pentru un singur lucru.
+
+   Nuanțele citite în ordine sunt un drum, nu o listă:
+
+     roșu       cineva așteaptă un răspuns de la tine
+     chihlimbar ai zis da, mai ai de ajuns acolo
+     albastru   ești pe teren, lucrarea merge
+     verde      gata
+     gri        închisă, nu mai e nimic de făcut
+
+   Se schimbă dintr-un singur loc: blocurile de mai jos. Nicăieri altundeva nu
+   se mai scrie o culoare de stare de mână.
+   ============================================================ */
+
+[data-status='PENDING'] {
+  --st-ink: hsl(355 66% 45%);
+  --st-a: hsl(355 80% 62%);
+  --st-b: hsl(352 78% 44%);
+}
+
+[data-status='ACCEPTED'] {
+  --st-ink: hsl(30 78% 38%);
+  --st-a: hsl(36 92% 56%);
+  --st-b: hsl(28 88% 46%);
+}
+
+[data-status='IN_PROGRESS'] {
+  --st-ink: hsl(211 74% 42%);
+  --st-a: hsl(211 88% 54%);
+  --st-b: hsl(214 84% 42%);
+}
+
+[data-status='COMPLETED'] {
+  --st-ink: hsl(160 60% 28%);
+  --st-a: hsl(160 70% 38%);
+  --st-b: hsl(162 84% 26%);
+}
+
+[data-status='REJECTED'],
+[data-status='CANCELLED'] {
+  --st-ink: hsl(220 9% 46%);
+  --st-a: hsl(220 9% 58%);
+  --st-b: hsl(220 12% 44%);
+}
+
+/* eticheta de status a misiunii */
+.portal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+/* Ia culoarea din paleta de sus, ca peste tot. Aici erau scrise de mână un
+   chihlimbar pentru „în așteptare" și un mov pentru „acceptată" — de-aia
+   pagina de detalii arăta cu totul altfel decât lista. */
+.portal-status { background: linear-gradient(120deg, var(--st-a), var(--st-b)); }
+
+/* punctul care pulsează doar cât lucrarea e în desfășurare */
+.portal-status__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.portal-status[data-status='IN_PROGRESS'] .portal-status__dot {
+  animation: portal-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes portal-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* descrierea problemei, în cuvintele clientului */
+.portal-quote {
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  border-left: 3px solid hsl(355 74% 55%);
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: #2e333b;
+}
+
+/* butoanele de acțiune de pe misiune */
+.portal-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0 1.35rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  color: #fff;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.portal-action:hover { transform: translateY(-2px); }
+.portal-action:active { transform: scale(0.97); }
+
+/* Butonul principal poartă culoarea stării cardului, ca bara din listă. Erau
+   scrise fix: verde pentru „accept" și albastru pentru „încep" — de-aia un card
+   ajungea să aibă eticheta de o culoare și butonul de alta. */
+.portal-action--primary {
+  background: linear-gradient(120deg, var(--st-a), var(--st-b));
+  box-shadow: 0 14px 28px -14px var(--st-b);
+}
+/* Navigația nu e o stare a misiunii, deci nu ia o culoare de stare: ar fi a
+   doua nuanță pe același card. */
+.portal-action--nav {
+  background: linear-gradient(120deg, #4a515c, #2e333b);
+  box-shadow: 0 14px 28px -14px rgba(46, 51, 59, 0.7);
+}
+
+.portal-action--no {
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(46, 51, 59, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-tab,
+  .portal-action { transition: none; }
+  .portal-status[data-status='IN_PROGRESS'] .portal-status__dot { animation: none; }
+}
+
+/* linkurile de sub antetul portalului */
+.portal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+  transition: transform 200ms ease, background-color 200ms ease, color 200ms ease;
+}
+
+.portal-link:hover {
+  transform: translateY(-2px);
+  background: #fff;
+}
+
+.portal-link--out {
+  color: hsl(355 45% 46%);
+  border-color: hsl(355 55% 62% / 0.4);
+}
+
+.portal-link--out:hover {
+  color: #fff;
+  background: hsl(355 74% 55%);
+  border-color: hsl(355 74% 55%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-link { transition: none; }
+}
+
+/* ============================================================
+   Cardul de misiune.
+
+   Nu e o fișă cu câmpuri, e un apel de la un om. Deci problema lui e titlul
+   cardului, scrisă mare, iar restul o susține. Fără etichete mici cu
+   majuscule, fără două coloane, o singură linie de separare.
+   ============================================================ */
+
+.mission-card__call {
+  position: relative;
+  padding-left: 1.35rem;
+  font-size: 1.35rem;
+  line-height: 1.45;
+  color: #2e333b;
+}
+
+@media (min-width: 640px) {
+  .mission-card__call { font-size: 1.5rem; }
+}
+
+/* bara roșie ține locul ghilimelelor: e vocea clientului, nu textul nostru */
+.mission-card__call::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 4px;
+  border-radius: 999px;
+  background: hsl(355 74% 55%);
+}
+
+.mission-card__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.mission-card__name {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #2e333b;
+}
+
+/* telefonul e o acțiune, nu un text: se apasă */
+.mission-card__phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: hsl(160 84% 24%);
+  background: hsl(160 84% 33% / 0.12);
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.mission-card__phone:hover {
+  transform: translateY(-2px);
+  background: hsl(160 84% 33% / 0.2);
+}
+
+.mission-card__email {
+  font-size: 0.875rem;
+  color: #8b929c;
+}
+
+.mission-card__when {
+  font-size: 0.8125rem;
+  color: #8b929c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-card__phone { transition: none; }
+}
+
+/* Cardul, ca obiect: mai opac și cu umbră mai clară decât sticla obișnuită,
+   ca două misiuni una sub alta să nu se topească într-un bloc continuu. */
+.mission-card {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(238, 243, 251, 0.82));
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 28px 54px -22px rgba(46, 51, 59, 0.4),
+    0 3px 10px -4px rgba(46, 51, 59, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 320ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mission-card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 34px 62px -22px rgba(46, 51, 59, 0.45),
+      0 3px 10px -4px rgba(46, 51, 59, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+}
+
+/* apelurile la care încă n-a răspuns nimeni ies în față printr-un fir roșu */
+.mission-card[data-status='PENDING'] {
+  border-color: hsl(355 74% 55% / 0.35);
+  box-shadow:
+    0 28px 54px -22px hsl(355 74% 55% / 0.35),
+    0 3px 10px -4px rgba(46, 51, 59, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-card { transition: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mission-card {
+    background: #f3f6fb;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* adresa pe cardul din listă: unde are de mers, vizibil fără să deschidă */
+.mission-card__place {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #474e59;
+}
+
+.mission-card__place svg { color: hsl(355 74% 55%); flex-shrink: 0; }
+
+.mission-card__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  color: hsl(355 66% 45%);
+  transition: gap 200ms ease;
+}
+
+.mission-card__open:hover { gap: 0.6rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-card__open { transition: none; }
+}
+
+/* ============================================================
+   CARDUL DE MISIUNE — direcția „Semnalul".
+
+   Nu e o fișă cu câmpuri, e un apel care tocmai a intrat. Deci:
+
+   Sus, mare, stă DISTANȚA — pentru că ea decide dacă omul ia lucrarea. Când nu
+   știm distanța (misiune fără coordonate), locul îl ia timpul: de cât așteaptă.
+   Amândouă răspund la aceeași întrebare, în unități diferite.
+
+   Culoarea apare într-un singur loc pe card: bara de acțiune, lipită de
+   marginea de jos. Și înseamnă ceva anume, mereu același lucru:
+
+     roșu    = decide acum        (cerere nouă)
+     albastru = pornește          (ai acceptat, urmează poza de început)
+     verde   = încheie            (ești pe teren, urmează poza finală)
+     gri     = nu mai ai ce face  (terminată, refuzată, anulată)
+
+   Starea e scrisă și în cuvinte, nu doar în culoare — în soare, pe un telefon
+   ieftin, culoarea singură nu e informație.
+   ============================================================ */
+
+.mcard {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(238, 243, 251, 0.84));
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 26px 50px -24px rgba(46, 51, 59, 0.4),
+    0 3px 10px -4px rgba(46, 51, 59, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 320ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mcard:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 32px 60px -24px rgba(46, 51, 59, 0.45),
+      0 3px 10px -4px rgba(46, 51, 59, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+}
+
+/* misiunile încheiate nu mai cer nimic: se retrag un pas în spate */
+.mcard[data-status='COMPLETED'],
+.mcard[data-status='REJECTED'],
+.mcard[data-status='CANCELLED'] {
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 16px 34px -22px rgba(46, 51, 59, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* toată partea de sus e un singur link către pagina misiunii */
+.mcard__face { display: block; padding: 1.25rem 1.3rem 0; }
+.mcard__face:focus-visible { outline: 2px solid hsl(355 74% 55%); outline-offset: -4px; border-radius: 22px; }
+
+.mcard__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+
+.mcard__lead { display: flex; align-items: baseline; gap: 0.45rem; min-width: 0; }
+
+.mcard__big {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 2rem;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  color: #2e333b;
+  font-variant-numeric: tabular-nums;
+}
+
+.mcard__small { font-size: 0.9375rem; font-weight: 700; color: #8b929c; }
+
+/* Colțul din dreapta ține două lucruri: în ce stare e și de când. Vechimea a
+   coborât aici de lângă distanță — acolo, „4,2 km · 12 min" se citea ca timp de
+   mers. Acum locul acela chiar arată timpul de mers. */
+.mcard__state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  /* `space-between` singur ar trimite blocul la stânga când nu există distanță
+     de afișat în partea cealaltă. */
+  margin-left: auto;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  padding-top: 0.15rem;
+  text-align: right;
+}
+
+.mcard__word {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* Puțin mai mare decât o notiță de subsol: e singurul lucru de pe card care
+   spune de cât timp așteaptă omul, iar la o cerere nouă asta contează. */
+.mcard__age { font-size: 0.8125rem; font-weight: 700; color: #8b929c; }
+
+/* Timpul de mers e cerut de la un serviciu de rutare. Când n-a răspuns, cade pe
+   linie dreaptă — și atunci se vede că e estimare, nu se dă drept măsurat. */
+.mcard__approx { opacity: 0.7; }
+
+.mcard__pip { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+
+.mcard__word { color: var(--st-ink); }
+
+/* cererile la care încă n-a răspuns nimeni chiar sunt un semnal care intră */
+.mcard[data-status='PENDING'] .mcard__pip,
+.mcard[data-status='IN_PROGRESS'] .mcard__pip {
+  animation: mcard-ping 1.9s ease-out infinite;
+}
+
+@keyframes mcard-ping {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%, 100% { box-shadow: 0 0 0 8px transparent; opacity: 0.75; }
+}
+
+.mcard__addr {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #8b929c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcard__quote {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* `baseline`, nu `start`: ghilimeaua trebuie să stea pe linia de bază a
+     primului rând de text. Aliniată sus, atârna sub rând și se citea ca o
+     virgulă rătăcită. Grila aliniază liniile de bază, deci nu mai depinde de
+     metricile fontului. */
+  align-items: baseline;
+  gap: 0.55rem;
+  margin-top: 0.95rem;
+}
+
+/* Semnul de citat ține locul etichetei „descriere": e vocea clientului, nu a
+   noastră. Ghilimeaua românească de deschidere stă jos, pe linia de bază — deci
+   trebuie coborâtă pe linia primului rând, altfel plutește lângă text și se
+   citește ca o virgulă rătăcită. */
+.mcard__mark {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.75rem;
+  line-height: 1;
+  /* Nuanța cardului, nu roșul de brand. Fix pe roșu, ghilimeaua rămânea a doua
+     culoare pe un card albastru sau verde. */
+  color: color-mix(in srgb, var(--st-ink) 60%, transparent);
+}
+
+.mcard__words { font-size: 1.0625rem; line-height: 1.5; color: #2e333b; }
+
+.mcard__who {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1.3rem 1.15rem;
+}
+
+/* discul cu inițialele: același material clay ca pe restul sitului */
+.mcard__disc {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.875rem;
+  color: #545b65;
+  background: linear-gradient(160deg, #ffffff, #e2e8f2);
+  border: 1px solid #fff;
+  box-shadow: inset 0 1px 0 #fff, 0 6px 12px -8px rgba(46, 51, 59, 0.5);
+}
+
+.mcard__person {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #2e333b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcard__tel {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--st-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mcard__tel:hover { filter: brightness(0.85); }
+
+/* ---------------- bara de acțiune ---------------- */
+
+/* Lipită de marginea de jos și înclinată cu 0,7° — aceeași înclinare ca banda
+   din logo. Textul se îndreaptă la loc, ca să rămână lizibil. */
+.mcard__bar {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* Muchia de sus e tăiată oblic, ca banda din logo — dar prin decupare, nu prin
+   înclinarea elementului.
+
+   Cu `skewY`, cât urcă marginea din dreapta depinde de lățime: 5px pe telefon,
+   11px pe desktop. Orice compensare fixă lasă o pană albă în colț la o lățime
+   sau la alta. Decupajul ține muchia de jos perfect lipită de card, indiferent
+   cât de lat e, și lasă oblic doar ce trebuie să fie oblic. */
+.mcard__fill {
+  display: block;
+  padding: 1.35rem 1.2rem 1.05rem;
+  background: linear-gradient(120deg, var(--st-a), var(--st-b));
+  clip-path: polygon(0 11px, 100% 0, 100% 100%, 0 100%);
+  transition: filter 200ms ease;
+}
+
+.mcard__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+.mcard__bar:hover .mcard__fill { filter: brightness(1.07); }
+.mcard__bar:active .mcard__fill { filter: brightness(0.95); }
+.mcard__bar:focus-visible { outline: 2px solid #2e333b; outline-offset: -3px; }
+
+.mcard__refuse {
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #8b929c;
+}
+
+.mcard__refuse:hover { color: #2e333b; }
+
+/* misiune încheiată: nu mai e nimic de apăsat, doar de citit */
+.mcard__done {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.9rem 1.3rem;
+  border-top: 1px solid rgba(46, 51, 59, 0.08);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #8b929c;
+}
+
+.mcard__done { color: var(--st-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mcard { transition: none; }
+  .mcard__pip { animation: none; }
+  .mcard__fill { transition: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mcard { background: #f3f6fb; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ============================================================
+   BARA DE JOS — căutare și filtre.
+
+   `position: sticky; bottom: 0`, ca pilula de acțiune de pe profilul eroului:
+   stă lipită de marginea de jos cât derulezi și se așază singură la capătul
+   listei, fără niciun rând de JavaScript. Jos, pentru că acolo ajunge degetul
+   mare — nu sus, unde ar trebui mutată mâna.
+   ============================================================ */
+
+.portal-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  margin-top: 1.75rem;
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+  padding-top: 0.55rem;
+}
+
+.portal-dock__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.45rem 0.45rem 0.5rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 20px 44px -20px rgba(46, 51, 59, 0.5);
+}
+
+/* ---------------- câmpul de căutare ---------------- */
+
+.portal-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.4rem 0 0.85rem;
+  min-height: 2.6rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(46, 51, 59, 0.12);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.portal-search:focus-within {
+  border-color: hsl(355 74% 55% / 0.5);
+  box-shadow: 0 0 0 4px hsl(355 74% 55% / 0.12);
+}
+
+.portal-search svg { color: #8b929c; flex-shrink: 0; }
+
+.portal-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: #2e333b;
+}
+
+.portal-search input::placeholder { color: #aeb5bf; }
+
+.portal-search__clear,
+.portal-search__here {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #8b929c;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.portal-search__clear:hover { background: rgba(46, 51, 59, 0.07); color: #2e333b; }
+
+.portal-search__here:hover { background: hsl(355 74% 55% / 0.1); color: hsl(355 66% 45%); }
+.portal-search__here[data-on='true'] { color: #fff; background: hsl(355 74% 55%); }
+
+/* ---------------- ce am înțeles ---------------- */
+
+/* Se afișează ce a priceput căutarea din fraza scrisă. Fără asta, un rezultat
+   filtrat pe „săptămâna trecută" pare că a pierdut misiuni fără motiv. */
+.portal-read {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.3rem;
+  font-size: 0.7rem;
+  color: #8b929c;
+}
+
+.portal-read__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #474e59;
+  background: rgba(46, 51, 59, 0.07);
+}
+
+/* ---------------- chipsurile de stare ---------------- */
+
+.portal-chips {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 0.15rem 0.1rem;
+  scroll-snap-type: x proximity;
+}
+
+.portal-chips::-webkit-scrollbar { height: 0; }
+
+.portal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  min-height: 2.1rem;
+  padding: 0 0.8rem;
+  border: 1px solid rgba(46, 51, 59, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(46, 51, 59, 0.1);
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  color: var(--c-ink, #474e59);
+  cursor: pointer;
+  transition: color 180ms ease, background-color 200ms ease, border-color 200ms ease;
+}
+
+.portal-chip:hover { filter: brightness(0.97); }
+
+/* Culoarea stă în SCRIS, nu în pastilă.
+
+   Cu fundalul colorat pe fiecare chip, bara de jos devenea patru pete care
+   trăgeau ochiul la ele în loc să-l ducă la misiuni. Acum fondul e același
+   peste tot, iar nuanța — potolită — o poartă doar textul. Suficient cât să
+   nimerești chipsul din culoare, nu cât să-ți fure atenția.
+
+   Doar cel apăsat se umple, și e unul singur la un moment dat. */
+.portal-chip[data-tone='pending']  { --c-ink: hsl(355 42% 52%); --c-on: hsl(355 55% 53%); }
+.portal-chip[data-tone='accepted'] { --c-ink: hsl(30 45% 45%);  --c-on: hsl(30 55% 48%); }
+.portal-chip[data-tone='progress'] { --c-ink: hsl(211 42% 48%); --c-on: hsl(211 50% 49%); }
+.portal-chip[data-tone='done']     { --c-ink: hsl(160 32% 35%); --c-on: hsl(160 42% 34%); }
+
+.portal-chip[data-active='true'] {
+  color: #fff;
+  border-color: transparent;
+  background: var(--c-on, #4a515c);
+}
+
+.portal-chip__n {
+  font-family: Nunito, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-chip, .portal-search, .portal-search__clear, .portal-search__here { transition: none; }
+}
+
+/* Pe ecran lat, căutarea și filtrele încap pe același rând. Două rânduri acolo
+   însemnau o bandă înaltă degeaba — pe telefon rămân stivuite, că altfel nu
+   încap. Plasare explicită, nu automată: rândul cu ce-a înțeles căutarea apare
+   și dispare, iar cu auto-placement ar fi împins filtrele pe rândul următor. */
+@media (min-width: 768px) {
+  .portal-dock__inner {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) auto;
+    align-items: center;
+    gap: 0.4rem 0.7rem;
+  }
+
+  .portal-search { grid-column: 1; grid-row: 1; }
+  .portal-chips { grid-column: 2; grid-row: 1; }
+  .portal-read { grid-column: 1 / -1; grid-row: 2; }
+}

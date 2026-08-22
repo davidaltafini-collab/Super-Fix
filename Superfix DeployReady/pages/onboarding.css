@@ -1,0 +1,118 @@
+/* ============================================================
+   Echiparea profilului, primul ecran pe care îl vede un erou aprobat.
+
+   Pașii sunt numerotați pentru că aici numărul spune ceva adevărat: se
+   completează în ordine, iar cine se oprește la jumătate vrea să știe unde a
+   rămas. Pe restul sitului nu numerotăm nimic degeaba.
+   ============================================================ */
+
+.onb-step {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.onb-step__no {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.875rem;
+  color: #fff;
+  background: linear-gradient(150deg, hsl(355 74% 57%), hsl(355 66% 46%));
+  box-shadow: 0 10px 20px -12px rgba(225, 55, 70, 0.9);
+  transition: background 260ms ease, box-shadow 260ms ease;
+}
+
+/* Pasul gata nu se sărbătorește cu verde: ar aduce a treia culoare pe un ecran
+   care se ține pe două. Se stinge, ceea ce e semnalul corect — nu mai are nevoie
+   de atenție. */
+.onb-step[data-done='true'] .onb-step__no {
+  background: rgba(46, 51, 59, 0.28);
+  box-shadow: none;
+}
+
+.onb-step__title {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  color: #2e333b;
+}
+
+/* ---------------- bara de progres ---------------- */
+
+.onb-bar {
+  position: relative;
+  height: 0.375rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(46, 51, 59, 0.1);
+}
+
+.onb-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(355 74% 60%), hsl(355 66% 46%));
+  transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------- județele ---------------- */
+
+.onb-county {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(46, 51, 59, 0.1);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.onb-county:hover { background: #fff; }
+.onb-county:active { transform: scale(0.97); }
+
+.onb-county[aria-pressed='true'] {
+  color: #fff;
+  background: #2e333b;
+  border-color: transparent;
+}
+
+.onb-county__name { font-weight: 500; opacity: 0.7; }
+
+/* ---------------- clipul de îndrumare ---------------- */
+
+/* Verticalul de 9:16 vine din clipul însuși; îl ținem la o lățime la care
+   încape pe un telefon fără să împingă butoanele sub linia de plutire. */
+.onb-tutorial {
+  position: relative;
+  width: min(100%, 17rem);
+  aspect-ratio: 9 / 16;
+  margin-inline: auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #1b1f25;
+  box-shadow: 0 22px 44px -20px rgba(46, 51, 59, 0.55);
+}
+
+.onb-tutorial iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-bar__fill,
+  .onb-step__no,
+  .onb-county { transition: none; }
+}

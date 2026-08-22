@@ -1,3 +1,163 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+
+  /* Rezervă permanent locul barei de derulare.
+
+     Fără asta, orice panou care blochează scroll-ul (vizualizatorul de misiuni,
+     Sheet, Lightbox) face bara să dispară, pagina se lățește brusc cu lățimea ei
+     și tot conținutul sare lateral. În plus, DotGrid ascultă redimensionarea, deci
+     se reconstruiește și fundalul de puncte odată cu saltul: pare că tremură tot
+     site-ul o clipă.
+
+     Alternativa clasică e să compensezi din JS cu padding pe body, dar aia nu
+     mișcă elementele `fixed`, deci navbarul ar sări oricum. Asta le rezolvă pe
+     toate dintr-o linie. */
+  scrollbar-gutter: stable;
+}
+
+/* Anton e un font condensat: fără tracking pozitiv, literele se lipesc și devine
+   greu de citit, mai ales cu majuscule și la corp mic. */
+.font-heading {
+  letter-spacing: 0.03em;
+}
+/* Titlurile foarte mari n-au nevoie de la fel de mult — se echilibrează singure. */
+.font-heading.text-4xl,
+.font-heading.text-5xl,
+.font-heading.text-6xl {
+  letter-spacing: 0.015em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ============================================================
+   Materialele sitului: sticlă, panou, clay.
+
+   Erau definite în `<style>`-uri locale, în HeroProfile și HeroesList. Adică
+   pe orice altă pagină clasele pur și simplu NU existau, iar elementele care
+   le foloseau rămâneau nestilizate. Aici sunt globale, o singură dată.
+   ============================================================ */
+
+.sf-glass {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.6), rgba(203, 213, 228, 0.42));
+  -webkit-backdrop-filter: blur(16px) saturate(155%);
+  backdrop-filter: blur(16px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 22px 46px -20px rgba(46, 51, 59, 0.45),
+    0 4px 12px -6px rgba(46, 51, 59, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Panoul de profil: sticlă deschisă, luminoasă. Adâncimea vine din straturi de
+   lumină, nu din culoare tare. */
+.sf-panel {
+  background:
+    radial-gradient(120% 110% at 10% -15%, rgba(255, 255, 255, 0.95), transparent 55%),
+    radial-gradient(100% 100% at 95% 110%, rgba(62, 155, 255, 0.16), transparent 60%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(214, 222, 236, 0.62));
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  backdrop-filter: blur(22px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -24px 48px rgba(148, 163, 184, 0.16),
+    0 34px 74px -30px rgba(46, 51, 59, 0.45);
+}
+
+/* Claymorphism pe deschis: lumină sus, umbră difuză jos = volum moale. */
+.sf-clay {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(226, 232, 242, 0.82));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -7px 14px rgba(148, 163, 184, 0.2),
+    0 14px 28px -14px rgba(46, 51, 59, 0.35);
+}
+
+.sf-clay-red {
+  background: linear-gradient(160deg, #ee5364, #c8283a);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.2),
+    0 16px 30px -12px rgba(200, 40, 58, 0.6);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .sf-glass,
+  .sf-panel {
+    background: #eef2f8;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ============================================================
+   Derulare fără bară.
+
+   Bara clasică de pe Windows are ~15px și îi mănâncă din lățime conținutului:
+   panoul rămâne cu 24px de spațiu la stânga și 9px la dreapta, deci tot ce e
+   înăuntru pare împins într-o parte. `scrollbar-gutter: stable` ar rezolva
+   dezaxarea, dar ar lăsa o dungă goală permanentă lângă câmpuri — mai urât
+   decât bara.
+
+   Aici o scoatem de tot și punem în locul ei semnalul care se folosește pe
+   iOS: conținutul se stinge la marginea prin care mai are unde să meargă. Se
+   vede că mai e ceva dedesubt, fără nicio piesă de interfață în plus.
+
+   Estomparea e făcută cu `mask-image`, nu cu un gradient alb pus deasupra:
+   panoul e sticlă translucidă, iar un strat alb peste ea s-ar vedea ca o pată.
+   Masca stinge chiar conținutul și lasă sticla să se vadă prin el.
+   ============================================================ */
+
+.sf-scroll {
+  --sf-fade-top: 0px;
+  --sf-fade-bottom: 0px;
+
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge vechi */
+
+  /* fără asta, când ajungi la capăt continuă să se miște pagina de dedesubt */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--sf-fade-top),
+    #000 calc(100% - var(--sf-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--sf-fade-top),
+    #000 calc(100% - var(--sf-fade-bottom)),
+    transparent 100%
+  );
+}
+
+.sf-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Sus stingem mai puțin: acolo estomparea doar sugerează că ai derulat, jos
+   trebuie să se citească limpede că mai urmează ceva. */
+.sf-scroll[data-fade='top'],
+.sf-scroll[data-fade='both'] {
+  --sf-fade-top: 20px;
+}
+
+.sf-scroll[data-fade='bottom'],
+.sf-scroll[data-fade='both'] {
+  --sf-fade-bottom: 32px;
+}

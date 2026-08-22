@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { API_URL } from '../config/api';
+import { Reveal } from '../components/motion';
+import { GlassButton } from '../components/Button';
+import { Field, FieldPassword } from '../components/Field';
+import {
+  checkAll, first, required, minLength, maxLength, email as emailCheck,
+  phoneRo, normalizePhone, ibanRo, strongPassword, firstBad, focusField,
+} from '../lib/validate';
+import {
+  UserPlus, SealCheck, CurrencyCircleDollar, Copy, SignOut,
+  Users, Percent, Receipt, Bank, ShieldCheck, LinkSimple,
+} from '@phosphor-icons/react';
 
 const RECRUITER_TOKEN_KEY = 'superfix_recruiter_token';
 
@@ -45,15 +56,34 @@ const formatMoney = new Intl.NumberFormat('ro-RO', {
   minimumFractionDigits: 2,
 });
 
+/* Regulile formularului de cerere. IBAN-ul e verificat cu cheia de control,
+   nu doar cu forma: un `pattern` din HTML trece și un IBAN cu o cifră greșită,
+   iar acolo nu se întoarce nicio eroare — doar banii nu ajung niciodată. */
+const APPLY_RULES = {
+  name: first(
+    required('Cum te cheamă? Fără nume nu putem verifica pe nimeni.'),
+    minLength(2, 'Scrie numele întreg.'),
+    maxLength(120),
+  ),
+  email: first(required('Pe email îți răspundem.'), emailCheck()),
+  phone: first(required('Lasă-ne un număr la care te găsim.'), phoneRo()),
+  iban: first(required('Fără IBAN n-avem unde trimite comisionul.'), ibanRo()),
+  password: first(required('Alege o parolă pentru contul tău.'), strongPassword()),
+};
+
+const APPLY_ORDER = ['name', 'email', 'phone', 'iban', 'password'] as const;
+
+const LOGIN_RULES = {
+  email: first(required('Scrie emailul contului.'), emailCheck()),
+  password: required('Scrie parola.'),
+};
+
 const commissionLabels: Record<string, string> = {
   ACCRUED: 'În verificare',
   APPROVED: 'Aprobat pentru plată',
   PAID: 'Plătit',
   REVERSED: 'Anulat',
 };
-
-const inputClassName =
-  'w-full border-2 border-black bg-white px-3 py-3 text-base text-gray-900 outline-none transition-colors placeholder:text-gray-500 focus:bg-yellow-50 focus:ring-4 focus:ring-comic-yellow/50';
 
 async function requestJson<T>(url: string, options: RequestInit, fallbackMessage: string): Promise<T> {
   let response: Response;
@@ -91,6 +121,9 @@ export const Recruiter: React.FC = () => {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [applyError, setApplyError] = useState('');
   const [loginError, setLoginError] = useState('');
+  // erorile de câmp stau separat de eroarea venită de la server
+  const [applyFields, setApplyFields] = useState<Partial<Record<string, string>>>({});
+  const [loginFields, setLoginFields] = useState<Partial<Record<string, string>>>({});
   const [applySuccess, setApplySuccess] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
   const [dashboard, setDashboard] = useState<RecruiterDashboardData | null>(null);
@@ -149,10 +182,14 @@ export const Recruiter: React.FC = () => {
     setApplyError('');
     setApplySuccess('');
 
-    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,128}$/.test(applyForm.password)) {
-      setApplyError('Parola trebuie să aibă minimum 10 caractere, o literă mare, una mică și o cifră.');
+    const found = checkAll(applyForm, APPLY_RULES);
+    if (Object.keys(found).length > 0) {
+      setApplyFields(found);
+      const worst = firstBad([...APPLY_ORDER], found);
+      if (worst) focusField(`recruiter-${String(worst)}`);
       return;
     }
+    setApplyFields({});
 
     setApplyLoading(true);
     try {
@@ -164,7 +201,7 @@ export const Recruiter: React.FC = () => {
           body: JSON.stringify({
             name: applyForm.name.trim(),
             email: applyForm.email.trim(),
-            phone: applyForm.phone.trim(),
+            phone: normalizePhone(applyForm.phone),
             iban: applyForm.iban.trim(),
             password: applyForm.password,
           }),
@@ -184,6 +221,16 @@ export const Recruiter: React.FC = () => {
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoginError('');
+
+    const found = checkAll(loginForm, LOGIN_RULES);
+    if (Object.keys(found).length > 0) {
+      setLoginFields(found);
+      const worst = firstBad(['email', 'password'], found);
+      if (worst) focusField(`recruiter-login-${String(worst)}`);
+      return;
+    }
+    setLoginFields({});
+
     setLoginLoading(true);
 
     try {
@@ -246,12 +293,24 @@ export const Recruiter: React.FC = () => {
     }
   };
 
+  /** Scrie într-un câmp și șterge eroarea lui: reproșul nu are voie să rămână
+      pe ecran cât timp omul tocmai îl repară. */
+  const setApply = (key: keyof typeof emptyApplyForm, value: string) => {
+    setApplyForm(current => ({ ...current, [key]: value }));
+    if (applyFields[key]) setApplyFields(current => ({ ...current, [key]: undefined }));
+  };
+
+  const setLogin = (key: 'email' | 'password', value: string) => {
+    setLoginForm(current => ({ ...current, [key]: value }));
+    if (loginFields[key]) setLoginFields(current => ({ ...current, [key]: undefined }));
+  };
+
   const shareUrl = dashboard
     ? `${window.location.origin}/register?recruiter=${encodeURIComponent(dashboard.code)}`
     : '';
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa] bg-dots text-gray-900">
+    <div className="font-sans text-graphite">
       <Helmet>
         <title>Program recruiteri | Superfix</title>
         <meta
@@ -260,131 +319,188 @@ export const Recruiter: React.FC = () => {
         />
       </Helmet>
 
-      <section className="border-b-4 border-black bg-white">
-        <div className="container mx-auto grid w-full grid-cols-1 gap-8 px-4 py-10 md:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] md:px-6 md:py-14">
-          <div className="max-w-3xl">
-            <h1 className="font-heading text-4xl uppercase leading-tight text-super-blue md:text-6xl">
-              Construiește rețeaua Superfix
+      {/* ============ HERO ============ */}
+      <section className="relative overflow-hidden">
+        <div className="absolute -top-24 right-0 -z-10 h-[32rem] w-[32rem] rounded-full bg-spark/15 blur-3xl" aria-hidden="true" />
+        <div className="absolute -bottom-40 -left-24 -z-10 h-[28rem] w-[28rem] rounded-full bg-super-red/10 blur-3xl" aria-hidden="true" />
+
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-5 pb-10 pt-28 sm:px-6 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] md:pb-14">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-heading font-semibold text-graphite shadow-clay-sm">
+              <UserPlus size={18} weight="fill" className="text-super-red" aria-hidden="true" />
+              Program recruiteri
+            </span>
+
+            <h1 className="mt-6 font-heading text-[2.4rem] font-bold leading-[1.1] text-graphite sm:text-5xl md:text-6xl">
+              Construiește rețeaua <span className="text-super-red">Superfix</span>
             </h1>
-            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray-700">
+
+            <p className="mt-5 max-w-xl text-lg text-graphite-soft md:text-xl">
               Aplică, primește codul personal după verificare și urmărește comisioanele într-un singur loc.
             </p>
           </div>
 
-          <div className="self-end border-l-4 border-super-red pl-5 text-sm leading-relaxed text-gray-700">
-            <p className="font-bold text-super-blue">Cum funcționează</p>
-            <p className="mt-2">Codul devine activ după aprobarea echipei. Comisionul se calculează doar pentru plățile eligibile confirmate.</p>
+          <div className="hidden justify-center md:flex">
+            <div className="relative">
+              <div className="absolute inset-0 -z-10 m-auto h-[70%] w-[70%] rounded-full bg-spark/20 blur-2xl" aria-hidden="true" />
+              <img
+                src="/mascot.png"
+                alt=""
+                aria-hidden="true"
+                className="animate-float w-auto max-h-[38vh] drop-shadow-[0_28px_38px_rgba(46,51,59,0.35)]"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <main className="container mx-auto w-full max-w-5xl px-4 py-10 md:px-6 md:py-14">
+      {/* ============ CUM FUNCȚIONEAZĂ ============ */}
+      <section className="mx-auto max-w-6xl px-5 pb-4 sm:px-6">
+        <div className="grid gap-5 md:grid-cols-3">
+          {[
+            { Icon: UserPlus, t: 'Aplici', d: 'Completezi cererea cu datele tale și IBAN-ul pentru încasări.' },
+            { Icon: SealCheck, t: 'Echipa verifică', d: 'Codul tău personal devine activ după aprobarea echipei Superfix.' },
+            { Icon: CurrencyCircleDollar, t: 'Câștigi comision', d: 'Comisionul se calculează pentru plățile eligibile confirmate.' },
+          ].map((s, i) => (
+            <Reveal key={s.t} delay={i * 90} bounce>
+              <div className="sf-glass h-full rounded-[28px] p-6">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 text-super-red shadow-clay-sm">
+                  <s.Icon size={30} weight="duotone" aria-hidden="true" />
+                </div>
+                <h2 className="mt-5 font-heading text-xl font-medium text-graphite">{s.t}</h2>
+                <p className="mt-2 text-graphite-soft">{s.d}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <main className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-6 md:py-14">
         {sessionLoading ? (
-          <div className="mx-auto max-w-2xl border-4 border-black bg-white p-8 shadow-[8px_8px_0_#000]" aria-live="polite">
-            <p className="font-heading text-2xl text-super-blue">SE VERIFICĂ SESIUNEA</p>
-            <div className="mt-5 h-3 w-full animate-pulse bg-gray-200" />
-            <div className="mt-3 h-3 w-2/3 animate-pulse bg-gray-200" />
+          <div className="sf-glass mx-auto max-w-2xl rounded-[28px] p-8" aria-live="polite">
+            <p className="font-heading text-2xl font-medium text-graphite">Se verifică sesiunea</p>
+            <div className="mt-5 h-3 w-full animate-pulse rounded-full bg-graphite/10" />
+            <div className="mt-3 h-3 w-2/3 animate-pulse rounded-full bg-graphite/10" />
           </div>
         ) : dashboard ? (
           <section aria-labelledby="recruiter-dashboard-title">
-            <div className="flex flex-col gap-5 border-b-4 border-black pb-6 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-sm font-bold uppercase tracking-wider text-super-red">Cont recruiter activ</p>
-                <h2 id="recruiter-dashboard-title" className="mt-1 font-heading text-4xl uppercase text-super-blue">
+                <span className="inline-flex items-center gap-2 rounded-full bg-super-red/12 px-3 py-1.5 text-sm font-heading font-semibold text-super-red">
+                  <ShieldCheck size={16} weight="fill" aria-hidden="true" />
+                  Cont recruiter activ
+                </span>
+                <h2 id="recruiter-dashboard-title" className="mt-3 font-heading text-4xl font-bold text-graphite">
                   Salut, {dashboard.name}
                 </h2>
-                <p className="mt-2 text-gray-600">{dashboard.email}</p>
+                <p className="mt-2 text-graphite-soft">{dashboard.email}</p>
               </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="min-h-11 border-2 border-black bg-white px-5 py-2 font-bold text-gray-800 transition-transform hover:bg-gray-100 active:translate-y-px"
-              >
+              <GlassButton type="button" tone="neutral" onClick={handleLogout}>
+                <SignOut size={18} weight="bold" aria-hidden="true" />
                 Deconectare
-              </button>
+              </GlassButton>
             </div>
 
             <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="border-4 border-black bg-comic-yellow p-6 shadow-[6px_6px_0_#000]">
-                <p className="text-sm font-bold uppercase tracking-wider">Codul tău personal</p>
-                <p className="mt-2 break-all font-mono text-2xl font-black text-super-blue">{dashboard.code}</p>
-                <label htmlFor="recruiter-share-url" className="mt-6 block text-sm font-bold">
-                  Link de înscriere
-                </label>
-                <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    id="recruiter-share-url"
-                    readOnly
-                    value={shareUrl}
-                    onFocus={event => event.currentTarget.select()}
-                    className="min-w-0 flex-1 border-2 border-black bg-white px-3 py-2 font-mono text-sm text-gray-800 outline-none focus:ring-4 focus:ring-white/70"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="min-h-11 whitespace-nowrap border-2 border-black bg-super-blue px-5 py-2 font-bold text-white transition-transform hover:bg-blue-950 active:translate-y-px"
-                  >
-                    Copiază linkul
-                  </button>
+              <div className="relative overflow-hidden rounded-[28px] bg-graphite p-6 text-white shadow-clay-dark">
+                <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-spark/20 blur-3xl" aria-hidden="true" />
+                <div className="relative">
+                  <p className="inline-flex items-center gap-2 text-sm font-heading font-semibold text-spark-soft">
+                    <LinkSimple size={16} weight="bold" aria-hidden="true" />
+                    Codul tău personal
+                  </p>
+                  <p className="mt-3 break-all font-mono text-3xl font-black">{dashboard.code}</p>
+
+                  <label htmlFor="recruiter-share-url" className="mt-6 block text-sm font-semibold text-white/80">
+                    Link de înscriere
+                  </label>
+                  <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+                    <input
+                      id="recruiter-share-url"
+                      readOnly
+                      value={shareUrl}
+                      onFocus={event => event.currentTarget.select()}
+                      className="min-w-0 flex-1 rounded-2xl border border-white/20 bg-white/10 px-4 py-2.5 font-mono text-sm text-white outline-none transition-all focus:border-white/40 focus:bg-white/15 focus:ring-4 focus:ring-white/15"
+                    />
+                    <GlassButton type="button" tone="red" onClick={handleCopyLink} className="whitespace-nowrap">
+                      <Copy size={18} weight="bold" aria-hidden="true" />
+                      Copiază linkul
+                    </GlassButton>
+                  </div>
+                  <p className="mt-2 min-h-5 text-sm font-semibold text-spark-soft" aria-live="polite">{copyStatus}</p>
                 </div>
-                <p className="mt-2 min-h-5 text-sm font-bold text-super-blue" aria-live="polite">{copyStatus}</p>
               </div>
 
-              <div className="border-4 border-black bg-white p-6">
-                <h3 className="font-heading text-2xl uppercase text-super-blue">Situația contului</h3>
+              <div className="sf-glass rounded-[28px] p-6">
+                <h3 className="font-heading text-2xl font-medium text-graphite">Situația contului</h3>
                 <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5">
                   <div>
-                    <dt className="text-sm text-gray-600">Eroi atribuiți</dt>
-                    <dd className="mt-1 font-heading text-3xl">{dashboard.heroes}</dd>
+                    <dt className="flex items-center gap-1.5 text-sm text-graphite-soft">
+                      <Users size={16} weight="duotone" className="text-super-red" aria-hidden="true" />
+                      Eroi atribuiți
+                    </dt>
+                    <dd className="mt-1 font-heading text-3xl font-semibold text-graphite">{dashboard.heroes}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600">Comision</dt>
-                    <dd className="mt-1 font-heading text-3xl">{dashboard.commissionPercent}%</dd>
+                    <dt className="flex items-center gap-1.5 text-sm text-graphite-soft">
+                      <Percent size={16} weight="duotone" className="text-spark" aria-hidden="true" />
+                      Comision
+                    </dt>
+                    <dd className="mt-1 font-heading text-3xl font-semibold text-graphite">{dashboard.commissionPercent}%</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600">Facturi eligibile per erou</dt>
-                    <dd className="mt-1 font-heading text-3xl">{dashboard.invoiceLimit}</dd>
+                    <dt className="flex items-center gap-1.5 text-sm text-graphite-soft">
+                      <Receipt size={16} weight="duotone" className="text-spark" aria-hidden="true" />
+                      Facturi eligibile per erou
+                    </dt>
+                    <dd className="mt-1 font-heading text-3xl font-semibold text-graphite">{dashboard.invoiceLimit}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600">IBAN pentru plată</dt>
-                    <dd className="mt-2 font-mono text-base font-bold">{dashboard.ibanMask}</dd>
+                    <dt className="flex items-center gap-1.5 text-sm text-graphite-soft">
+                      <Bank size={16} weight="duotone" className="text-super-red" aria-hidden="true" />
+                      IBAN pentru plată
+                    </dt>
+                    <dd className="mt-2 font-mono text-base font-bold text-graphite">{dashboard.ibanMask}</dd>
                   </div>
                 </dl>
-                <p className="mt-6 border-l-4 border-gray-300 pl-3 text-sm leading-relaxed text-gray-600">
+                <p className="mt-6 rounded-2xl bg-white/50 p-3 text-sm leading-relaxed text-graphite-soft">
                   IBAN-ul complet nu este stocat în acest browser. Aici este afișată doar forma mascată primită de la server.
                 </p>
               </div>
             </div>
 
-            <div className="mt-8 border-4 border-black bg-white p-6 md:p-8">
+            <div className="sf-glass mt-8 rounded-[28px] p-6 md:p-8">
               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <h3 className="font-heading text-2xl uppercase text-super-blue">Comisioane</h3>
-                  <p className="mt-1 text-sm text-gray-600">Sumele sunt generate numai din plăți confirmate.</p>
+                  <h3 className="flex items-center gap-2 font-heading text-2xl font-medium text-graphite">
+                    <CurrencyCircleDollar size={26} weight="duotone" className="text-super-red" aria-hidden="true" />
+                    Comisioane
+                  </h3>
+                  <p className="mt-1 text-sm text-graphite-soft">Sumele sunt generate numai din plăți confirmate.</p>
                 </div>
-                <p className="font-heading text-3xl text-super-red">{formatMoney.format(commissionSummary.totalBani / 100)}</p>
+                <p className="font-heading text-3xl font-bold text-super-red">{formatMoney.format(commissionSummary.totalBani / 100)}</p>
               </div>
 
               {commissionSummary.rows.length === 0 ? (
-                <div className="mt-6 border-l-4 border-comic-yellow bg-yellow-50 p-4 text-gray-700">
+                <div className="mt-6 rounded-2xl bg-white/60 p-5 text-graphite-soft">
                   Nu există încă comisioane. Ele apar după ce eroii atribuiți achită plăți eligibile.
                 </div>
               ) : (
                 <div className="mt-6 overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left">
+                  <table className="w-full min-w-[560px] border-separate border-spacing-y-2 text-left">
                     <thead>
-                      <tr className="border-b-2 border-black text-sm text-gray-600">
-                        <th className="px-2 py-3 font-bold">Status</th>
-                        <th className="px-2 py-3 font-bold">Plăți</th>
-                        <th className="px-2 py-3 text-right font-bold">Valoare</th>
+                      <tr className="text-sm text-graphite-soft">
+                        <th className="px-3 py-3 font-semibold">Status</th>
+                        <th className="px-3 py-3 font-semibold">Plăți</th>
+                        <th className="px-3 py-3 text-right font-semibold">Valoare</th>
                       </tr>
                     </thead>
                     <tbody>
                       {commissionSummary.rows.map(group => (
-                        <tr key={group.status} className="border-b border-gray-200 last:border-b-0">
-                          <td className="px-2 py-4 font-bold">{commissionLabels[group.status] || group.status}</td>
-                          <td className="px-2 py-4 text-gray-700">{group.count}</td>
-                          <td className="px-2 py-4 text-right font-mono font-bold">{formatMoney.format(group.amountBani / 100)}</td>
+                        <tr key={group.status} className="rounded-2xl bg-white/50">
+                          <td className="rounded-l-2xl px-3 py-4 font-semibold text-graphite">{commissionLabels[group.status] || group.status}</td>
+                          <td className="px-3 py-4 text-graphite-soft">{group.count}</td>
+                          <td className="rounded-r-2xl px-3 py-4 text-right font-mono font-bold text-graphite">{formatMoney.format(group.amountBani / 100)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -394,8 +510,8 @@ export const Recruiter: React.FC = () => {
             </div>
           </section>
         ) : (
-          <section className="mx-auto max-w-3xl border-4 border-black bg-white shadow-[8px_8px_0_#000]" aria-labelledby="recruiter-form-title">
-            <div className="grid grid-cols-2 border-b-4 border-black" role="tablist" aria-label="Acces program recruiteri">
+          <section className="sf-glass mx-auto max-w-3xl overflow-hidden rounded-[32px]" aria-labelledby="recruiter-form-title">
+            <div className="grid grid-cols-2 gap-2 p-2" role="tablist" aria-label="Acces program recruiteri">
               <button
                 type="button"
                 role="tab"
@@ -404,7 +520,7 @@ export const Recruiter: React.FC = () => {
                   setMode('apply');
                   setLoginError('');
                 }}
-                className={`min-h-14 px-4 py-3 font-bold transition-colors ${mode === 'apply' ? 'bg-super-red text-white' : 'bg-white text-super-blue hover:bg-gray-100'}`}
+                className={`min-h-14 rounded-full px-5 py-3 font-heading text-base font-semibold leading-tight transition-all duration-200 ${mode === 'apply' ? 'bg-super-red text-white shadow-clay-red' : 'text-graphite hover:bg-white/60'}`}
               >
                 Aplică în program
               </button>
@@ -416,7 +532,7 @@ export const Recruiter: React.FC = () => {
                   setMode('login');
                   setApplyError('');
                 }}
-                className={`min-h-14 border-l-4 border-black px-4 py-3 font-bold transition-colors ${mode === 'login' ? 'bg-super-blue text-white' : 'bg-white text-super-blue hover:bg-gray-100'}`}
+                className={`min-h-14 rounded-full px-5 py-3 font-heading text-base font-semibold leading-tight transition-all duration-200 ${mode === 'login' ? 'bg-graphite text-white shadow-clay-dark' : 'text-graphite hover:bg-white/60'}`}
               >
                 Intră în cont
               </button>
@@ -424,143 +540,108 @@ export const Recruiter: React.FC = () => {
 
             <div className="p-6 md:p-10">
               {mode === 'apply' ? (
-                <form onSubmit={handleApply}>
-                  <h2 id="recruiter-form-title" className="font-heading text-3xl uppercase text-super-blue">Cerere recruiter</h2>
-                  <p className="mt-2 max-w-2xl text-gray-600">Datele sunt verificate de echipa Superfix înainte ca linkul tău să devină activ.</p>
+                <form onSubmit={handleApply} noValidate>
+                  <h2 id="recruiter-form-title" className="font-heading text-3xl font-bold text-graphite">Cerere recruiter</h2>
+                  <p className="mt-2 max-w-2xl text-graphite-soft">Datele sunt verificate de echipa Superfix înainte ca linkul tău să devină activ.</p>
 
                   <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <div className="md:col-span-2">
-                      <label htmlFor="recruiter-name" className="mb-2 block text-sm font-bold">Nume complet</label>
-                      <input
-                        id="recruiter-name"
-                        required
-                        minLength={2}
-                        maxLength={120}
-                        autoComplete="name"
-                        className={inputClassName}
-                        placeholder="Ex: Andrei Popescu"
-                        value={applyForm.name}
-                        onChange={event => setApplyForm(current => ({ ...current, name: event.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="recruiter-email" className="mb-2 block text-sm font-bold">Email</label>
-                      <input
-                        id="recruiter-email"
-                        required
-                        type="email"
-                        autoComplete="email"
-                        className={inputClassName}
-                        placeholder="andrei@exemplu.ro"
-                        value={applyForm.email}
-                        onChange={event => setApplyForm(current => ({ ...current, email: event.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="recruiter-phone" className="mb-2 block text-sm font-bold">Telefon</label>
-                      <input
-                        id="recruiter-phone"
-                        required
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        pattern="07[0-9]{8}"
-                        className={inputClassName}
-                        placeholder="0712345678"
-                        value={applyForm.phone}
-                        onChange={event => setApplyForm(current => ({ ...current, phone: event.target.value }))}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="recruiter-iban" className="mb-2 block text-sm font-bold">IBAN pentru încasări</label>
-                      <input
-                        id="recruiter-iban"
-                        required
-                        inputMode="text"
-                        autoComplete="off"
-                        spellCheck={false}
-                        pattern="RO[0-9]{2}[A-Za-z0-9]{20}"
-                        className={`${inputClassName} font-mono uppercase`}
-                        placeholder="RO49AAAA1B31007593840000"
-                        value={applyForm.iban}
-                        onChange={event => setApplyForm(current => ({ ...current, iban: event.target.value.replace(/\s+/g, '').toUpperCase() }))}
-                        aria-describedby="iban-security-note"
-                      />
-                      <p id="iban-security-note" className="mt-2 text-sm leading-relaxed text-gray-600">
-                        IBAN-ul este trimis direct serverului. Nu este salvat în sessionStorage sau localStorage.
-                      </p>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="recruiter-password" className="mb-2 block text-sm font-bold">Parolă</label>
-                      <input
-                        id="recruiter-password"
-                        required
-                        type="password"
-                        minLength={10}
-                        maxLength={128}
-                        autoComplete="new-password"
-                        className={inputClassName}
-                        value={applyForm.password}
-                        onChange={event => setApplyForm(current => ({ ...current, password: event.target.value }))}
-                        aria-describedby="password-help"
-                      />
-                      <p id="password-help" className="mt-2 text-sm text-gray-600">Minimum 10 caractere, cu literă mare, literă mică și cifră.</p>
-                    </div>
+                    <Field
+                      id="recruiter-name"
+                      label="Nume complet"
+                      className="md:col-span-2"
+                      autoComplete="name"
+                      maxLength={120}
+                      placeholder="Andrei Popescu"
+                      value={applyForm.name}
+                      error={applyFields.name}
+                      onChange={event => setApply('name', event.target.value)}
+                    />
+                    <Field
+                      id="recruiter-email"
+                      label="Email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      placeholder="andrei@exemplu.ro"
+                      value={applyForm.email}
+                      error={applyFields.email}
+                      onChange={event => setApply('email', event.target.value)}
+                    />
+                    <Field
+                      id="recruiter-phone"
+                      label="Telefon"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="0744 123 456"
+                      value={applyForm.phone}
+                      error={applyFields.phone}
+                      onChange={event => setApply('phone', event.target.value)}
+                    />
+                    <Field
+                      id="recruiter-iban"
+                      label="IBAN pentru încasări"
+                      className="md:col-span-2 [&_input]:font-mono [&_input]:uppercase"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="RO49AAAA1B31007593840000"
+                      hint="Merge direct la server. Nu îl ținem în browser."
+                      value={applyForm.iban}
+                      error={applyFields.iban}
+                      onChange={event => setApply('iban', event.target.value.replace(/\s+/g, '').toUpperCase())}
+                    />
+                    <FieldPassword
+                      id="recruiter-password"
+                      label="Parolă"
+                      className="md:col-span-2"
+                      autoComplete="new-password"
+                      maxLength={128}
+                      hint="Minimum 10 caractere, cu literă mare, literă mică și cifră."
+                      value={applyForm.password}
+                      error={applyFields.password}
+                      onChange={event => setApply('password', event.target.value)}
+                    />
                   </div>
 
-                  {applyError && <p className="mt-5 border-l-4 border-red-600 bg-red-50 p-3 font-bold text-red-800" role="alert">{applyError}</p>}
-                  {applySuccess && <p className="mt-5 border-l-4 border-green-600 bg-green-50 p-3 font-bold text-green-800" role="status">{applySuccess}</p>}
+                  {applyError && <p className="mt-5 rounded-2xl bg-red-50 p-4 font-semibold text-red-800 ring-1 ring-red-200" role="alert">{applyError}</p>}
+                  {applySuccess && <p className="mt-5 rounded-2xl bg-green-50 p-4 font-semibold text-green-800 ring-1 ring-green-200" role="status">{applySuccess}</p>}
 
-                  <button
-                    type="submit"
-                    disabled={applyLoading}
-                    className="mt-7 min-h-14 w-full border-4 border-black bg-super-red px-6 py-3 font-heading text-xl text-white shadow-[5px_5px_0_#000] transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-[3px_3px_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-wait disabled:opacity-70"
-                  >
-                    {applyLoading ? 'SE TRIMITE CEREREA' : 'TRIMITE CEREREA'}
-                  </button>
+                  <GlassButton type="submit" tone="red" full disabled={applyLoading} className="mt-7 min-h-14 text-xl">
+                    {applyLoading ? 'Se trimite cererea…' : 'Trimite cererea'}
+                  </GlassButton>
                 </form>
               ) : (
-                <form onSubmit={handleLogin}>
-                  <h2 id="recruiter-form-title" className="font-heading text-3xl uppercase text-super-blue">Cont recruiter</h2>
-                  <p className="mt-2 text-gray-600">Autentificarea devine disponibilă după aprobarea cererii în admin.</p>
+                <form onSubmit={handleLogin} noValidate>
+                  <h2 id="recruiter-form-title" className="font-heading text-3xl font-bold text-graphite">Cont recruiter</h2>
+                  <p className="mt-2 text-graphite-soft">Autentificarea devine disponibilă după aprobarea cererii în admin.</p>
 
                   <div className="mt-7 space-y-5">
-                    <div>
-                      <label htmlFor="recruiter-login-email" className="mb-2 block text-sm font-bold">Email</label>
-                      <input
-                        id="recruiter-login-email"
-                        required
-                        type="email"
-                        autoComplete="email"
-                        className={inputClassName}
-                        value={loginForm.email}
-                        onChange={event => setLoginForm(current => ({ ...current, email: event.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="recruiter-login-password" className="mb-2 block text-sm font-bold">Parolă</label>
-                      <input
-                        id="recruiter-login-password"
-                        required
-                        type="password"
-                        autoComplete="current-password"
-                        className={inputClassName}
-                        value={loginForm.password}
-                        onChange={event => setLoginForm(current => ({ ...current, password: event.target.value }))}
-                      />
-                    </div>
+                    <Field
+                      id="recruiter-login-email"
+                      label="Email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={loginForm.email}
+                      error={loginFields.email}
+                      onChange={event => setLogin('email', event.target.value)}
+                    />
+                    <FieldPassword
+                      id="recruiter-login-password"
+                      label="Parolă"
+                      autoComplete="current-password"
+                      value={loginForm.password}
+                      error={loginFields.password}
+                      onChange={event => setLogin('password', event.target.value)}
+                    />
                   </div>
 
-                  {loginError && <p className="mt-5 border-l-4 border-red-600 bg-red-50 p-3 font-bold text-red-800" role="alert">{loginError}</p>}
+                  {loginError && <p className="mt-5 rounded-2xl bg-red-50 p-4 font-semibold text-red-800 ring-1 ring-red-200" role="alert">{loginError}</p>}
 
-                  <button
-                    type="submit"
-                    disabled={loginLoading}
-                    className="mt-7 min-h-14 w-full border-4 border-black bg-super-blue px-6 py-3 font-heading text-xl text-white shadow-[5px_5px_0_#000] transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-[3px_3px_0_#000] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-wait disabled:opacity-70"
-                  >
-                    {loginLoading ? 'SE VERIFICĂ' : 'INTRĂ ÎN CONT'}
-                  </button>
-                  <a href="/reset-password?role=RECRUITER" className="mt-4 block text-center font-bold underline">
+                  <GlassButton type="submit" tone="dark" full disabled={loginLoading} className="mt-7 min-h-14 text-xl">
+                    {loginLoading ? 'Se verifică…' : 'Intră în cont'}
+                  </GlassButton>
+                  <a href="/reset-password?role=RECRUITER" className="mt-4 block text-center font-semibold text-graphite-soft underline decoration-super-red/40 underline-offset-4 transition-colors hover:text-super-red">
                     Ai uitat parola?
                   </a>
                 </form>

@@ -1,0 +1,184 @@
+/* ============================================================
+   Abonamentul de listare.
+
+   Pagina asta e locul unde un meseriaș scoate cardul. Deci nu e loc de efecte:
+   ce se plătește, cât, când se ia banul următor și ce se întâmplă dacă renunță
+   trebuie să se citească dintr-o privire, fără să dea scroll.
+
+   Singura culoare tare e pe butonul care duce la plată. Stările — plată eșuată,
+   revalidare, verificare — își iau tonul din aceeași paletă ca adminul, ca să nu
+   inventăm un al doilea limbaj pentru aceleași cuvinte.
+   ============================================================ */
+
+.sub {
+  --wait: hsl(36 74% 38%);
+  --live: hsl(160 62% 28%);
+  --stop: hsl(355 62% 46%);
+  --info: hsl(211 68% 42%);
+  --off: hsl(220 9% 46%);
+}
+
+/* ---------------- steagul de stare ---------------- */
+
+.sub-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tone, var(--off));
+  background: color-mix(in srgb, var(--tone, var(--off)) 12%, transparent);
+}
+
+.sub-flag::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.sub-flag[data-tone='wait'] { --tone: var(--wait); }
+.sub-flag[data-tone='live'] { --tone: var(--live); }
+.sub-flag[data-tone='stop'] { --tone: var(--stop); }
+.sub-flag[data-tone='info'] { --tone: var(--info); }
+.sub-flag[data-tone='off'] { --tone: var(--off); }
+
+/* ---------------- planurile ---------------- */
+
+.sub-plans {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 40rem) {
+  .sub-plans { grid-template-columns: 1fr 1fr; }
+}
+
+.sub-plan {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 1.15rem 1.2rem;
+  border-radius: 20px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid rgba(46, 51, 59, 0.1);
+  transition: border-color 200ms ease, transform 200ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 200ms ease;
+}
+
+.sub-plan[aria-pressed='true'] {
+  border-color: hsl(355 74% 55% / 0.65);
+  box-shadow: 0 0 0 3px hsl(355 74% 55% / 0.12), 0 16px 32px -18px rgba(46, 51, 59, 0.5);
+}
+
+.sub-plan:not(:disabled) { cursor: pointer; }
+.sub-plan:not(:disabled):hover { transform: translateY(-2px); }
+
+/* Planul care încă nu se poate cumpăra nu se ascunde și nu se preface: se stinge
+   și spune de ce. Un card gri fără explicație e mai enervant decât lipsa lui. */
+.sub-plan:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sub-plan__name {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b929c;
+}
+
+.sub-plan__price {
+  margin-top: 0.4rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.85rem;
+  line-height: 1;
+  color: #2e333b;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-plan__per {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #8b929c;
+}
+
+/* Prețul tăiat: se vede că e o comparație, nu prețul care se plătește. */
+.sub-plan__was {
+  margin-left: 0.5rem;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #a8aeb8;
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-plan__note {
+  margin-top: 0.55rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.sub-plan__tag {
+  position: absolute;
+  top: 0.9rem;
+  right: 1rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: rgba(46, 51, 59, 0.08);
+}
+
+/* ---------------- ce primești ---------------- */
+
+.sub-perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: #474e59;
+}
+
+.sub-perk__tick {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: hsl(160 62% 34%);
+}
+
+/* ---------------- așteptarea de după plată ---------------- */
+
+/* Redirectul din browser nu e dovada plății — IPN-ul verificat de server e.
+   Deci pagina de rezultat chiar așteaptă, și se vede că așteaptă. */
+.sub-wait {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-inline: auto;
+  border-radius: 999px;
+  border: 3px solid hsl(355 74% 55% / 0.18);
+  border-top-color: hsl(355 74% 55%);
+  animation: sub-spin 900ms linear infinite;
+}
+
+@keyframes sub-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sub-plan { transition: none; }
+  .sub-wait { animation-duration: 2.4s; }
+}

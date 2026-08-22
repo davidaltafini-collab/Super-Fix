@@ -1,0 +1,218 @@
+/* ============================================================
+   Așezarea pozei de profil.
+
+   Aceeași poză apare pe sit în două forme: pătrată în listele de eroi și în
+   fișa din admin, rotundă pe legitimație și pe discul de lângă nume. Dacă o
+   lăsăm cum vine din telefon, jumătate din meseriași ies cu bărbia tăiată într-o
+   parte și cu jumătate de perete în cealaltă.
+
+   Deci se decupează la pătrat, iar înăuntru arătăm cercul: tot ce iese din el
+   se poate pierde, în funcție de unde e afișată poza. Ăsta e spațiul sigur.
+   ============================================================ */
+
+.crop {
+  position: fixed;
+  inset: 0;
+  z-index: 360;
+  display: flex;
+  flex-direction: column;
+  background: #0b0d10;
+  color: #fff;
+  animation: crop-in 220ms ease both;
+}
+
+@keyframes crop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.crop__bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: calc(0.7rem + env(safe-area-inset-top)) 0.85rem 0.7rem;
+}
+
+.crop__title {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.crop__icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.crop__icon:hover { background: rgba(255, 255, 255, 0.18); }
+.crop__icon:active { transform: scale(0.94); }
+
+/* ---------------- scena ---------------- */
+
+.crop__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  /* degetul mută poza, nu pagina */
+  touch-action: none;
+  cursor: grab;
+}
+
+.crop__stage:active { cursor: grabbing; }
+
+.crop__img,
+.crop__frame,
+.crop__safe {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* `place-items` din scenă nu atinge elementele scoase din flux, deci
+     centrarea se face aici, o dată, pentru toate trei. */
+  translate: -50% -50%;
+}
+
+.crop__img {
+  transform-origin: center;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+  max-width: none;
+}
+
+/* Umbra din jurul ramei e chiar umbra ramei: o pată uriașă împrăștiată în afara
+   ei. `clip-path` cu regula par-impar ar fi fost mai elegant, dar Safari n-o
+   ține, iar patru dreptunghiuri nu se închid curat pe colțuri. */
+.crop__frame {
+  pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(11, 13, 16, 0.72);
+}
+
+/* Cercul: spațiul sigur. Punctat, nu plin — e o îndrumare, nu o tăietură. */
+.crop__safe {
+  pointer-events: none;
+  border: 1.5px dashed rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+}
+
+/* ---------------- comenzile ---------------- */
+
+.crop__deck {
+  flex-shrink: 0;
+  padding: 1rem 1.15rem calc(1.35rem + env(safe-area-inset-bottom));
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.55), transparent);
+}
+
+.crop__hint {
+  margin-bottom: 0.9rem;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  max-width: 26rem;
+  margin: 0 auto 1rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Cursorul de mărire e și pentru cine nu poate ciupi ecranul — mouse, tastatură,
+   o mână ocupată. */
+.crop__range {
+  flex: 1;
+  height: 0.25rem;
+  border-radius: 999px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+}
+
+.crop__range::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+.crop__range::-moz-range-thumb {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+.crop__range:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.7); outline-offset: 4px; }
+
+.crop__buttons {
+  display: flex;
+  gap: 0.6rem;
+  max-width: 26rem;
+  margin: 0 auto;
+}
+
+.crop__btn {
+  flex: 1;
+  min-height: 3.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.crop__btn:active { transform: scale(0.98); }
+
+.crop__btn--back {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.crop__btn--back:hover { background: rgba(255, 255, 255, 0.2); }
+
+.crop__btn--ok {
+  color: #fff;
+  background: linear-gradient(120deg, #ee5364, #c8283a);
+  box-shadow: 0 16px 30px -16px rgba(200, 40, 58, 0.9);
+}
+
+.crop__btn--ok:hover { filter: brightness(1.07); }
+.crop__btn:disabled { opacity: 0.5; cursor: wait; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crop { animation: none; }
+  .crop__icon, .crop__btn { transition: none; }
+}

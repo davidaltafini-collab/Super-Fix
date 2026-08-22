@@ -1,0 +1,152 @@
+/* ============================================================
+   Hărțile, îmbrăcate în limbajul sitului.
+
+   Leaflet vine cu stilul lui (controale gri, chenare pătrate, font de sistem).
+   Aici îl aducem la sticlă, colțuri de 20px și Anton, ca harta să nu pară o
+   cutie străină lipită în pagină.
+   ============================================================ */
+
+.sf-map {
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #eef3fb;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 18px 40px -22px rgba(46, 51, 59, 0.5);
+  z-index: 0; /* sub navbar și sub panouri; Leaflet urcă altfel peste ele */
+}
+
+/* controalele Leaflet: pastile de sticlă, ca restul butoanelor */
+.sf-map .leaflet-control-zoom {
+  border: 0;
+  box-shadow: none;
+}
+
+.sf-map .leaflet-control-zoom a {
+  width: 2.25rem;
+  height: 2.25rem;
+  line-height: 2.25rem;
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+  border-radius: 999px;
+  margin-bottom: 0.4rem;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 6px 16px -8px rgba(46, 51, 59, 0.45);
+  transition: background-color 180ms ease;
+}
+
+.sf-map .leaflet-control-zoom a:hover {
+  background: #fff;
+}
+
+.sf-map .leaflet-control-attribution {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.625rem;
+  color: #8b929c;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 999px 0 0 0;
+}
+
+.sf-map .leaflet-control-attribution a { color: #616368; }
+
+/* ---------------- pinul de brand ---------------- */
+
+.sf-pin-wrap { background: none; border: 0; }
+
+/* Picătura clasică: cerc rotit la 45°, cu colțul de jos ascuțit. Umbra e pusă
+   pe element, nu ca imagine separată, ca să se miște odată cu el la drag. */
+.sf-pin {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(140deg, #ee5364, #c8283a);
+  border: 2px solid #fff;
+  box-shadow: 0 8px 16px -6px rgba(200, 40, 58, 0.75);
+}
+
+.sf-pin__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 999px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+/* pinul care se poate trage: cerc care pulsează, ca să se vadă că e apucabil */
+.leaflet-marker-draggable .sf-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 999px;
+  background: hsl(355 74% 55% / 0.28);
+  animation: sf-pin-pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sf-pin-pulse {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  70% { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+.leaflet-marker-draggable { cursor: grab; }
+.leaflet-marker-draggable:active { cursor: grabbing; }
+
+/* ---------------- alegerea locației ---------------- */
+
+.sf-map-picker { position: relative; }
+
+.sf-map-picker__hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #8b929c;
+}
+
+.sf-map-picker__recenter {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 3.1rem;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  color: hsl(211 70% 40%);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 20px -10px rgba(46, 51, 59, 0.5);
+  transition: transform 200ms ease, background-color 200ms ease;
+}
+
+.sf-map-picker__recenter:hover {
+  transform: translateY(-2px);
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-marker-draggable .sf-pin::after { animation: none; }
+  .sf-map-picker__recenter,
+  .sf-map .leaflet-control-zoom a { transition: none; }
+}

@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  MagnifyingGlass, Plus, Minus, X, SignOut, ArrowsClockwise, DownloadSimple,
+  Printer, PencilSimple, FloppyDisk, Trash, Camera, VideoCamera, ImageSquare,
+  Pulse, Broom, Warning,
+} from '@phosphor-icons/react';
 import { JobCategory, Hero, ServiceRequest } from '../types';
 import { 
     createHero, getAllRequests, loginUser, logoutUser, 
@@ -7,7 +13,14 @@ import {
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { API_URL } from '../config/api';
-import { uploadSignedMedia } from '../services/mediaUpload';
+import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
+import { useToast } from '../components/Toast';
+import { SuperfixMark } from '../components/SuperfixMark';
+import { PhotoCropper } from '../components/PhotoCropper';
+import { netLog, onNetLog, clearNetLog, NetEntry } from '../services/netlog';
+import { thumb } from '../lib/img';
+
+import './admin.css';
 
 const ROMANIAN_COUNTIES = [
   "Alba", "Arad", "Argeș", "Bacău", "Bihor", "Bistrița-Năsăud", "Botoșani", "Brașov", 
@@ -34,14 +47,13 @@ type PayoutBatch = {
 };
 
 export const Admin: React.FC = () => {
+  const toast = useToast();
   // === STATE ===
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [usernameInput, setUsernameInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
   
-  const [updates, setUpdates] = useState<any[]>([]);
-
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'RECRUITERS' | 'UPDATES' | 'PAYOUTS' | 'SETTINGS'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS'>('HEROES');
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -65,6 +77,19 @@ export const Admin: React.FC = () => {
   const [transferReferences, setTransferReferences] = useState<Record<string, string>>({});
 
   const [showModal, setShowModal] = useState(false);
+  // poza aleasă pentru fișa eroului, înainte de decupaj
+  const [toCrop, setToCrop] = useState<File | null>(null);
+
+  /* Jurnalul de apeluri. `netlog` tine un inel in memorie si ne anunta cand se
+     schimba; nu-l interogam pe cronometru. */
+  const [logs, setLogs] = useState<NetEntry[]>([]);
+  const [onlyBad, setOnlyBad] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'LOGS') return;
+    setLogs(netLog());
+    return onNetLog(() => setLogs(netLog()));
+  }, [activeTab]);
   const [modalMode, setModalMode] = useState<'VIEW' | 'EDIT' | 'ADD'>('VIEW');
   const [selectedHero, setSelectedHero] = useState<Hero | null>(null);
   const [viewEvidence, setViewEvidence] = useState<ServiceRequest | null>(null);
@@ -97,10 +122,11 @@ export const Admin: React.FC = () => {
         refreshAllData();
     }, [isAuthenticated, activeTab]);
 
-    // === FUNCȚIE FETCH UPDATES (NOUĂ) ===
-    const fetchUpdates = async () => {
-        setUpdates([]);
-    };
+    /* Coada de aprobare a profilurilor a fost retrasă de pe server: `/api/hero/basics`
+       salvează direct. Tabul „Modificări", funcțiile de aprobare și alerta din fișa
+       eroului rămăseseră aici, dar nu puteau afișa niciodată nimic — `fetchUpdates`
+       punea o listă goală, iar butonul de aprobare doar spunea că workflow-ul nu
+       mai există. Le-am scos. */
 
     const readApiError = async (response: Response, fallback: string) => {
         try {
@@ -137,7 +163,7 @@ export const Admin: React.FC = () => {
     };
 
     const createPayoutBatch = async () => {
-        if (!window.confirm('Creezi un batch catch-up cu toate comisioanele eligibile și neincluse în alte batch-uri?')) return;
+        if (!(await toast.confirm('Creezi un batch catch-up cu toate comisioanele eligibile și neincluse în alte batch-uri?', { confirmLabel: 'Creez batch' }))) return;
         const token = localStorage.getItem('superfix_token');
         if (!token) return;
         setPayoutAction('create');
@@ -192,7 +218,7 @@ export const Admin: React.FC = () => {
             setPayoutError('Introdu referința transferului înainte de confirmarea plății.');
             return;
         }
-        if (!window.confirm(`Confirmi că batch-ul ${batch.id.slice(0, 8)} a fost transferat? Referință: ${reference}`)) return;
+        if (!(await toast.confirm(`Confirmi că batch-ul ${batch.id.slice(0, 8)} a fost transferat? Referință: ${reference}`, { confirmLabel: 'Confirm transferul' }))) return;
         const token = localStorage.getItem('superfix_token');
         if (!token) return;
         setPayoutAction(`paid:${batch.id}`);
@@ -226,7 +252,7 @@ export const Admin: React.FC = () => {
             setPayoutError('Anularea cere un motiv de minimum 5 caractere.');
             return;
         }
-        if (!window.confirm(`Anulezi batch-ul ${batch.id.slice(0, 8)} și eliberezi comisioanele pentru un batch nou?`)) return;
+        if (!(await toast.confirm(`Anulezi batch-ul ${batch.id.slice(0, 8)} și eliberezi comisioanele pentru un batch nou?`, { confirmLabel: 'Anulez batch-ul', danger: true }))) return;
         const token = localStorage.getItem('superfix_token');
         if (!token) return;
         setPayoutAction(`cancel:${batch.id}`);
@@ -290,8 +316,8 @@ export const Admin: React.FC = () => {
         }
     };
 
-    const approveRecruiter = (rec: any) => {
-        if (!window.confirm(`Aprobi recruiterul ${rec.name}? Va primi pe email codul personal ${rec.code}.`)) return;
+    const approveRecruiter = async (rec: any) => {
+        if (!(await toast.confirm(`Aprobi recruiterul ${rec.name}? Va primi pe email codul personal ${rec.code}.`, { confirmLabel: 'Aprob' }))) return;
         return recruiterRequest(rec.id, 'approve', `approve:${rec.id}`);
     };
 
@@ -304,13 +330,13 @@ export const Admin: React.FC = () => {
         return recruiterRequest(rec.id, 'reject', `reject:${rec.id}`, { reason });
     };
 
-    const suspendRecruiter = (rec: any) => {
-        if (!window.confirm(`Suspenzi recruiterul ${rec.name}? Sesiunile lui vor fi invalidate.`)) return;
+    const suspendRecruiter = async (rec: any) => {
+        if (!(await toast.confirm(`Suspenzi recruiterul ${rec.name}? Sesiunile lui vor fi invalidate.`, { confirmLabel: 'Suspend', danger: true }))) return;
         return recruiterRequest(rec.id, 'suspend', `suspend:${rec.id}`);
     };
 
-    const reactivateRecruiter = (rec: any) => {
-        if (!window.confirm(`Reactivezi recruiterul ${rec.name}?`)) return;
+    const reactivateRecruiter = async (rec: any) => {
+        if (!(await toast.confirm(`Reactivezi recruiterul ${rec.name}?`, { confirmLabel: 'Reactivez' }))) return;
         return recruiterRequest(rec.id, 'reactivate', `reactivate:${rec.id}`);
     };
 
@@ -322,15 +348,6 @@ export const Admin: React.FC = () => {
         if (activeTab === 'RECRUITERS') fetchRecruiters();
     };
 
-    // === FUNCȚIE APROBARE UPDATE (NOUĂ) ===
-    const handleApproveUpdate = async (updateId: string) => {
-        void updateId;
-        alert('Workflow-ul legacy a fost retras; profilurile se actualizează autentificat direct.');
-    };
-    const handleRejectUpdate = async (updateId: string) => {
-        void updateId;
-    };
-
   // === HANDLERS ===
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,10 +357,10 @@ export const Admin: React.FC = () => {
             setUsernameInput('');
             setPasswordInput('');
         } else {
-            alert("Acest cont nu are drepturi de Administrator.");
+            toast.error('Contul acesta nu are drepturi de administrator.');
             logoutUser();
         }
-    } else alert('Date incorecte!');
+    } else toast.error('Date incorecte.');
   };
 
   const handleLogout = () => { logoutUser(); setIsAuthenticated(false); };
@@ -356,8 +373,8 @@ export const Admin: React.FC = () => {
       setNewCatInput('');
   };
 
-  const removeCategory = (cat: string) => {
-      if (confirm(`Sigur ștergi categoria "${cat}"?`)) {
+  const removeCategory = async (cat: string) => {
+      if (await toast.confirm(`Sigur ștergi categoria "${cat}"?`, { confirmLabel: 'Șterg', danger: true })) {
           const updated = categoryList.filter(c => c !== cat);
           setCategoryList(updated);
           localStorage.setItem('superfix_full_categories', JSON.stringify(updated));
@@ -437,25 +454,26 @@ export const Admin: React.FC = () => {
           if(success && recruitingAppId) setRecruitingAppId(null);
       }
 
-      if(success) { setShowModal(false); refreshAllData(); alert("✅ Eroul a fost salvat cu succes!"); }
-      else alert('❌ Eroare la salvare.');
+      if(success) { setShowModal(false); refreshAllData(); toast.success('Eroul a fost salvat.'); }
+      else toast.error('Salvarea a eșuat. Încearcă din nou.');
   };
 
   const handleDeleteHero = async () => {
-      if(selectedHero && confirm("Ești sigur că vrei să ștergi acest erou?")) {
+      if (selectedHero && (await toast.confirm(`Ștergi definitiv eroul ${selectedHero.alias}?`, { confirmLabel: 'Șterg', danger: true }))) {
           await deleteHero(selectedHero.id);
           setShowModal(false);
           refreshAllData();
-          alert("🗑️ Erou șters!");
+          toast.success('Erou șters.');
       }
   };
 
   const handleFileUpload = async (file: File, field: 'avatarUrl' | 'videoUrl') => {
       setUploading(true);
       try {
-          const secureUrl = await uploadSignedMedia(file, field === 'videoUrl' ? 'video' : 'image');
-          if(secureUrl) setFormData((prev: any) => ({ ...prev, [field]: secureUrl }));
-          else alert('Fișierul nu este acceptat sau uploadul securizat nu este configurat.');
+          const kind = field === 'videoUrl' ? 'video' : 'image';
+          const result = await uploadSignedMedia(file, kind);
+          if (result.url) setFormData((prev: any) => ({ ...prev, [field]: result.url }));
+          else toast.error(uploadErrorText(result.reason || 'network', kind));
       } finally { setUploading(false); }
   };
 
@@ -468,7 +486,7 @@ export const Admin: React.FC = () => {
   // === FUNCȚIE DOWNLOAD IMAGINE ===
   const downloadImage = async (url: string, filename: string) => {
       if (!url) {
-          alert("Nu există poză de descărcat.");
+          toast.info('Nu există poză de descărcat.');
           return;
       }
       try {
@@ -512,7 +530,7 @@ export const Admin: React.FC = () => {
 
       const printWindow = window.open('', '_blank', 'width=900,height=1200');
       if (!printWindow) {
-          alert("Te rugăm să permiți popup-urile pentru a printa!");
+          toast.error('Permite ferestrele pop-up ca să poți printa.');
           return;
       }
 
@@ -756,10 +774,10 @@ export const Admin: React.FC = () => {
           
           <div class="header">
             <div class="logo">SUPERFIX</div>
-            <div class="subtitle">🛡️ Raport Oficial Intervenție</div>
+            <div class="subtitle">Raport oficial de intervenție</div>
             <div class="header-right">
               <div>ID: #${escapeHtml(viewEvidence.id.slice(0, 8))}</div>
-              <div style="margin-top: 5px;">📅 ${formatDateTime(viewEvidence.date)}</div>
+              <div style="margin-top: 5px;">${formatDateTime(viewEvidence.date)}</div>
             </div>
           </div>
 
@@ -771,7 +789,7 @@ export const Admin: React.FC = () => {
             <thead>
                 <tr>
                     <th>👤 Client</th>
-                    <th>📞 Telefon</th>
+                    <th>Telefon</th>
                     <th>🦸 Erou</th>
                     <th>✓ Status</th>
                 </tr>
@@ -788,22 +806,22 @@ export const Admin: React.FC = () => {
 
           <div class="grid">
             <div class="box">
-              <div class="badge badge-before">❌ ÎNAINTE</div>
+              <div class="badge badge-before">ÎNAINTE</div>
               <div class="img-wrap">
                 ${viewEvidence.photoBefore 
                     ? `<img src="${escapeHtml(viewEvidence.photoBefore)}" alt="Înainte" />` 
-                    : '<div class="img-placeholder">📷 LIPSĂ</div>'}
+                    : '<div class="img-placeholder">LIPSĂ</div>'}
               </div>
-              <div class="photo-date">📅 ${formatDateTime(viewEvidence.date)}</div>
+              <div class="photo-date">${formatDateTime(viewEvidence.date)}</div>
             </div>
             <div class="box">
               <div class="badge badge-after">✓ DUPĂ</div>
               <div class="img-wrap">
                 ${viewEvidence.photoAfter 
                     ? `<img src="${escapeHtml(viewEvidence.photoAfter)}" alt="După" />` 
-                    : '<div class="img-placeholder">📷 LIPSĂ</div>'}
+                    : '<div class="img-placeholder">LIPSĂ</div>'}
               </div>
-              <div class="photo-date">📅 ${formatDateTime(viewEvidence.date)}</div>
+              <div class="photo-date">${formatDateTime(viewEvidence.date)}</div>
             </div>
           </div>
 
@@ -835,782 +853,1021 @@ export const Admin: React.FC = () => {
   const filteredHeroes = heroes.filter(h => (filterCategory === 'ALL' || h.category === filterCategory) && h.alias.toLowerCase().includes(searchTerm.toLowerCase()));
 
   // === RENDER ===
+
+  /* Numele stărilor, o singură dată. Serverul le trimite în engleză și cu
+     majuscule; pe ecran n-au ce căuta așa. */
+  const MISSION_STATE: Record<string, { word: string; tone: string }> = {
+    PENDING: { word: 'Așteaptă', tone: 'wait' },
+    ACCEPTED: { word: 'Acceptată', tone: 'info' },
+    IN_PROGRESS: { word: 'În lucru', tone: 'info' },
+    COMPLETED: { word: 'Finalizată', tone: 'live' },
+    REJECTED: { word: 'Refuzată', tone: 'stop' },
+    CANCELLED: { word: 'Anulată', tone: 'off' },
+  };
+
+  const RECRUITER_STATE: Record<string, { word: string; tone: string }> = {
+    PENDING: { word: 'De verificat', tone: 'wait' },
+    ACTIVE: { word: 'Activ', tone: 'live' },
+    SUSPENDED: { word: 'Suspendat', tone: 'stop' },
+    REJECTED: { word: 'Respins', tone: 'off' },
+  };
+
+  const PAYOUT_STATE: Record<string, { word: string; tone: string }> = {
+    DRAFT: { word: 'Ciornă', tone: 'wait' },
+    EXPORTED: { word: 'Exportat', tone: 'info' },
+    PAID: { word: 'Plătit', tone: 'live' },
+    CANCELLED: { word: 'Anulat', tone: 'off' },
+  };
+
+  const State: React.FC<{ map: Record<string, { word: string; tone: string }>; value?: string }> = ({ map, value }) => {
+    const found = map[value || ''] ?? { word: value || '—', tone: 'off' };
+    return <span className="adm-state" data-tone={found.tone}>{found.word}</span>;
+  };
+
+  const pendingRecruiters = recruiters.filter(r => r.status === 'PENDING').length;
+
+  const TABS = [
+    { key: 'HEROES', label: 'Eroi', count: 0 },
+    { key: 'REQUESTS', label: 'Misiuni', count: 0 },
+    { key: 'APPLICATIONS', label: 'Recrutare', count: applications.length },
+    { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
+    { key: 'PAYOUTS', label: 'Plăți', count: 0 },
+    { key: 'SETTINGS', label: 'Setări', count: 0 },
+    { key: 'LOGS', label: 'Jurnal', count: 0 },
+  ] as const;
+
+  /* ---------------- poarta ---------------- */
   if (!isAuthenticated) return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-          <form onSubmit={handleLogin} className="bg-white p-8 border-4 border-black shadow-[8px_8px_0_#fff] w-full max-w-sm">
-              <h1 className="font-heading text-3xl mb-6 text-center">ADMIN HQ</h1>
-              <input className="w-full border-4 border-black p-3 mb-4 font-mono" placeholder="Username" value={usernameInput} onChange={e=>setUsernameInput(e.target.value)}/>
-              <input className="w-full border-4 border-black p-3 mb-6 font-mono" type="password" placeholder="Password" value={passwordInput} onChange={e=>setPasswordInput(e.target.value)}/>
-              <button className="w-full bg-red-600 text-white font-heading py-4 border-4 border-black hover:bg-red-700 shadow-[4px_4px_0_#000]">ACCESARE</button>
-          </form>
-      </div>
+    <div className="flex min-h-screen items-center justify-center px-5 font-sans text-graphite">
+      <form onSubmit={handleLogin} className="adm adm-card w-full max-w-sm p-7">
+        <SuperfixMark className="mx-auto h-14 w-14" />
+        <h1 className="mt-5 text-center font-heading text-2xl font-bold text-graphite">Cartierul general</h1>
+        <p className="mt-2 text-center text-sm text-graphite-soft">Doar pentru conturile cu drepturi de administrator.</p>
+
+        <div className="mt-6 space-y-3">
+          <div>
+            <label htmlFor="adm-user" className="adm-label">Utilizator</label>
+            <input
+              id="adm-user"
+              className="adm-input"
+              autoComplete="username"
+              value={usernameInput}
+              onChange={e => setUsernameInput(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="adm-pass" className="adm-label">Parolă</label>
+            <input
+              id="adm-pass"
+              type="password"
+              className="adm-input"
+              autoComplete="current-password"
+              value={passwordInput}
+              onChange={e => setPasswordInput(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <button type="submit" className="adm-btn adm-btn--main mt-6 w-full">Intră</button>
+      </form>
+    </div>
   );
 
   return (
-    <div className="container mx-auto px-2 md:px-4 py-8 min-h-screen pb-24">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-black pb-4 bg-white p-4 shadow-comic gap-4">
-        <h1 className="font-heading text-2xl md:text-4xl italic">SUPERFIX <span className="text-super-red">ADMIN</span></h1>
-              <div className="flex flex-wrap justify-center gap-2">
-                  {['HEROES', 'REQUESTS', 'APPLICATIONS', 'RECRUITERS', 'PAYOUTS', 'SETTINGS'].map(tab => (
-                      <button key={tab} onClick={() => setActiveTab(tab as any)}
-                          className={`font-heading text-xs md:text-sm px-3 py-1 border-2 border-transparent transition-all ${activeTab === tab ? 'bg-comic-yellow border-black shadow-comic' : 'hover:underline'}`}>
-                          {tab === 'HEROES' ? 'EROI'
-                              : tab === 'REQUESTS' ? 'MISIUNI'
-                                  : tab === 'APPLICATIONS' ? 'RECRUTARE'
-                                      : tab === 'RECRUITERS' ? 'RECRUITERI'
-                                      : tab === 'UPDATES' ? `MODIFICĂRI (${updates.length})`
-                                          : tab === 'PAYOUTS' ? 'PAYOUT-URI'
-                                          : 'SETĂRI'}
-                      </button>
-                  ))}
-                  <button onClick={handleLogout} className="text-gray-500 font-bold ml-2 border-l-2 border-gray-300 pl-2 text-sm">IEȘIRE</button>
-              </div>
-      </div>
-
-      {/* TABS (EROI, MISIUNI, ETC) */}
-      {activeTab === 'HEROES' && (
-          <div className="animate-fade-in">
-              <div className="bg-white border-4 border-black p-4 mb-6 flex flex-col md:flex-row gap-4">
-                  <input placeholder="🔍 Caută erou..." className="flex-grow border-2 border-black p-2 font-comic" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                  <select className="border-2 border-black p-2 font-comic" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                      <option value="ALL">Toate Categoriile</option>
-                      {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <button onClick={openAddModal} className="bg-black text-white font-heading px-6 py-3 shadow-comic whitespace-nowrap">+ EROU NOU</button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {filteredHeroes.map(hero => (
-                      <div key={hero.id} onClick={() => openHeroFile(hero)} className="bg-white border-4 border-black p-4 cursor-pointer hover:-translate-y-1 hover:shadow-comic transition-all relative group">
-                          <div className="absolute top-2 right-2 bg-yellow-400 border-2 border-black px-2 text-xs font-bold z-10">★ {hero.trustFactor}</div>
-                          <div className="aspect-square w-full mb-4 border-2 border-black overflow-hidden bg-gray-200">
-                              <img src={hero.avatarUrl || DEFAULT_AVATAR} className="w-full h-full object-cover" alt={hero.alias} />
-                          </div>
-                          <h3 className="font-heading text-xl truncate">{hero.alias}</h3>
-                          <span className="text-xs bg-black text-white px-2 py-1 uppercase font-bold">{hero.category}</span>
-                          <div className="mt-4 text-center bg-gray-100 border-2 border-dashed border-gray-400 py-1 text-sm font-bold text-gray-500 group-hover:bg-yellow-100 group-hover:text-black group-hover:border-black transition-colors">DESCHIDE DOSAR</div>
-                      </div>
-                  ))}
-              </div>
+    <div className="adm min-h-screen px-4 pb-24 pt-28 font-sans text-graphite sm:px-6">
+      <div className="mx-auto max-w-7xl">
+        {/* ---------------- bara de sus ---------------- */}
+        <header className="adm-card flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <SuperfixMark className="h-9 w-9 shrink-0" />
+            <div>
+              <h1 className="font-heading text-lg leading-tight text-graphite">Cartierul general</h1>
+              <p className="text-xs text-graphite-soft">
+                <span className="adm-num">{heroes.length}</span> eroi ·{' '}
+                <span className="adm-num">{requests.length}</span> misiuni
+              </p>
+            </div>
           </div>
-      )}
 
-      {activeTab === 'REQUESTS' && (
-          <div className="bg-white border-4 border-black p-2 md:p-4 overflow-x-auto shadow-comic animate-fade-in">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                  <thead className="bg-black text-white font-heading text-sm"><tr><th className="p-3">Data</th><th className="p-3">Client</th><th className="p-3">Erou</th><th className="p-3">Status</th><th className="p-3 text-center">Acțiuni</th></tr></thead>
-                  <tbody className="font-comic text-sm">
-                      {requests.map(req => (
-                          <tr key={req.id} className="border-b hover:bg-yellow-50">
-                              <td className="p-3">{formatDateTime(req.date)}</td>
-                              <td className="p-3 font-bold">{req.clientName}<br/><span className="text-xs font-normal font-mono">{req.clientPhone}</span></td>
-                              <td className="p-3">{req.hero?.alias || '?'}</td>
-                              <td className="p-3">
-                                  <span className={`px-2 py-1 border border-black text-xs font-black shadow-sm ${
-                                      req.status==='COMPLETED'?'bg-green-500 text-white':
-                                      req.status==='REJECTED'?'bg-red-600 text-white':
-                                      req.status==='PENDING'?'bg-yellow-400 text-black':'bg-blue-400 text-white'
-                                  }`}>
-                                      {req.status}
-                                  </span>
-                              </td>
-                              <td className="p-3 text-center">{req.status === 'COMPLETED' && <button onClick={() => setViewEvidence(req)} className="text-blue-600 hover:underline font-bold text-xs">📷 VEZI DOSAR</button>}</td>
-                          </tr>
-                      ))}
-                  </tbody>
-              </table>
-          </div>
-      )}
-
-      {activeTab === 'APPLICATIONS' && (
-          <div className="grid gap-6 md:grid-cols-2 animate-fade-in">
-              {applications.length === 0 && <p className="text-gray-500 p-4 font-comic">Momentan nu sunt recruți noi.</p>}
-              {applications.map(app => (
-                  <div key={app.id} className="bg-yellow-50 border-4 border-black p-6 shadow-comic relative">
-                      <div className="absolute -top-3 -right-3 bg-red-600 text-white font-bold px-3 border-2 border-black rotate-3">NOU</div>
-                      
-                      <h3 className="font-heading text-xl">{app.name}</h3>
-                      <p className="font-bold text-sm bg-white inline-block px-2 border border-black mb-4">{app.category}</p>
-                      
-                      <div className="font-mono text-sm mb-4">
-                          <div>📞 {app.phone}</div>
-                          <div>✉️ {app.email}</div>
-                      </div>
-
-                      {/* --- AICI ESTE MESAJUL EROULUI --- */}
-                      {app.message && (
-                          <div className="bg-white border-2 border-black p-3 mb-4 relative">
-                              <span className="absolute -top-3 left-2 bg-black text-white text-[10px] px-2 font-bold uppercase">Mesaj Motivațional</span>
-                              <p className="italic text-sm text-gray-800">"{app.message}"</p>
-                          </div>
-                      )}
-                      {/* --------------------------------- */}
-
-                      <div className="flex gap-2 flex-wrap">
-                          <button onClick={() => handleRecruit(app)} className="flex-1 bg-green-500 text-white font-heading py-2 border-2 border-black hover:bg-green-600 shadow-sm">RECRUTEAZĂ</button>
-                          <button
-                              onClick={async () => {
-                                  if (confirm(`Sigur respingi dosarul lui ${app.name}? Se va trimite automat un email de notificare.`)) {
-                                      // Așteptăm să se termine ștergerea pe server
-                                      await deleteApplication(app.id);
-                                      // Abia acum facem refresh la listă
-                                      refreshAllData();
-                                      alert("🗑️ Candidat respins și notificat!");
-                                  }
-                              }}
-                              className="px-4 bg-red-500 text-white font-bold border-2 border-black hover:bg-red-600 shadow-sm transition-colors"
-                          >
-                              RESPINGE
-                          </button>
-                      </div>
-                  </div>
+          <div className="flex items-center gap-3 overflow-x-auto">
+            <div className="adm-tabs" role="tablist" aria-label="Secțiuni">
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.key}
+                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  className="adm-tab"
+                >
+                  {tab.label}
+                  {tab.count > 0 && <span className="adm-tab__count adm-num">{tab.count}</span>}
+                </button>
               ))}
+            </div>
+
+            <button type="button" onClick={handleLogout} className="adm-btn adm-btn--quiet shrink-0">
+              <SignOut size={15} weight="bold" aria-hidden="true" />
+              Ieșire
+            </button>
           </div>
-      )}
+        </header>
 
-      {activeTab === 'RECRUITERS' && (
-          <section className="space-y-6 animate-fade-in" aria-labelledby="recruiters-title">
-              <div className="bg-white border-4 border-black p-5 md:p-6 shadow-comic flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                  <div>
-                      <h2 id="recruiters-title" className="font-heading text-2xl md:text-3xl">RECRUITERI</h2>
-                      <p className="font-comic text-sm text-gray-700 mt-2 max-w-3xl">
-                          Cererile de înscriere în programul de recruiteri. Aprobă un candidat ca să-i activezi codul personal
-                          (primește codul automat pe email). Datele bancare complete nu se afișează aici.
-                      </p>
-                  </div>
-                  <button
-                      type="button"
-                      onClick={fetchRecruiters}
-                      disabled={Boolean(recruiterAction) || recruiterLoading}
-                      className="bg-blue-600 text-white font-heading px-5 py-3 border-4 border-black shadow-comic hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                      {recruiterLoading ? 'SE ÎNCARCĂ…' : '↻ REÎMPROSPĂTEAZĂ'}
-                  </button>
+        {/* ---------------- EROI ---------------- */}
+        {activeTab === 'HEROES' && (
+          <section className="mt-5">
+            <div className="adm-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <MagnifyingGlass
+                  size={16}
+                  weight="bold"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-graphite-soft"
+                  aria-hidden="true"
+                />
+                <input
+                  className="adm-input pl-9"
+                  placeholder="Caută după nume de erou…"
+                  aria-label="Caută erou"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
               </div>
-
-              {recruiterError && (
-                  <div role="alert" className="bg-red-50 text-red-800 border-4 border-red-700 p-4 font-bold flex items-start justify-between gap-4">
-                      <span>{recruiterError}</span>
-                      <button type="button" onClick={() => setRecruiterError('')} className="font-black" aria-label="Închide eroarea">×</button>
-                  </div>
-              )}
-
-              {recruiterLoading && recruiters.length === 0 ? (
-                  <div className="bg-white border-4 border-black p-8 text-center font-heading">SE ÎNCARCĂ RECRUITERII…</div>
-              ) : recruiters.length === 0 ? (
-                  <div className="bg-white border-4 border-dashed border-gray-400 p-8 text-center">
-                      <p className="font-heading text-xl">NICIUN RECRUITER</p>
-                      <p className="font-comic text-sm text-gray-600 mt-2">Cererile trimise din pagina „/recruiter" apar aici.</p>
-                  </div>
-              ) : (
-                  <div className="grid gap-5 md:grid-cols-2">
-                      {recruiters.map((rec) => {
-                          const isPending = rec.status === 'PENDING';
-                          const isActive = rec.status === 'ACTIVE';
-                          const isSuspended = rec.status === 'SUSPENDED';
-                          const badgeClass = isActive ? 'bg-green-500 text-white'
-                              : isPending ? 'bg-yellow-300 text-black'
-                              : isSuspended ? 'bg-orange-500 text-white'
-                              : 'bg-gray-400 text-white';
-                          return (
-                              <article key={rec.id} className="bg-white border-4 border-black p-5 shadow-comic relative">
-                                  {isPending && <div className="absolute -top-3 -right-3 bg-red-600 text-white font-bold px-3 border-2 border-black rotate-3">NOU</div>}
-                                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                                      <span className={`border-2 border-black px-3 py-1 text-xs font-black ${badgeClass}`}>{rec.status}</span>
-                                      {rec.code && !isPending && <span className="font-mono text-xs bg-black text-white px-2 py-1">COD: {rec.code}</span>}
-                                  </div>
-                                  <h3 className="font-heading text-xl">{rec.name}</h3>
-                                  <div className="font-mono text-sm my-3 space-y-1">
-                                      <div>✉️ {rec.email}</div>
-                                      {rec.phone && <div>📞 {rec.phone}</div>}
-                                      <div>🏦 {rec.ibanMask}</div>
-                                      <div className="text-gray-500 text-xs">Înscris: {formatDateTime(rec.createdAt)}</div>
-                                      {rec.counts && <div className="text-gray-500 text-xs">Atribuiri: {rec.counts.attributions ?? 0} • Comisioane: {rec.counts.commissions ?? 0}</div>}
-                                  </div>
-                                  <div className="flex gap-2 flex-wrap">
-                                      {isPending && (
-                                          <>
-                                              <button onClick={() => approveRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-green-500 text-white font-heading py-2 border-2 border-black hover:bg-green-600 shadow-sm disabled:opacity-50">
-                                                  {recruiterAction === `approve:${rec.id}` ? 'SE APROBĂ…' : '✓ APROBĂ'}
-                                              </button>
-                                              <button onClick={() => rejectRecruiter(rec)} disabled={Boolean(recruiterAction)} className="px-4 bg-red-500 text-white font-bold border-2 border-black hover:bg-red-600 shadow-sm disabled:opacity-50">
-                                                  {recruiterAction === `reject:${rec.id}` ? '…' : 'RESPINGE'}
-                                              </button>
-                                          </>
-                                      )}
-                                      {isActive && (
-                                          <button onClick={() => suspendRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-orange-500 text-white font-heading py-2 border-2 border-black hover:bg-orange-600 shadow-sm disabled:opacity-50">
-                                              {recruiterAction === `suspend:${rec.id}` ? 'SE SUSPENDĂ…' : 'SUSPENDĂ'}
-                                          </button>
-                                      )}
-                                      {isSuspended && (
-                                          <button onClick={() => reactivateRecruiter(rec)} disabled={Boolean(recruiterAction)} className="flex-1 bg-green-500 text-white font-heading py-2 border-2 border-black hover:bg-green-600 shadow-sm disabled:opacity-50">
-                                              {recruiterAction === `reactivate:${rec.id}` ? 'SE REACTIVEAZĂ…' : 'REACTIVEAZĂ'}
-                                          </button>
-                                      )}
-                                  </div>
-                              </article>
-                          );
-                      })}
-                  </div>
-              )}
-          </section>
-      )}
-
-      {activeTab === 'PAYOUTS' && (
-          <section className="space-y-6 animate-fade-in" aria-labelledby="payouts-title">
-              <div className="bg-white border-4 border-black p-5 md:p-6 shadow-comic flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                  <div>
-                      <h2 id="payouts-title" className="font-heading text-2xl md:text-3xl">PAYOUT RECRUITERI</h2>
-                      <p className="font-comic text-sm text-gray-700 mt-2 max-w-3xl">
-                          Un batch catch-up include toate comisioanele eligibile care nu se află deja într-un batch.
-                          Datele bancare nu sunt afișate aici; ele sunt incluse numai în CSV-ul descărcat explicit.
-                      </p>
-                  </div>
-                  <button
-                      type="button"
-                      onClick={createPayoutBatch}
-                      disabled={Boolean(payoutAction)}
-                      className="bg-green-500 text-white font-heading px-5 py-3 border-4 border-black shadow-comic hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                      {payoutAction === 'create' ? 'SE CREEAZĂ…' : '+ BATCH CATCH-UP'}
-                  </button>
+              {/* Într-un rând flex, `width: 100%` din `.adm-input` bate lățimea din
+                  markup, iar lista înghițea tot spațiul câmpului de căutare.
+                  Lățimea o ține învelișul, nu controlul. */}
+              <div className="sm:w-56 sm:shrink-0">
+                <select
+                  className="adm-input"
+                  aria-label="Filtrează după meserie"
+                  value={filterCategory}
+                  onChange={e => setFilterCategory(e.target.value)}
+                >
+                  <option value="ALL">Toate meseriile</option>
+                  {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
+              <button type="button" onClick={openAddModal} className="adm-btn adm-btn--main">
+                <Plus size={15} weight="bold" aria-hidden="true" />
+                Erou nou
+              </button>
+            </div>
 
-              {payoutError && (
-                  <div role="alert" className="bg-red-50 text-red-800 border-4 border-red-700 p-4 font-bold flex items-start justify-between gap-4">
-                      <span>{payoutError}</span>
-                      <button type="button" onClick={() => setPayoutError('')} className="font-black" aria-label="Închide eroarea">×</button>
-                  </div>
-              )}
-
-              {payoutLoading && payouts.length === 0 ? (
-                  <div className="bg-white border-4 border-black p-8 text-center font-heading">SE ÎNCARCĂ PAYOUT-URILE…</div>
-              ) : payouts.length === 0 ? (
-                  <div className="bg-white border-4 border-dashed border-gray-400 p-8 text-center">
-                      <p className="font-heading text-xl">NICIUN BATCH CREAT</p>
-                      <p className="font-comic text-sm text-gray-600 mt-2">Creează un batch după ce există comisioane ajunse la data de plată.</p>
-                  </div>
-              ) : (
-                  <div className="grid gap-5">
-                       {payouts.map((batch) => {
-                           const isPaid = batch.status === 'PAID';
-                           const isDraft = batch.status === 'DRAFT';
-                           const isExported = batch.status === 'EXPORTED';
-                           const isCancelled = batch.status === 'CANCELLED';
-                          const itemCount = batch.itemCount ?? batch._count?.items;
-                          return (
-                              <article key={batch.id} className="bg-white border-4 border-black p-5 shadow-comic">
-                                  <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
-                                      <div className="min-w-0">
-                                          <div className="flex flex-wrap items-center gap-3 mb-3">
-                                               <span className={`border-2 border-black px-3 py-1 text-xs font-black ${isPaid ? 'bg-green-500 text-white' : isCancelled ? 'bg-gray-400 text-white' : 'bg-yellow-300 text-black'}`}>
-                                                  {batch.status}
-                                              </span>
-                                              <span className="font-mono text-xs text-gray-500">#{batch.id.slice(0, 8)}</span>
-                                          </div>
-                                          <p className="font-heading text-2xl md:text-3xl">{formatMoney(batch.totalBani)}</p>
-                                          <dl className="grid sm:grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm font-comic">
-                                              <div>
-                                                  <dt className="text-gray-500 font-bold uppercase text-xs">Perioadă eligibilă</dt>
-                                                  <dd>{new Date(batch.periodStart).toLocaleDateString('ro-RO')} – {new Date(batch.periodEnd).toLocaleDateString('ro-RO')}</dd>
-                                              </div>
-                                              <div>
-                                                  <dt className="text-gray-500 font-bold uppercase text-xs">Creat</dt>
-                                                  <dd>{formatDateTime(batch.createdAt)}</dd>
-                                              </div>
-                                              {typeof batch.recruiterCount === 'number' && (
-                                                  <div>
-                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Recruiteri</dt>
-                                                      <dd>{batch.recruiterCount}</dd>
-                                                  </div>
-                                              )}
-                                              {typeof itemCount === 'number' && (
-                                                  <div>
-                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Comisioane</dt>
-                                                      <dd>{itemCount}</dd>
-                                                  </div>
-                                              )}
-                                              {isPaid && batch.paidAt && (
-                                                  <div>
-                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Plătit</dt>
-                                                      <dd>{formatDateTime(batch.paidAt)}</dd>
-                                                  </div>
-                                              )}
-                                              {isPaid && batch.reference && (
-                                                  <div>
-                                                      <dt className="text-gray-500 font-bold uppercase text-xs">Referință transfer</dt>
-                                                      <dd className="font-mono break-all">{batch.reference}</dd>
-                                                  </div>
-                                              )}
-                                          </dl>
-                                      </div>
-
-                                      <div className="w-full xl:w-[360px] space-y-3 xl:border-l-2 xl:border-gray-200 xl:pl-5">
-                                           {!isCancelled && <button
-                                              type="button"
-                                              onClick={() => downloadPayoutCsv(batch)}
-                                              disabled={Boolean(payoutAction)}
-                                              className="w-full bg-blue-600 text-white font-heading py-3 px-4 border-4 border-black hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                          >
-                                              {payoutAction === `export:${batch.id}` ? 'SE GENEREAZĂ…' : 'DESCARCĂ CSV PENTRU TRANSFER'}
-                                           </button>}
-                                           {(isDraft || isExported) && (
-                                              <div className="bg-gray-50 border-2 border-black p-3 space-y-3">
-                                                  {isDraft && <p className="text-xs font-bold text-amber-800">Descarcă mai întâi CSV-ul. Exportul îngheață beneficiarii, IBAN-urile și sumele batch-ului.</p>}
-                                                  <label htmlFor={`reference-${batch.id}`} className="block text-xs font-black uppercase">
-                                                      Referință transfer
-                                                  </label>
-                                                  <input
-                                                      id={`reference-${batch.id}`}
-                                                      type="text"
-                                                      maxLength={120}
-                                                      autoComplete="off"
-                                                      placeholder="Ex: OP-2026-07-001"
-                                                      value={transferReferences[batch.id] || ''}
-                                                      onChange={(event) => setTransferReferences((current) => ({ ...current, [batch.id]: event.target.value }))}
-                                                      className="w-full border-2 border-black p-2 font-mono text-sm"
-                                                  />
-                                                  <button
-                                                      type="button"
-                                                      onClick={() => markPayoutPaid(batch)}
-                                                      disabled={Boolean(payoutAction) || !isExported || !(transferReferences[batch.id] || '').trim()}
-                                                      className="w-full bg-black text-white font-heading py-3 px-4 border-2 border-black hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                                                  >
-                                                      {payoutAction === `paid:${batch.id}` ? 'SE CONFIRMĂ…' : 'CONFIRMĂ TRANSFERUL EFECTUAT'}
-                                                  </button>
-                                                   <p className="text-[11px] text-gray-600 font-comic">Acțiunea cere confirmare și devine definitivă în registrul de comisioane.</p>
-                                                   <button
-                                                       type="button"
-                                                       onClick={() => cancelPayoutBatch(batch)}
-                                                       disabled={Boolean(payoutAction)}
-                                                       className="w-full border-2 border-red-700 text-red-700 bg-white font-heading py-2 px-4 hover:bg-red-50 disabled:opacity-40"
-                                                   >
-                                                       {payoutAction === `cancel:${batch.id}` ? 'SE ANULEAZĂ…' : 'ANULEAZĂ BATCH-UL'}
-                                                   </button>
-                                               </div>
-                                          )}
-                                      </div>
-                                  </div>
-                              </article>
-                          );
-                      })}
-                  </div>
-              )}
-          </section>
-      )}
-
-      {activeTab === 'SETTINGS' && (
-          <div className="bg-white border-4 border-black p-6 max-w-2xl mx-auto shadow-comic animate-fade-in">
-              <h3 className="font-heading text-2xl mb-4 text-center">GESTIUNE SPECIALIZĂRI</h3>
-              <div className="flex gap-2 mb-6">
-                  <input placeholder="Ex: Instalator Gaz..." className="flex-grow border-2 border-black p-2 font-bold font-comic" value={newCatInput} onChange={e => setNewCatInput(e.target.value)} />
-                  <button onClick={addCategory} className="bg-green-500 text-white font-heading px-4 border-2 border-black shadow-sm hover:bg-green-600">ADAUGĂ</button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                  {categoryList.map(cat => (
-                      <div key={cat} className="bg-white border-2 border-black px-3 py-1 flex items-center gap-2 group hover:shadow-sm transition-all hover:bg-red-50">
-                          <span className="font-bold text-sm uppercase">{cat}</span>
-                          <button onClick={() => removeCategory(cat)} className="text-red-600 font-black hover:scale-125 ml-2 border-l border-gray-300 pl-2">x</button>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      )}
-      {/* === TAB-UL DE UPDATES === */}
-        {activeTab === 'UPDATES' && (
-          <div className="space-y-8">
-            <h2 className="text-4xl font-black italic mb-8 border-b-8 border-blue-500 inline-block">
-              MODIFICĂRI PROFIL ÎN AȘTEPTARE
-            </h2>
-
-            {updates.length === 0 ? (
-              <p className="text-xl font-bold text-gray-500 italic">Nicio cerere de update momentan.</p>
+            {filteredHeroes.length === 0 ? (
+              <p className="adm-card mt-5 p-8 text-center text-sm text-graphite-soft">
+                {heroes.length === 0
+                  ? 'Încă nu e niciun erou în bază.'
+                  : 'Niciun erou nu se potrivește cu ce ai căutat.'}
+              </p>
             ) : (
-              <div className="grid gap-8">
-                {updates.map((update) => (
-                  <div key={update.id} className="bg-white border-4 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] relative">
-                    
-                    {/* Header Card */}
-                    <div className="flex justify-between items-start mb-6 border-b-4 border-gray-200 pb-4">
-                      <div>
-                        <h3 className="text-2xl font-black italic">{update.hero.alias}</h3>
-                        <p className="font-mono text-sm text-gray-500">{update.hero.email}</p>
-                      </div>
-                      <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 border-2 border-blue-800 text-sm">
-                        UPDATE PENDING
-                      </div>
+              <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {filteredHeroes.map(hero => (
+                  <button key={hero.id} type="button" onClick={() => openHeroFile(hero)} className="adm-hero">
+                    <div className="adm-hero__pic">
+                      <img src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 420, { square: true })} alt="" loading="lazy" />
+                      <span className="adm-hero__trust">{hero.trustFactor}</span>
                     </div>
-
-                    <div className="grid md:grid-cols-2 gap-6">
-                      {/* Coloana Stângă: Date Noi */}
-                      <div className="space-y-4">
-                         {update.description && (
-                             <div className="bg-yellow-50 p-3 border-l-4 border-yellow-400">
-                                 <p className="text-xs font-bold text-gray-500 uppercase">Descriere Nouă</p>
-                                 <p className="italic">"{update.description}"</p>
-                             </div>
-                         )}
-                         {update.hourlyRate && (
-                             <div className="bg-green-50 p-3 border-l-4 border-green-400">
-                                 <p className="text-xs font-bold text-gray-500 uppercase">Preț Nou</p>
-                                 <p className="font-black text-xl">{update.hourlyRate} RON/oră</p>
-                             </div>
-                         )}
-                         {update.actionAreas && (
-                             <div className="bg-purple-50 p-3 border-l-4 border-purple-400">
-                                 <p className="text-xs font-bold text-gray-500 uppercase">Zone Noi</p>
-                                 <p className="font-mono text-sm">{JSON.stringify(update.actionAreas)}</p>
-                             </div>
-                         )}
-                         {update.videoUrl && (
-                             <div className="bg-red-50 p-3 border-l-4 border-red-400">
-                                 <p className="text-xs font-bold text-gray-500 uppercase">Video Nou</p>
-                                 <a href={update.videoUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">Vezi Link Video</a>
-                             </div>
-                         )}
-                      </div>
-
-                      {/* Coloana Dreaptă: Poză și Acțiuni */}
-                      <div className="flex flex-col items-center justify-between">
-                        {update.avatarUrl ? (
-                            <div className="relative mb-4">
-                                <img src={update.avatarUrl} alt="New" className="w-32 h-32 object-cover rounded-full border-4 border-black shadow-lg" />
-                                <span className="absolute bottom-0 right-0 bg-green-500 text-white text-xs font-bold px-2 py-1 border-2 border-black">NOU</span>
-                            </div>
-                        ) : <p className="text-gray-400 italic mb-4">Fără poză nouă</p>}
-
-                        <button
-                          onClick={() => handleApproveUpdate(update.id)}
-                          className="w-full bg-green-500 text-white font-black py-4 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center gap-2"
-                        >
-                          <span>✅ APROBĂ ȘI ÎNLOCUIEȘTE</span>
-                        </button>
-                      </div>
+                    <div className="p-3">
+                      <p className="truncate font-heading text-base leading-tight text-graphite">{hero.alias}</p>
+                      <p className="mt-1 truncate text-xs text-graphite-soft">{hero.category}</p>
                     </div>
-
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-      {/* MODAL EROU */}
-      {showModal && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 overflow-y-auto">
-              <div className="bg-white w-full max-w-5xl border-4 border-white shadow-2xl flex flex-col rounded-sm relative my-auto max-h-[95vh] overflow-y-auto">
-                  <button onClick={() => setShowModal(false)} className="absolute top-2 right-2 z-[60] bg-red-600 text-white w-8 h-8 font-black border-2 border-black hover:scale-110 shadow-comic">X</button>
-                  
-                  <div className="bg-dots p-4 md:p-6 border-b-4 border-black">
-                      <div className="flex flex-col md:flex-row gap-6 items-start">
-                          <div className="relative group w-32 h-32 md:w-40 md:h-40 flex-shrink-0 mx-auto md:mx-0">
-                              <div className="w-full h-full bg-gray-300 border-4 border-black overflow-hidden shadow-comic">
-                                  <img src={formData.avatarUrl || DEFAULT_AVATAR} className="w-full h-full object-cover" alt="Avatar" />
-                              </div>
-                              {modalMode !== 'VIEW' && (
-                                  <label className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 border-2 border-black cursor-pointer hover:bg-blue-700 shadow-md transform hover:scale-110 z-10 rounded-full">
-                                      📷 <input type="file" hidden onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'avatarUrl')} />
-                                  </label>
-                              )}
-                          </div>
-                          <div className="flex-grow w-full md:w-auto h-40 md:h-40 relative border-4 border-black bg-black shadow-sm group">
-                              {formData.videoUrl ? (
-                                  <video src={formData.videoUrl} controls className="w-full h-full object-cover" />
-                              ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 font-mono text-xs p-4 text-center">
-                                      <span className="text-2xl mb-2">🎬</span>
-                                      {modalMode === 'VIEW' ? "FĂRĂ PREZENTARE VIDEO" : "VIDEO NECESAR"}
-                                  </div>
-                              )}
-                              {modalMode !== 'VIEW' && (
-                                  <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity z-20">
-                                      <span className="bg-white border-2 border-black px-3 py-1 font-bold text-xs hover:bg-yellow-300">
-                                          {uploading ? 'UPLOADING...' : 'UPLOAD VIDEO'}
-                                      </span>
-                                      <input type="file" hidden accept="video/*" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'videoUrl')} />
-                                  </label>
-                              )}
-                          </div>
-                          {modalMode === 'VIEW' && (
-                              <div className="w-full md:w-auto text-center md:text-right self-center">
-                                  <h2 className="font-heading text-2xl uppercase mb-2">{formData.alias}</h2>
-                                  <button onClick={() => setModalMode('EDIT')} className="bg-comic-yellow px-6 py-2 font-heading border-2 border-black shadow-comic hover:translate-y-1 text-lg">
-                                      ✏️ EDITEAZĂ
-                                  </button>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-
-                  <div className="p-4 md:p-6 bg-white">
-                      {modalMode === 'VIEW' ? (
-                          <div className="space-y-6">
-                                  {/* === START ALERTĂ MODIFICĂRI === */}
-                                  {(() => {
-                                      const pendingUpdate = updates.find(u => u.heroId === selectedHero?.id);
-                                      if (!pendingUpdate) return null;
-
-                                      return (
-                                          <div className="bg-blue-600 border-4 border-black p-4 mb-6 shadow-comic animate-pulse">
-                                              <h3 className="text-white font-heading text-xl italic mb-4 uppercase">
-                                                  ⚠️ Date noi primite de la erou!
-                                              </h3>
-                                              <div className="grid md:grid-cols-2 gap-4 bg-white p-4 border-2 border-black">
-                                                  <div className="text-sm font-mono">
-                                                      <p className="font-bold text-blue-600 uppercase border-b-2 border-blue-100 mb-2">MODIFICĂRI:</p>
-                                                      {pendingUpdate.description && <p><strong>Descriere:</strong> {pendingUpdate.description}</p>}
-                                                      {pendingUpdate.hourlyRate && <p><strong>Tarif:</strong> {pendingUpdate.hourlyRate} RON/h</p>}
-                                                      {pendingUpdate.actionAreas && <p><strong>Zone:</strong> {JSON.stringify(pendingUpdate.actionAreas)}</p>}
-                                                      {pendingUpdate.videoUrl && (
-                                                          <p><strong>Video:</strong> <a href={pendingUpdate.videoUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">VEZI VIDEO</a></p>
-                                                      )}
-                                                  </div>
-                                                  <div className="flex flex-col items-center justify-center gap-3 border-l-2 border-dashed border-gray-300 pl-4">
-                                                      {pendingUpdate.avatarUrl && (
-                                                          <img src={pendingUpdate.avatarUrl} alt="New" className="w-20 h-20 rounded-full border-4 border-blue-600 object-cover" />
-                                                      )}
-                                                      <div className="flex gap-2 w-full">
-                                                          <button onClick={() => handleApproveUpdate(pendingUpdate.id)} className="flex-1 bg-green-500 text-white font-bold py-2 border-2 border-black shadow-sm text-xs">✅ APROBĂ</button>
-                                                          <button onClick={() => handleRejectUpdate(pendingUpdate.id)} className="flex-1 bg-red-600 text-white font-bold py-2 border-2 border-black shadow-sm text-xs">❌ ȘTERGE</button>
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })()}
-                                  {/* === FINAL ALERTĂ MODIFICĂRI === */}
-                                <div className="grid md:grid-cols-2 gap-4 text-sm font-mono">
-                                    <div className="border-2 border-black p-3 bg-gray-50">
-                                        <div className="font-bold text-gray-500">NUME REAL:</div> {formData.realName}
-                                        <div className="font-bold text-gray-500 mt-2">TELEFON:</div> {formData.phone}
-                                        <div className="font-bold text-gray-500 mt-2">EMAIL:</div> {formData.email}
-                                    </div>
-                                    <div className="border-2 border-black p-3 bg-gray-50">
-                                        <div className="font-bold text-gray-500">CATEGORIE:</div> {formData.category}
-                                        <div className="font-bold text-gray-500 mt-2">TARIF:</div> {formData.hourlyRate} RON/h
-                                        <div className="font-bold text-gray-500 mt-2">TRUST FACTOR:</div> {formData.trustFactor}/100
-                                    </div>
-                                </div>
-                                <div className="border-2 border-black p-3 bg-white">
-                                    <h3 className="font-heading text-sm bg-black text-white px-2 inline-block mb-2">DESCRIERE</h3>
-                                    <p className="italic">{formData.description || "N/A"}</p>
-                                </div>
-                                
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h3 className="font-heading text-sm mb-2 bg-blue-600 text-white px-2 inline-block">ZONE DE ACȚIUNE</h3>
-                                        <div className="pointer-events-none opacity-90 border-2 border-black p-2 max-h-[300px] overflow-hidden">
-                                            <div className="transform scale-90 origin-top">
-                                                <RomaniaMap value={formData.actionAreas || []} className="w-full h-auto" />
-                                            </div>
-                                        </div>
-                                        <p className="text-xs font-bold mt-1">Județe: {formData.actionAreas?.join(', ') || 'Niciunul'}</p>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-heading text-sm mb-2 bg-black text-white px-2 inline-block">ISTORIC MISIUNI</h3>
-                                        <div className="border-2 border-black max-h-[300px] overflow-y-auto bg-gray-50">
-                                            {heroMissions.length === 0 ? <p className="p-4 italic text-gray-500 text-sm">Nicio misiune.</p> : (
-                                                <table className="w-full text-left text-xs">
-                                                    <thead className="bg-gray-200 font-bold sticky top-0 border-b border-black">
-                                                        <tr><th className="p-2">Data</th><th className="p-2">Client</th><th className="p-2">Status</th><th className="p-2">Dovadă</th></tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {heroMissions.map(m => (
-                                                            <tr key={m.id} className="border-b border-gray-200">
-                                                                <td className="p-2 whitespace-nowrap">{formatDateTime(m.date)}</td>
-                                                                <td className="p-2">{m.clientName}</td>
-                                                                <td className="p-2">
-                                                                    <span className={`px-2 py-1 text-[10px] font-bold border border-black ${
-                                                                        m.status === 'COMPLETED' ? 'bg-green-400' : 
-                                                                        m.status === 'REJECTED' ? 'bg-red-500 text-white' : 
-                                                                        m.status === 'PENDING' ? 'bg-yellow-300' : 'bg-blue-300'
-                                                                    }`}>
-                                                                        {m.status}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-2">{m.status === 'COMPLETED' && <button onClick={() => setViewEvidence(m)} className="text-blue-600 underline font-bold">FOTO</button>}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                          </div>
-                      ) : (
-                          <form onSubmit={handleSave} className="space-y-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                      <label className="font-bold text-xs">ALIAS</label>
-                                      <input required className="w-full border-2 border-black p-2 font-bold bg-yellow-50" value={formData.alias} onChange={e => setFormData({...formData, alias: e.target.value})} />
-                                  </div>
-                                  <div>
-                                      <label className="font-bold text-xs">CATEGORIE</label>
-                                      {!isCustomCat ? (
-                                          <select className="w-full border-2 border-black p-2" value={formData.category} onChange={e => {
-                                              if(e.target.value === 'NEW') setIsCustomCat(true); else setFormData({...formData, category: e.target.value});
-                                          }}>
-                                              {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
-                                              <option value="NEW" className="text-red-600 font-bold">+ Nouă</option>
-                                          </select>
-                                      ) : (
-                                          <div className="flex"><input autoFocus className="w-full border-2 border-black p-2 bg-yellow-50" value={formCustomCat} onChange={e => setFormCustomCat(e.target.value)} /><button type="button" onClick={() => setIsCustomCat(false)} className="bg-red-500 text-white px-2 border-2 border-black">X</button></div>
-                                      )}
-                                  </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                  <input placeholder="Nume Real" className="border-2 border-black p-2" value={formData.realName} onChange={e => setFormData({...formData, realName: e.target.value})} />
-                                  {/* === MODIFICARE 2: Input Number cu parseFloat === */}
-                                  <input 
-                                      type="number" 
-                                      placeholder="Tarif (RON)" 
-                                      className="border-2 border-black p-2" 
-                                      value={formData.hourlyRate} 
-                                      onChange={e => setFormData({...formData, hourlyRate: parseFloat(e.target.value) || 0})} 
-                                  />
-                                  {/* ================================================= */}
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                  <input placeholder="Telefon" className="border-2 border-black p-2" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                                  <input placeholder="Email" className="border-2 border-black p-2" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 bg-blue-50 p-2 border-2 border-blue-200">
-                                  <input placeholder="Username Login" className="border-2 border-black p-2" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
-                                  <input placeholder="Password (Optional)" className="border-2 border-black p-2" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-                              </div>
-                              <textarea rows={2} placeholder="Descriere erou..." className="w-full border-2 border-black p-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                              
-                              <div className="bg-yellow-200 p-4 border-2 border-black text-center shadow-comic">
-                                  <p className="font-heading text-lg">TRUST FACTOR</p>
-                                  <div className="flex items-center justify-center gap-4 my-2">
-                                      <button type="button" onClick={() => setFormData({...formData, trustFactor: formData.trustFactor - 1})} className="w-8 h-8 bg-red-500 text-white font-black border-2 border-black hover:scale-110">-</button>
-                                      <span className="text-3xl font-black">{formData.trustFactor}</span>
-                                      <button type="button" onClick={() => setFormData({...formData, trustFactor: formData.trustFactor + 1})} className="w-8 h-8 bg-green-500 text-white font-black border-2 border-black hover:scale-110">+</button>
-                                  </div>
-                              </div>
-
-                              <div className="bg-blue-50 border-4 border-black p-4 mt-4">
-                                  <h3 className="font-heading text-sm text-center mb-2">ZONE DE ACȚIUNE</h3>
-                                  <div className="mb-4">
-                                      <select className="w-full border-2 border-black p-2 font-bold mb-2" 
-                                          onChange={(e) => { if(e.target.value) toggleArea(e.target.value); e.target.value = ""; }}>
-                                          <option value="">+ Adaugă Județ din Listă</option>
-                                          {ROMANIAN_COUNTIES.map(c => (
-                                              <option key={c} value={c} disabled={formData.actionAreas?.includes(c)}>{formData.actionAreas?.includes(c) ? `✓ ${c}` : c}</option>
-                                          ))}
-                                      </select>
-                                      <div className="flex flex-wrap gap-2 mb-2">
-                                          {formData.actionAreas?.map((area: string) => (
-                                              <span key={area} onClick={() => toggleArea(area)} className="cursor-pointer bg-white border border-black px-2 py-1 text-xs font-bold hover:bg-red-100 flex items-center gap-1 group">
-                                                  {area} <span className="text-red-500 group-hover:font-black">x</span>
-                                              </span>
-                                          ))}
-                                      </div>
-                                  </div>
-                                  <div className="w-full max-w-md mx-auto relative border-2 border-black bg-white overflow-hidden" style={{ maxHeight: '300px' }}>
-                                      <div className="transform scale-90 origin-top">
-                                          <RomaniaMap value={formData.actionAreas || []} onToggle={toggleArea} className="w-full h-auto" />
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="flex gap-4 pt-4 border-t-4 border-black mt-4">
-                                  <button disabled={uploading} className="flex-1 bg-green-500 text-white font-heading py-3 border-4 border-black shadow-comic text-lg hover:bg-green-600">
-                                      {uploading ? '...' : '💾 SALVEAZĂ'}
-                                  </button>
-                                  {modalMode === 'EDIT' && <button type="button" onClick={handleDeleteHero} className="bg-red-600 text-white font-bold px-4 border-4 border-black">ȘTERGE</button>}
-                              </div>
-                          </form>
+        {/* ---------------- MISIUNI ---------------- */}
+        {activeTab === 'REQUESTS' && (
+          <section className="adm-card adm-scroll mt-5">
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Client</th>
+                  <th>Erou</th>
+                  <th>Stare</th>
+                  <th className="text-right">Dovezi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.length === 0 && (
+                  <tr><td colSpan={5} className="py-10 text-center text-graphite-soft">Nicio misiune încă.</td></tr>
+                )}
+                {requests.map(req => (
+                  <tr key={req.id}>
+                    <td className="adm-num whitespace-nowrap">{formatDateTime(req.date)}</td>
+                    <td>
+                      <span className="font-semibold text-graphite">{req.clientName}</span>
+                      <span className="adm-num mt-0.5 block text-xs text-graphite-soft">{req.clientPhone}</span>
+                    </td>
+                    <td>{req.hero?.alias || '—'}</td>
+                    <td><State map={MISSION_STATE} value={req.status} /></td>
+                    <td className="text-right">
+                      {req.status === 'COMPLETED' && (
+                        <button type="button" onClick={() => setViewEvidence(req)} className="adm-btn adm-btn--quiet">
+                          <ImageSquare size={15} weight="bold" aria-hidden="true" />
+                          Vezi
+                        </button>
                       )}
-                  </div>
-              </div>
-          </div>
-      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
-      {/* MODAL EVIDENȚE CU ORA */}
-      {viewEvidence && (
-          <div className="fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-2 sm:p-4">
-              <div className="bg-white p-3 sm:p-6 max-w-4xl w-full border-4 border-white overflow-y-auto max-h-[95vh] shadow-2xl">
-                  
-                  {/* HEADER */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b-4 border-black">
-                      <div>
-                          <h2 className="font-heading text-xl sm:text-2xl">PROBE: {viewEvidence.clientName}</h2>
-                          <p className="text-xs text-gray-600 font-mono mt-1">ID: #{viewEvidence.id.slice(0, 8)} • {formatDateTime(viewEvidence.date)}</p>
+        {/* ---------------- RECRUTARE ---------------- */}
+        {activeTab === 'APPLICATIONS' && (
+          <section className="mt-5">
+            {applications.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">
+                Niciun dosar nou. Cererile din „Devino erou" apar aici.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {applications.map(app => (
+                  <article key={app.id} className="adm-card p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-heading text-lg leading-tight text-graphite">{app.name}</h3>
+                        <p className="mt-1 text-sm text-graphite-soft">{app.category}</p>
                       </div>
-                      <button 
-                          onClick={handlePrintDossier} 
-                          className="w-full sm:w-auto bg-blue-600 text-white font-bold px-4 py-2 sm:py-3 border-2 border-black hover:bg-blue-700 shadow-comic flex items-center justify-center gap-2 text-sm sm:text-base"
-                      >
-                          🖨️ PRINTEAZĂ DOSAR
+                      <span className="adm-state" data-tone="wait">Nou</span>
+                    </div>
+
+                    <dl className="adm-num mt-4 space-y-1 text-sm text-graphite-soft">
+                      <div><dt className="sr-only">Telefon</dt><dd>{app.phone}</dd></div>
+                      <div><dt className="sr-only">Email</dt><dd className="break-all">{app.email}</dd></div>
+                    </dl>
+
+                    {app.message && (
+                      <blockquote className="mt-4 rounded-xl bg-white/60 p-3 text-sm italic leading-relaxed text-graphite">
+                        „{app.message}"
+                      </blockquote>
+                    )}
+
+                    <div className="mt-5 flex gap-2">
+                      <button type="button" onClick={() => handleRecruit(app)} className="adm-btn adm-btn--main flex-1">
+                        Recrutează
                       </button>
-                  </div>
-
-                  {/* GRID POZE */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                      {/* ÎNAINTE */}
-                      <div className="text-center">
-                          <div className="bg-red-600 text-white font-bold px-3 py-1 mb-3 inline-block border-2 border-black text-sm transform -rotate-2">
-                              ÎNAINTE
-                          </div>
-                          <div className="border-4 border-black bg-gray-100 p-2 flex items-center justify-center min-h-[200px] sm:min-h-[300px]">
-                              {viewEvidence.photoBefore ? (
-                                  <img src={viewEvidence.photoBefore} className="w-full h-auto object-contain max-h-[400px]" alt="Înainte" />
-                              ) : (
-                                  <div className="p-8 text-sm font-bold text-gray-400">LIPSĂ</div>
-                              )}
-                          </div>
-                          <div className="bg-black text-white px-3 py-1 text-xs font-bold mt-2 inline-block">
-                              📅 {formatDateTime(viewEvidence.date)}
-                          </div>
-                          {viewEvidence.photoBefore && (
-                              <button 
-                                  onClick={() => downloadImage(viewEvidence.photoBefore!, `inainte-${viewEvidence.id.slice(0,8)}.jpg`)}
-                                  className="block w-full mt-3 text-sm font-bold border-3 border-blue-600 bg-blue-50 text-blue-700 py-2 hover:bg-blue-600 hover:text-white transition-colors shadow-sm"
-                              >
-                                  ⬇️ DESCARCĂ ORIGINAL
-                              </button>
-                          )}
-                      </div>
-                      
-                      {/* DUPĂ */}
-                      <div className="text-center">
-                          <div className="bg-green-600 text-white font-bold px-3 py-1 mb-3 inline-block border-2 border-black text-sm transform rotate-2">
-                              DUPĂ
-                          </div>
-                          <div className="border-4 border-black bg-gray-100 p-2 flex items-center justify-center min-h-[200px] sm:min-h-[300px]">
-                              {viewEvidence.photoAfter ? (
-                                  <img src={viewEvidence.photoAfter} className="w-full h-auto object-contain max-h-[400px]" alt="După" />
-                              ) : (
-                                  <div className="p-8 text-sm font-bold text-gray-400">LIPSĂ</div>
-                              )}
-                          </div>
-                          <div className="bg-black text-white px-3 py-1 text-xs font-bold mt-2 inline-block">
-                              📅 {formatDateTime(viewEvidence.date)}
-                          </div>
-                          {viewEvidence.photoAfter && (
-                              <button 
-                                  onClick={() => downloadImage(viewEvidence.photoAfter!, `dupa-${viewEvidence.id.slice(0,8)}.jpg`)}
-                                  className="block w-full mt-3 text-sm font-bold border-3 border-blue-600 bg-blue-50 text-blue-700 py-2 hover:bg-blue-600 hover:text-white transition-colors shadow-sm"
-                              >
-                                  ⬇️ DESCARCĂ ORIGINAL
-                              </button>
-                          )}
-                      </div>
-                  </div>
-
-                  {/* FOOTER */}
-                  <button 
-                      onClick={() => setViewEvidence(null)} 
-                      className="mt-6 w-full bg-black text-white py-3 font-heading border-2 border-gray-500 hover:bg-gray-800 text-sm sm:text-base shadow-comic"
-                  >
-                      ÎNCHIDE FEREASTRA
-                  </button>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn--danger"
+                        onClick={async () => {
+                          if (await toast.confirm(
+                            `Respingi dosarul lui ${app.name}? Primește automat un email.`,
+                            { confirmLabel: 'Resping', danger: true },
+                          )) {
+                            await deleteApplication(app.id);
+                            refreshAllData();
+                            toast.success('Dosar respins, candidatul a fost anunțat.');
+                          }
+                        }}
+                      >
+                        Respinge
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
+            )}
+          </section>
+        )}
+
+        {/* ---------------- RECRUITERI ---------------- */}
+        {activeTab === 'RECRUITERS' && (
+          <section className="mt-5 space-y-4" aria-labelledby="recruiters-title">
+            <div className="adm-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 id="recruiters-title" className="font-heading text-lg text-graphite">Recruiteri</h2>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+                  Aprobarea îi activează codul personal — îl primește singur pe email.
+                  Datele bancare complete nu se văd aici, ci doar în CSV-ul de plată.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchRecruiters}
+                disabled={Boolean(recruiterAction) || recruiterLoading}
+                className="adm-btn adm-btn--quiet"
+              >
+                <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+                {recruiterLoading ? 'Se încarcă…' : 'Reîmprospătează'}
+              </button>
+            </div>
+
+            {recruiterError && (
+              <div role="alert" className="flex items-start justify-between gap-4 rounded-2xl bg-super-red/8 p-4 text-sm font-semibold text-super-red-dark">
+                <span>{recruiterError}</span>
+                <button type="button" onClick={() => setRecruiterError('')} aria-label="Închide" className="shrink-0">
+                  <X size={16} weight="bold" />
+                </button>
+              </div>
+            )}
+
+            {recruiterLoading && recruiters.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">Se încarcă…</p>
+            ) : recruiters.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">
+                Niciun recruiter încă. Cererile din pagina „/recruiter" apar aici.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {recruiters.map(rec => {
+                  const isPending = rec.status === 'PENDING';
+                  const isActive = rec.status === 'ACTIVE';
+                  const isSuspended = rec.status === 'SUSPENDED';
+                  return (
+                    <article key={rec.id} className="adm-card p-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <State map={RECRUITER_STATE} value={rec.status} />
+                        {rec.code && !isPending && (
+                          <span className="rounded-full bg-graphite/8 px-2.5 py-1 font-mono text-[0.7rem] tracking-wide text-graphite">
+                            {rec.code}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="mt-3 font-heading text-lg leading-tight text-graphite">{rec.name}</h3>
+
+                      <dl className="adm-num mt-3 space-y-1 text-sm text-graphite-soft">
+                        <div><dt className="sr-only">Email</dt><dd className="break-all">{rec.email}</dd></div>
+                        {rec.phone && <div><dt className="sr-only">Telefon</dt><dd>{rec.phone}</dd></div>}
+                        <div><dt className="sr-only">IBAN</dt><dd>{rec.ibanMask}</dd></div>
+                      </dl>
+
+                      <p className="mt-3 text-xs text-graphite-soft">
+                        Înscris {formatDateTime(rec.createdAt)}
+                        {rec.counts && (
+                          <> · {rec.counts.attributions ?? 0} atribuiri · {rec.counts.commissions ?? 0} comisioane</>
+                        )}
+                      </p>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {isPending && (
+                          <>
+                            <button type="button" onClick={() => approveRecruiter(rec)} disabled={Boolean(recruiterAction)} className="adm-btn adm-btn--main flex-1">
+                              {recruiterAction === `approve:${rec.id}` ? 'Se aprobă…' : 'Aprobă'}
+                            </button>
+                            <button type="button" onClick={() => rejectRecruiter(rec)} disabled={Boolean(recruiterAction)} className="adm-btn adm-btn--danger">
+                              {recruiterAction === `reject:${rec.id}` ? '…' : 'Respinge'}
+                            </button>
+                          </>
+                        )}
+                        {isActive && (
+                          <button type="button" onClick={() => suspendRecruiter(rec)} disabled={Boolean(recruiterAction)} className="adm-btn adm-btn--danger flex-1">
+                            {recruiterAction === `suspend:${rec.id}` ? 'Se suspendă…' : 'Suspendă'}
+                          </button>
+                        )}
+                        {isSuspended && (
+                          <button type="button" onClick={() => reactivateRecruiter(rec)} disabled={Boolean(recruiterAction)} className="adm-btn adm-btn--dark flex-1">
+                            {recruiterAction === `reactivate:${rec.id}` ? 'Se reactivează…' : 'Reactivează'}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ---------------- PLĂȚI ---------------- */}
+        {activeTab === 'PAYOUTS' && (
+          <section className="mt-5 space-y-4" aria-labelledby="payouts-title">
+            <div className="adm-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 id="payouts-title" className="font-heading text-lg text-graphite">Plăți către recruiteri</h2>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+                  Un lot strânge toate comisioanele eligibile care nu sunt deja în altul.
+                  IBAN-urile apar numai în CSV-ul descărcat, niciodată pe ecran.
+                </p>
+              </div>
+              <button type="button" onClick={createPayoutBatch} disabled={Boolean(payoutAction)} className="adm-btn adm-btn--main">
+                <Plus size={15} weight="bold" aria-hidden="true" />
+                {payoutAction === 'create' ? 'Se creează…' : 'Lot nou'}
+              </button>
+            </div>
+
+            {payoutError && (
+              <div role="alert" className="flex items-start justify-between gap-4 rounded-2xl bg-super-red/8 p-4 text-sm font-semibold text-super-red-dark">
+                <span>{payoutError}</span>
+                <button type="button" onClick={() => setPayoutError('')} aria-label="Închide" className="shrink-0">
+                  <X size={16} weight="bold" />
+                </button>
+              </div>
+            )}
+
+            {payoutLoading && payouts.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">Se încarcă…</p>
+            ) : payouts.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">
+                Niciun lot. Creează unul după ce există comisioane ajunse la scadență.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {payouts.map(batch => {
+                  const isPaid = batch.status === 'PAID';
+                  const isDraft = batch.status === 'DRAFT';
+                  const isExported = batch.status === 'EXPORTED';
+                  const isCancelled = batch.status === 'CANCELLED';
+                  const itemCount = batch.itemCount ?? batch._count?.items;
+                  const reference = transferReferences[batch.id] || '';
+
+                  return (
+                    <article key={batch.id} className="adm-card p-5">
+                      <div className="flex flex-col gap-6 xl:flex-row xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <State map={PAYOUT_STATE} value={batch.status} />
+                            <span className="font-mono text-xs text-graphite-soft">#{batch.id.slice(0, 8)}</span>
+                          </div>
+
+                          <p className="adm-num mt-3 font-heading text-3xl leading-none text-graphite">
+                            {formatMoney(batch.totalBani)}
+                          </p>
+
+                          <dl className="mt-5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+                            <div>
+                              <dt className="adm-label">Perioadă</dt>
+                              <dd className="adm-num text-graphite">
+                                {new Date(batch.periodStart).toLocaleDateString('ro-RO')} – {new Date(batch.periodEnd).toLocaleDateString('ro-RO')}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="adm-label">Creat</dt>
+                              <dd className="adm-num text-graphite">{formatDateTime(batch.createdAt)}</dd>
+                            </div>
+                            {typeof batch.recruiterCount === 'number' && (
+                              <div>
+                                <dt className="adm-label">Recruiteri</dt>
+                                <dd className="adm-num text-graphite">{batch.recruiterCount}</dd>
+                              </div>
+                            )}
+                            {typeof itemCount === 'number' && (
+                              <div>
+                                <dt className="adm-label">Comisioane</dt>
+                                <dd className="adm-num text-graphite">{itemCount}</dd>
+                              </div>
+                            )}
+                            {isPaid && batch.paidAt && (
+                              <div>
+                                <dt className="adm-label">Plătit</dt>
+                                <dd className="adm-num text-graphite">{formatDateTime(batch.paidAt)}</dd>
+                              </div>
+                            )}
+                            {isPaid && batch.reference && (
+                              <div className="min-w-0">
+                                <dt className="adm-label">Referință</dt>
+                                <dd className="break-all font-mono text-xs text-graphite">{batch.reference}</dd>
+                              </div>
+                            )}
+                          </dl>
+                        </div>
+
+                        <div className="w-full space-y-3 xl:w-[22rem] xl:shrink-0 xl:border-l xl:border-graphite/10 xl:pl-5">
+                          {!isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => downloadPayoutCsv(batch)}
+                              disabled={Boolean(payoutAction)}
+                              className="adm-btn adm-btn--dark w-full"
+                            >
+                              <DownloadSimple size={15} weight="bold" aria-hidden="true" />
+                              {payoutAction === `export:${batch.id}` ? 'Se generează…' : 'Descarcă CSV pentru bancă'}
+                            </button>
+                          )}
+
+                          {(isDraft || isExported) && (
+                            <div className="space-y-3 rounded-xl bg-white/60 p-3.5">
+                              {isDraft && (
+                                <p className="text-xs leading-relaxed text-graphite-soft">
+                                  Descarcă întâi CSV-ul. Exportul îngheață beneficiarii, IBAN-urile și sumele.
+                                </p>
+                              )}
+                              <div>
+                                <label htmlFor={`reference-${batch.id}`} className="adm-label">Referința transferului</label>
+                                <input
+                                  id={`reference-${batch.id}`}
+                                  className="adm-input font-mono"
+                                  maxLength={120}
+                                  autoComplete="off"
+                                  placeholder="OP-2026-07-001"
+                                  value={reference}
+                                  onChange={event => setTransferReferences(current => ({ ...current, [batch.id]: event.target.value }))}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => markPayoutPaid(batch)}
+                                disabled={Boolean(payoutAction) || !isExported || !reference.trim()}
+                                className="adm-btn adm-btn--main w-full"
+                              >
+                                {payoutAction === `paid:${batch.id}` ? 'Se confirmă…' : 'Confirmă transferul'}
+                              </button>
+                              <p className="text-[0.7rem] leading-relaxed text-graphite-soft">
+                                Cere confirmare și rămâne definitiv în registrul de comisioane.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => cancelPayoutBatch(batch)}
+                                disabled={Boolean(payoutAction)}
+                                className="adm-btn adm-btn--danger w-full"
+                              >
+                                {payoutAction === `cancel:${batch.id}` ? 'Se anulează…' : 'Anulează lotul'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ---------------- JURNAL ---------------- */}
+        {activeTab === 'LOGS' && (() => {
+          const shown = onlyBad
+            ? logs.filter(entry => entry.offline || (entry.status ?? 0) >= 400)
+            : logs;
+          const bad = logs.filter(entry => entry.offline || (entry.status ?? 0) >= 400).length;
+          const slowest = logs.reduce((worst, entry) => Math.max(worst, entry.ms), 0);
+
+          /* Starea, ca ton: reușit / de știut / cere atenție / stricat. */
+          const toneOf = (entry: NetEntry) => {
+            if (entry.offline) return 'stop';
+            const code = entry.status ?? 0;
+            if (code >= 500) return 'stop';
+            if (code >= 400) return 'wait';
+            if (code >= 300) return 'info';
+            return 'live';
+          };
+
+          return (
+            <section className="mt-5 space-y-4" aria-labelledby="logs-title">
+              <div className="adm-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 id="logs-title" className="font-heading text-lg text-graphite">Jurnal de apeluri</h2>
+                  <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+                    <span className="adm-num">{logs.length}</span> cereri &middot;{' '}
+                    <span className="adm-num">{bad}</span> cu probleme &middot; cea mai lentă{' '}
+                    <span className="adm-num">{slowest}</span> ms
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="adm-btn adm-btn--quiet"
+                    aria-pressed={onlyBad}
+                    onClick={() => setOnlyBad(v => !v)}
+                  >
+                    <Warning size={15} weight="bold" aria-hidden="true" />
+                    {onlyBad ? 'Arată tot' : 'Doar problemele'}
+                  </button>
+                  <button type="button" className="adm-btn adm-btn--quiet" onClick={() => { clearNetLog(); setLogs([]); }}>
+                    <Broom size={15} weight="bold" aria-hidden="true" />
+                    Golește
+                  </button>
+                </div>
+              </div>
+
+              {/* Limita e scrisă pe față: cine caută ce a pățit un meseriaș marți
+                  trebuie să știe din prima că nu aici o găsește. */}
+              <div className="adm-card flex items-start gap-3 p-4">
+                <Pulse size={18} weight="duotone" className="mt-0.5 shrink-0 text-graphite-soft" aria-hidden="true" />
+                <p className="text-sm leading-relaxed text-graphite-soft">
+                  Astea sunt cererile <strong className="text-graphite">browserului ăstuia</strong>, de când ai
+                  deschis fila. Jurnalul pe utilizatori, cu istoric, are nevoie de server &mdash;
+                  e descris în <code className="rounded bg-graphite/8 px-1.5 py-0.5 text-[0.85em] text-graphite">BACKEND-MEDIA-SI-JURNAL.md</code>.
+                  Corpurile cererilor nu se rețin niciodată: prin ele trec parole, IBAN-uri și tokenuri.
+                </p>
+              </div>
+
+              {shown.length === 0 ? (
+                <p className="adm-card p-8 text-center text-sm text-graphite-soft">
+                  {logs.length === 0
+                    ? 'Nicio cerere încă. Mergi prin celelalte secțiuni și revino.'
+                    : 'Nicio problemă înregistrată. Bine.'}
+                </p>
+              ) : (
+                <div className="adm-card adm-scroll">
+                  <table className="adm-table">
+                    <thead>
+                      <tr>
+                        <th>Ora</th>
+                        <th>Metodă</th>
+                        <th>Rută</th>
+                        <th>Stare</th>
+                        <th className="text-right">Durată</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...shown].reverse().map(entry => (
+                        <tr key={entry.id}>
+                          <td className="adm-num whitespace-nowrap text-xs">
+                            {new Date(entry.at).toLocaleTimeString('ro-RO')}
+                          </td>
+                          <td className="font-mono text-xs font-bold text-graphite">{entry.method}</td>
+                          <td className="font-mono text-xs">{entry.path}</td>
+                          <td>
+                            <span className="adm-state" data-tone={toneOf(entry)}>
+                              {entry.offline ? 'n-a ajuns' : entry.status}
+                            </span>
+                            {entry.code && (
+                              <span className="ml-2 font-mono text-[0.7rem] text-graphite-soft">{entry.code}</span>
+                            )}
+                          </td>
+                          <td className="adm-num text-right text-xs">
+                            {/* peste o secundă se vede din culoare, nu doar din cifră */}
+                            <span className={entry.ms > 1000 ? 'font-bold text-super-red-dark' : ''}>
+                              {entry.ms} ms
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          );
+        })()}
+
+        {/* ---------------- SETĂRI ---------------- */}
+        {activeTab === 'SETTINGS' && (
+          <section className="adm-card mx-auto mt-5 max-w-2xl p-6">
+            <h2 className="font-heading text-lg text-graphite">Meseriile din listă</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-graphite-soft">
+              Apar în filtrul de eroi și în fișa fiecăruia. Se țin în browserul ăsta, nu pe server.
+            </p>
+
+            <div className="mt-5 flex gap-2">
+              <input
+                className="adm-input flex-1"
+                placeholder="Instalator gaz…"
+                aria-label="Meserie nouă"
+                value={newCatInput}
+                onChange={e => setNewCatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }}
+              />
+              <button type="button" onClick={addCategory} className="adm-btn adm-btn--main">Adaugă</button>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {categoryList.map(cat => (
+                <span key={cat} className="inline-flex items-center gap-1.5 rounded-full bg-white/70 py-1.5 pl-3 pr-1.5 text-sm font-semibold text-graphite">
+                  {cat}
+                  <button
+                    type="button"
+                    onClick={() => removeCategory(cat)}
+                    aria-label={`Scoate ${cat}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-super-red/12 hover:text-super-red"
+                  >
+                    <X size={12} weight="bold" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* ---------------- FIȘA EROULUI ---------------- */}
+      {showModal && createPortal(
+        <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label="Fișa eroului" onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="adm-sheet">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-graphite/10 bg-[#f4f7fb]/95 px-5 py-3.5 backdrop-blur">
+              <h2 className="truncate font-heading text-lg text-graphite">
+                {modalMode === 'ADD' ? 'Erou nou' : formData.alias || 'Fișa eroului'}
+              </h2>
+              <div className="flex items-center gap-2">
+                {modalMode === 'VIEW' && (
+                  <button type="button" onClick={() => setModalMode('EDIT')} className="adm-btn adm-btn--dark">
+                    <PencilSimple size={15} weight="bold" aria-hidden="true" />
+                    Editează
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  aria-label="Închide"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-graphite/8 hover:text-graphite"
+                >
+                  <X size={17} weight="bold" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              {/* poza și clipul */}
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-2xl bg-cloud">
+                  <img src={thumb(formData.avatarUrl || DEFAULT_AVATAR, 400, { square: true })} alt="" className="h-full w-full object-cover" />
+                  {modalMode !== 'VIEW' && (
+                    <label className="absolute inset-x-2 bottom-2 flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-graphite/75 py-1.5 text-xs font-bold text-white backdrop-blur transition-colors hover:bg-graphite">
+                      <Camera size={14} weight="fill" aria-hidden="true" />
+                      Schimbă
+                      {/* aceeași poartă de decupaj ca pe partea de erou */}
+                      <input type="file" accept="image/*" className="sr-only" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setToCrop(f); }} />
+                    </label>
+                  )}
+                </div>
+
+                <div className="relative min-h-[9rem] flex-1 overflow-hidden rounded-2xl bg-graphite">
+                  {formData.videoUrl ? (
+                    <video src={formData.videoUrl} controls preload="metadata" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full min-h-[9rem] flex-col items-center justify-center gap-2 text-white/45">
+                      <VideoCamera size={26} weight="duotone" aria-hidden="true" />
+                      <span className="text-xs">Fără clip de prezentare</span>
+                    </div>
+                  )}
+                  {modalMode !== 'VIEW' && (
+                    <label className="absolute bottom-2 right-2 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-graphite transition-colors hover:bg-white">
+                      <VideoCamera size={14} weight="fill" aria-hidden="true" />
+                      {uploading ? 'Se încarcă…' : 'Schimbă clipul'}
+                      <input type="file" accept="video/*" className="sr-only" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'videoUrl')} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {modalMode === 'VIEW' ? (
+                <div className="mt-6 space-y-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <dl className="adm-card space-y-3 p-4">
+                      <div><dt className="adm-label">Nume real</dt><dd className="text-sm text-graphite">{formData.realName || '—'}</dd></div>
+                      <div><dt className="adm-label">Telefon</dt><dd className="adm-num text-sm text-graphite">{formData.phone || '—'}</dd></div>
+                      <div><dt className="adm-label">Email</dt><dd className="break-all text-sm text-graphite">{formData.email || '—'}</dd></div>
+                    </dl>
+                    <dl className="adm-card space-y-3 p-4">
+                      <div><dt className="adm-label">Meserie</dt><dd className="text-sm text-graphite">{formData.category}</dd></div>
+                      <div><dt className="adm-label">Tarif</dt><dd className="adm-num text-sm text-graphite">{formData.hourlyRate} lei/oră</dd></div>
+                      <div><dt className="adm-label">Trust factor</dt><dd className="adm-num text-sm text-graphite">{formData.trustFactor}/100</dd></div>
+                    </dl>
+                  </div>
+
+                  <div className="adm-card p-4">
+                    <p className="adm-label">Descriere</p>
+                    <p className="text-sm leading-relaxed text-graphite">{formData.description || '—'}</p>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="adm-card p-4">
+                      <p className="adm-label">Zone de acțiune</p>
+                      <div className="pointer-events-none mt-2">
+                        <RomaniaMap value={formData.actionAreas || []} className="h-auto w-full" />
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-graphite-soft">
+                        {formData.actionAreas?.length ? formData.actionAreas.join(', ') : 'Niciun județ ales'}
+                      </p>
+                    </div>
+
+                    <div className="adm-card overflow-hidden">
+                      <p className="adm-label px-4 pt-4">Istoric misiuni</p>
+                      {heroMissions.length === 0 ? (
+                        <p className="p-4 text-sm text-graphite-soft">Nicio misiune.</p>
+                      ) : (
+                        <div className="sf-scroll max-h-[19rem] overflow-y-auto" data-fade="bottom">
+                          <table className="adm-table !min-w-0">
+                            <thead>
+                              <tr><th>Data</th><th>Client</th><th>Stare</th><th className="text-right">Dovezi</th></tr>
+                            </thead>
+                            <tbody>
+                              {heroMissions.map(m => (
+                                <tr key={m.id}>
+                                  <td className="adm-num whitespace-nowrap text-xs">{formatDateTime(m.date)}</td>
+                                  <td className="text-xs">{m.clientName}</td>
+                                  <td><State map={MISSION_STATE} value={m.status} /></td>
+                                  <td className="text-right">
+                                    {m.status === 'COMPLETED' && (
+                                      <button type="button" onClick={() => setViewEvidence(m)} className="text-xs font-bold text-graphite underline decoration-super-red/40 underline-offset-2">
+                                        Vezi
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSave} className="mt-6 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-alias" className="adm-label">Nume de erou</label>
+                      <input id="adm-alias" required className="adm-input" value={formData.alias} onChange={e => setFormData({ ...formData, alias: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-cat" className="adm-label">Meserie</label>
+                      {!isCustomCat ? (
+                        <select
+                          id="adm-cat"
+                          className="adm-input"
+                          value={formData.category}
+                          onChange={e => { if (e.target.value === 'NEW') setIsCustomCat(true); else setFormData({ ...formData, category: e.target.value }); }}
+                        >
+                          {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
+                          <option value="NEW">+ Alta…</option>
+                        </select>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input autoFocus className="adm-input" value={formCustomCat} onChange={e => setFormCustomCat(e.target.value)} />
+                          <button type="button" onClick={() => setIsCustomCat(false)} className="adm-btn adm-btn--quiet" aria-label="Înapoi la listă">
+                            <X size={14} weight="bold" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-real" className="adm-label">Nume real</label>
+                      <input id="adm-real" className="adm-input" value={formData.realName} onChange={e => setFormData({ ...formData, realName: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-rate" className="adm-label">Tarif (lei/oră)</label>
+                      <input
+                        id="adm-rate"
+                        inputMode="numeric"
+                        className="adm-input adm-num"
+                        value={formData.hourlyRate}
+                        onChange={e => setFormData({ ...formData, hourlyRate: e.target.value.replace(/[^\d]/g, '') })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-phone" className="adm-label">Telefon</label>
+                      <input id="adm-phone" className="adm-input adm-num" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-email" className="adm-label">Email</label>
+                      <input id="adm-email" className="adm-input" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="adm-card grid gap-4 p-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-username" className="adm-label">Utilizator de acces</label>
+                      <input id="adm-username" className="adm-input" autoComplete="off" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-password" className="adm-label">Parolă nouă</label>
+                      <input id="adm-password" type="password" className="adm-input" autoComplete="new-password" placeholder="lasă gol ca s-o păstrezi" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="adm-desc" className="adm-label">Descriere</label>
+                    <textarea id="adm-desc" rows={3} className="adm-input" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                  </div>
+
+                  <div className="adm-card flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p className="adm-label !mb-0">Trust factor</p>
+                      <p className="mt-1 text-xs text-graphite-soft">Cântărește ordinea în care apar eroii.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => setFormData({ ...formData, trustFactor: Math.max(0, Number(formData.trustFactor) - 1) })} className="adm-btn adm-btn--quiet !min-h-9 !px-3" aria-label="Scade">
+                        <Minus size={14} weight="bold" />
+                      </button>
+                      <span className="adm-num w-10 text-center font-heading text-2xl text-graphite">{formData.trustFactor}</span>
+                      <button type="button" onClick={() => setFormData({ ...formData, trustFactor: Math.min(100, Number(formData.trustFactor) + 1) })} className="adm-btn adm-btn--quiet !min-h-9 !px-3" aria-label="Crește">
+                        <Plus size={14} weight="bold" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="adm-card p-4">
+                    <p className="adm-label">Zone de acțiune</p>
+                    <select
+                      className="adm-input"
+                      aria-label="Adaugă județ"
+                      value=""
+                      onChange={e => { if (e.target.value) toggleArea(e.target.value); }}
+                    >
+                      <option value="">+ Adaugă județ din listă</option>
+                      {ROMANIAN_COUNTIES.map(c => (
+                        <option key={c} value={c} disabled={formData.actionAreas?.includes(c)}>{c}</option>
+                      ))}
+                    </select>
+
+                    {formData.actionAreas?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {formData.actionAreas.map((area: string) => (
+                          <button key={area} type="button" onClick={() => toggleArea(area)} className="inline-flex items-center gap-1.5 rounded-full bg-white/70 py-1 pl-3 pr-2 text-xs font-bold text-graphite transition-colors hover:bg-super-red/10 hover:text-super-red-dark">
+                            {area}
+                            <X size={11} weight="bold" aria-hidden="true" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mx-auto mt-4 max-w-md">
+                      <RomaniaMap value={formData.actionAreas || []} onToggle={toggleArea} className="h-auto w-full" />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 border-t border-graphite/10 pt-4">
+                    <button type="submit" disabled={uploading} className="adm-btn adm-btn--main flex-1">
+                      <FloppyDisk size={15} weight="fill" aria-hidden="true" />
+                      {uploading ? 'Se încarcă…' : 'Salvează'}
+                    </button>
+                    {modalMode === 'EDIT' && (
+                      <button type="button" onClick={handleDeleteHero} className="adm-btn adm-btn--danger">
+                        <Trash size={15} weight="bold" aria-hidden="true" />
+                        Șterge
+                      </button>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
+        </div>,
+        document.body,
       )}
 
+      {toCrop && (
+        <PhotoCropper
+          file={toCrop}
+          title="Așază poza eroului"
+          onCancel={() => setToCrop(null)}
+          onDone={cropped => { setToCrop(null); handleFileUpload(cropped, 'avatarUrl'); }}
+        />
+      )}
+
+      {/* ---------------- DOVEZILE ---------------- */}
+      {viewEvidence && createPortal(
+        <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label="Dovezile misiunii" onClick={e => { if (e.target === e.currentTarget) setViewEvidence(null); }}>
+          <div className="adm-sheet !max-w-4xl">
+            <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-graphite/10 bg-[#f4f7fb]/95 px-5 py-3.5 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h2 className="truncate font-heading text-lg text-graphite">{viewEvidence.clientName}</h2>
+                <p className="adm-num mt-0.5 text-xs text-graphite-soft">
+                  #{viewEvidence.id.slice(0, 8)} · {formatDateTime(viewEvidence.date)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={handlePrintDossier} className="adm-btn adm-btn--dark">
+                  <Printer size={15} weight="bold" aria-hidden="true" />
+                  Printează dosarul
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewEvidence(null)}
+                  aria-label="Închide"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-graphite/8 hover:text-graphite"
+                >
+                  <X size={17} weight="bold" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+              {([
+                { label: 'Înainte', url: viewEvidence.photoBefore, file: 'inainte' },
+                { label: 'După', url: viewEvidence.photoAfter, file: 'dupa' },
+              ] as const).map(shot => (
+                <div key={shot.label}>
+                  <p className="adm-label">{shot.label}</p>
+                  <div className="flex min-h-[14rem] items-center justify-center overflow-hidden rounded-2xl bg-graphite/90">
+                    {shot.url ? (
+                      <img src={shot.url} alt={shot.label} className="max-h-[26rem] w-full object-contain" />
+                    ) : (
+                      <span className="text-sm text-white/45">Lipsă</span>
+                    )}
+                  </div>
+                  {shot.url && (
+                    <button
+                      type="button"
+                      onClick={() => downloadImage(shot.url!, `${shot.file}-${viewEvidence.id.slice(0, 8)}.jpg`)}
+                      className="adm-btn adm-btn--quiet mt-3 w-full"
+                    >
+                      <DownloadSimple size={15} weight="bold" aria-hidden="true" />
+                      Descarcă originalul
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 };

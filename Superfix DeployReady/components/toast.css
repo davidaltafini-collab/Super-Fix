@@ -1,0 +1,272 @@
+/* ============================================================
+   Notificări și confirmări — tot stilul stă aici, nu împrăștiat în clase.
+
+   Limbajul e cel al sitului: sticlă albă, colțuri de 22px ca panourile, disc
+   de clay pentru iconiță (lumină sus, umbră jos, ca butoanele), Anton pe text.
+
+   Stau JOS, nu sus. Acolo sunt butoanele pe care apeși, deci acolo te uiți
+   când se întâmplă ceva. Sus, sub navbar, mesajul apărea în cealaltă parte a
+   ecranului față de acțiune și nu-l vedeai.
+   ============================================================ */
+
+.sf-toasts {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* deasupra pilului de acțiune de pe pagina eroului (~80px cu tot cu padding),
+     ca notificarea să nu cadă peste butoanele Sună / Trimite mesaj */
+  bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  z-index: 250;
+  display: flex;
+  /* cea mai nouă jos, cel mai aproape de degetul care tocmai a apăsat */
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+.sf-toast {
+  /* roșu desaturat: notificarea informează, nu sperie */
+  --tone: hsl(355 58% 58%);
+  --tone-ink: hsl(355 45% 46%);
+  --life: 4000ms;
+
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  max-width: 27rem;
+  padding: 0.7rem;
+  border-radius: 22px;
+  overflow: hidden;
+
+  background: rgba(255, 255, 255, 0.84);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 22px 48px -18px rgba(46, 51, 59, 0.5),
+    0 2px 6px -2px rgba(46, 51, 59, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  opacity: 0;
+  transform: translateY(18px) scale(0.96);
+  transition:
+    transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 220ms ease;
+}
+
+.sf-toast[data-state='in'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.sf-toast[data-state='out'] {
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  transition:
+    transform 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms ease;
+}
+
+/* discul de clay: aceeași rețetă de volum ca butoanele (lumină sus, umbră jos) */
+.sf-toast__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 16px;
+  color: var(--tone-ink);
+  background: linear-gradient(160deg, #ffffff, #eef2f8);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 4px rgba(97, 99, 104, 0.18),
+    0 4px 10px -6px rgba(46, 51, 59, 0.35);
+}
+
+.sf-toast__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  color: #2e333b;
+}
+
+.sf-toast__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: #474e59;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.sf-toast__close:hover {
+  background: rgba(46, 51, 59, 0.09);
+  color: #2e333b;
+}
+
+/* bara care se scurge: se vede cât timp mai stă mesajul pe ecran */
+.sf-toast__life {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--tone);
+  transform-origin: left center;
+  animation: sf-toast-life var(--life) linear forwards;
+}
+
+@keyframes sf-toast-life {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* tonuri */
+.sf-toast[data-tone='success'] {
+  --tone: hsl(160 84% 33%);
+  --tone-ink: hsl(160 84% 26%);
+}
+.sf-toast[data-tone='info'] {
+  --tone: hsl(211 100% 62%);
+  --tone-ink: hsl(211 70% 42%);
+}
+
+/* ---------------- confirmarea ---------------- */
+
+.sf-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.sf-confirm[data-state='in'] { opacity: 1; }
+
+.sf-confirm__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(8px) saturate(1.25);
+  backdrop-filter: blur(8px) saturate(1.25);
+}
+
+.sf-confirm__card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 24rem;
+  padding: 1.75rem;
+  text-align: center;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 30px 60px -22px rgba(46, 51, 59, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    transform 460ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 240ms ease;
+}
+
+.sf-confirm[data-state='in'] .sf-confirm__card {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sf-confirm__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto;
+  border-radius: 20px;
+  color: hsl(355 66% 38%);
+  background: linear-gradient(160deg, #ffffff, #eef2f8);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 5px rgba(97, 99, 104, 0.18),
+    0 6px 14px -8px rgba(46, 51, 59, 0.4);
+}
+
+.sf-confirm__card[data-danger='false'] .sf-confirm__icon { color: hsl(211 70% 42%); }
+
+.sf-confirm__message {
+  margin-top: 1.1rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: #2e333b;
+}
+
+.sf-confirm__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.6rem;
+}
+
+.sf-confirm__btn {
+  flex: 1 1 0;
+  min-height: 3rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.sf-confirm__btn:hover { transform: translateY(-2px); }
+.sf-confirm__btn:active { transform: scale(0.97); }
+
+.sf-confirm__btn--ghost {
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(46, 51, 59, 0.15);
+}
+
+.sf-confirm__btn--go {
+  color: #fff;
+  background: #2e333b;
+  box-shadow: 0 14px 30px -14px rgba(46, 51, 59, 0.9);
+}
+
+.sf-confirm__btn--danger {
+  color: #fff;
+  background: hsl(355 74% 55%);
+  box-shadow: 0 14px 30px -14px hsl(355 74% 55% / 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-toast,
+  .sf-confirm,
+  .sf-confirm__card {
+    transition-duration: 1ms;
+  }
+  .sf-toast__life { animation: none; }
+}

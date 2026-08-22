@@ -1,0 +1,116 @@
+/* ============================================================
+   Paginile legale.
+
+   Aici era o problemă care nu se vedea din cod: textul folosea clasele `prose`
+   ale pluginului de typography din Tailwind, iar pluginul nu e instalat
+   (`plugins: []`). Preflight-ul lui Tailwind scosese deja marginile titlurilor
+   și bulinele listelor, iar `prose` n-avea ce să pună la loc. Rezultatul era un
+   bloc compact în care „2. Natura serviciului" arăta exact ca fraza dinaintea
+   lui, iar enumerările erau paragrafe lipite.
+
+   Un text pe care nimeni nu-l poate parcurge nu-și face treaba nici măcar
+   juridic. Stilurile de mai jos sunt scrise de mână, doar cele necesare, și nu
+   ies din `.legal-body`.
+   ============================================================ */
+
+.legal-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #474e59;
+  /* Rândul de text nu trece de ~68 de caractere: peste atât, ochiul pierde
+     începutul rândului următor. */
+  max-width: 68ch;
+}
+
+.legal-body > * + * { margin-top: 1.1rem; }
+
+.legal-body h3 {
+  margin-top: 2.6rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: #2e333b;
+}
+
+/* Prima secțiune nu are nevoie de aerul dinaintea ei. */
+.legal-body > h3:first-child { margin-top: 0; }
+
+/* Numărul secțiunii, scos în afara coloanei de text pe ecrane late: se vede
+   structura dintr-o privire, fără să îngroșăm nimic. */
+.legal-body h3 + p,
+.legal-body h3 + ul { margin-top: 0.85rem; }
+
+.legal-body strong { font-weight: 800; color: #2e333b; }
+
+.legal-body a {
+  font-weight: 700;
+  color: #2e333b;
+  text-decoration: underline;
+  text-decoration-color: hsl(355 74% 55% / 0.45);
+  text-underline-offset: 2px;
+  transition: color 180ms ease;
+}
+
+.legal-body a:hover { color: hsl(355 66% 45%); }
+
+.legal-body ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+/* Bulina e un semn desenat de noi, nu `list-style`: cu ea putem alinia exact
+   prima linie a textului și îi putem da culoarea mărcii. */
+.legal-body li {
+  position: relative;
+  padding-left: 1.4rem;
+}
+
+.legal-body li::before {
+  content: '';
+  position: absolute;
+  left: 0.15rem;
+  /* jumătate din înălțimea rândului, ca punctul să cadă pe mijlocul primei linii */
+  top: 0.72em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: hsl(355 74% 55% / 0.55);
+}
+
+/* ---------------- trecerea dintre documente ---------------- */
+
+.legal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.legal-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #474e59;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(46, 51, 59, 0.1);
+  transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.legal-tab:hover { background: #fff; transform: translateY(-1px); }
+
+.legal-tab[aria-current='page'] {
+  color: #fff;
+  background: #2e333b;
+  border-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legal-tab { transition: none; }
+}
