@@ -787,13 +787,15 @@ export const HeroProfile: React.FC = () => {
       </Lightbox>
 
       {/* Formularul nu mai sta in pagina: creste din butonul de mai sus.
-          Foaie de jos pe telefon, card centrat pe desktop. */}
+          variant="modal": card centrat, compact, cu margine vizibila in jur,
+          pe orice ecran — nu drawer lipit de ecran. */}
       <Sheet
         open={showForm}
         onClose={() => setShowForm(false)}
         originRect={formOrigin}
         title="Trimite un semnal"
         subtitle={`${hero.alias} primeste coordonatele si o notificare pe email.`}
+        variant="modal"
       >
           {submitSuccess ? (
             <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 p-5 ring-1 ring-emerald-200" role="alert">

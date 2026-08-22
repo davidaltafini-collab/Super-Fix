@@ -205,18 +205,15 @@ export const HeroesList: React.FC = () => {
   // Harta + controalele ei — identice pentru varianta mobil (accordion inline)
   // și varianta desktop (panou plutitor), ca sa nu se scrie de doua ori.
   const mapControls = (
-    <div className="flex flex-col-reverse items-start gap-6 lg:flex-row lg:gap-8">
-      {/* Partea Stângă: Harta Interactivă */}
-      <div className="w-full rounded-[24px] bg-white/50 p-3 lg:w-2/3">
-          <RomaniaMap
-              key={filterCounties.join(',')}
-              value={filterCounties}
-              onToggle={toggleCounty}
-          />
-      </div>
-
-      {/* Partea Dreaptă: Controale */}
-      <div className="flex w-full flex-col gap-4 lg:w-1/3">
+    // Grid (nu flex-col-reverse): ordinea vizuală trebuie să difere de ordinea
+    // DOM doar pe unele blocuri, nu să inverseze totul în bloc. Sub `lg`, un
+    // singur rând pe coloană — ordinea e cea din JSX: Adaugă județ, Hartă,
+    // Județe selectate. Pe desktop, poziționarea explicită (col/row-start)
+    // recreează cele două coloane de dinainte (hartă mare stânga, controale
+    // stivuite dreapta), indiferent de ordinea DOM.
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
+      {/* Adaugă județ — primul pe telefon; sus-dreapta pe desktop */}
+      <div className="flex w-full flex-col gap-4 lg:col-start-3 lg:row-start-1">
           <p className="text-sm text-graphite-soft">
               Selectează județele unde ai nevoie de ajutor.
           </p>
@@ -261,38 +258,47 @@ export const HeroesList: React.FC = () => {
                   </div>
               )}
           </div>
+      </div>
 
-          {/* ZONA DE ETICHETE (TAG-uri) */}
-          <div className="flex min-h-[120px] flex-col rounded-[20px] bg-white/50 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-graphite-soft">Județe selectate</div>
+      {/* Hartă — a doua pe telefon; coloana stângă (2/3), peste ambele rânduri pe desktop */}
+      <div className="w-full rounded-[24px] bg-white/50 p-3 lg:col-start-1 lg:row-start-1 lg:col-span-2 lg:row-span-2">
+          <RomaniaMap
+              key={filterCounties.join(',')}
+              value={filterCounties}
+              onToggle={toggleCounty}
+          />
+      </div>
 
-              <div className="mb-2 flex flex-wrap gap-2">
-                  {filterCounties.length === 0 && (
-                      <span className="py-1 text-sm text-graphite-soft">Toată România (niciun filtru activ)</span>
-                  )}
-                  {filterCounties.map(code => (
-                      <button
-                          key={code}
-                          onClick={() => toggleCounty(code)}
-                          className="group inline-flex items-center gap-2 rounded-full bg-super-red px-3.5 py-1.5 text-xs font-semibold text-white shadow-clay-red transition-transform hover:scale-105 active:scale-95"
-                          title="Elimină județ"
-                      >
-                          {COUNTIES.find(c => c.code === code)?.name || code}
-                          <X size={12} weight="bold" aria-hidden="true" />
-                      </button>
-                  ))}
-              </div>
+      {/* Județe selectate (TAG-uri) — a treia pe telefon; sub dropdown pe desktop */}
+      <div className="flex min-h-[120px] w-full flex-col rounded-[20px] bg-white/50 p-4 lg:col-start-3 lg:row-start-2">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-graphite-soft">Județe selectate</div>
 
-              {filterCounties.length > 0 && (
-                  <button
-                      onClick={() => setFilterCounties([])}
-                      className="mt-auto inline-flex items-center gap-1.5 self-end rounded-full px-3 py-1.5 text-xs font-semibold text-graphite-soft transition-colors hover:bg-super-red/10 hover:text-super-red"
-                  >
-                      <ArrowCounterClockwise size={14} weight="bold" aria-hidden="true" />
-                      Resetează harta
-                  </button>
+          <div className="mb-2 flex flex-wrap gap-2">
+              {filterCounties.length === 0 && (
+                  <span className="py-1 text-sm text-graphite-soft">Toată România (niciun filtru activ)</span>
               )}
+              {filterCounties.map(code => (
+                  <button
+                      key={code}
+                      onClick={() => toggleCounty(code)}
+                      className="group inline-flex items-center gap-2 rounded-full bg-super-red px-3.5 py-1.5 text-xs font-semibold text-white shadow-clay-red transition-transform hover:scale-105 active:scale-95"
+                      title="Elimină județ"
+                  >
+                      {COUNTIES.find(c => c.code === code)?.name || code}
+                      <X size={12} weight="bold" aria-hidden="true" />
+                  </button>
+              ))}
           </div>
+
+          {filterCounties.length > 0 && (
+              <button
+                  onClick={() => setFilterCounties([])}
+                  className="mt-auto inline-flex items-center gap-1.5 self-end rounded-full px-3 py-1.5 text-xs font-semibold text-graphite-soft transition-colors hover:bg-super-red/10 hover:text-super-red"
+              >
+                  <ArrowCounterClockwise size={14} weight="bold" aria-hidden="true" />
+                  Resetează harta
+              </button>
+          )}
       </div>
     </div>
   );
@@ -367,7 +373,7 @@ export const HeroesList: React.FC = () => {
                   className="sf-glass inline-flex items-center gap-2 rounded-full py-2 pl-3.5 pr-2 font-heading text-sm font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70"
               >
                   <Target size={16} weight={sortNearby ? 'fill' : 'regular'} className={sortNearby ? 'text-super-red' : ''} aria-hidden="true" />
-                  <span className="hidden sm:inline">{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
+                  <span>{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
                   <span
                       aria-hidden="true"
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${sortNearby ? 'bg-super-red' : 'bg-graphite/20'}`}
@@ -510,7 +516,7 @@ export const HeroesList: React.FC = () => {
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                         <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
-                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-base font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
+                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-lg font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
                             {hero.alias}
                         </h3>
                       </div>
@@ -521,27 +527,27 @@ export const HeroesList: React.FC = () => {
                         {/* Stats */}
                         <div className="flex items-center justify-between gap-1 rounded-xl bg-white/55 px-2 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2.5">
                             <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-xs font-semibold text-graphite sm:text-base">
-                                    <ShieldCheck size={13} weight="fill" className="text-emerald-600" aria-hidden="true" />
+                                <span className="flex items-center gap-1 font-heading text-sm font-semibold text-graphite sm:text-base">
+                                    <ShieldCheck size={14} weight="fill" className="text-emerald-600" aria-hidden="true" />
                                     {hero.trustFactor}
                                 </span>
-                                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                <span className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
                                     <span className="sm:hidden">Încr.</span>
                                     <span className="hidden sm:inline">Încredere</span>
                                 </span>
                             </div>
                             <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
                             <div className="flex flex-col items-center">
-                                <span className="font-heading text-xs font-semibold text-graphite sm:text-base">{hero.missionsCompleted}</span>
-                                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
+                                <span className="font-heading text-sm font-semibold text-graphite sm:text-base">{hero.missionsCompleted}</span>
+                                <span className="mt-0.5 text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
                             </div>
                             <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
                             <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-xs font-semibold text-graphite sm:text-base">
-                                    <Star size={13} weight="fill" className="text-comic-yellow" aria-hidden="true" />
+                                <span className="flex items-center gap-1 font-heading text-sm font-semibold text-graphite sm:text-base">
+                                    <Star size={14} weight="fill" className="text-comic-yellow" aria-hidden="true" />
                                     {avgRating > 0 ? avgRating.toFixed(1) : '–'}
                                 </span>
-                                <span className="mt-0.5 whitespace-nowrap text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                                <span className="mt-0.5 whitespace-nowrap text-[9.5px] font-bold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
                                     {hero.reviews?.length || 0} rec.
                                 </span>
                             </div>

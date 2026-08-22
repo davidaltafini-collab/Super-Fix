@@ -25,9 +25,14 @@ interface SheetProps {
   /** dreptunghiul butonului care l-a deschis: de acolo crește */
   originRect?: DOMRect | null;
   children: React.ReactNode;
+  /** 'sheet' (implicit): foaie lipită de jos pe telefon, card pe desktop — pentru
+      conținut lung (înregistrare, detalii misiune). 'modal': card centrat, cu
+      margine vizibilă pe toate laturile pe orice ecran — pentru formulare scurte
+      care nu trebuie să arate ca un drawer fixat pe ecran. */
+  variant?: 'sheet' | 'modal';
 }
 
-export function Sheet({ open, onClose, title, subtitle, originRect, children }: SheetProps) {
+export function Sheet({ open, onClose, title, subtitle, originRect, children, variant = 'sheet' }: SheetProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [fade, setFade] = useState<'none' | 'top' | 'bottom' | 'both'>('none');
@@ -155,7 +160,10 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children }: 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center sm:p-6"
+      className={cn(
+        'fixed inset-0 z-[200] flex justify-center',
+        variant === 'modal' ? 'items-center p-4 sm:p-6' : 'items-end sm:items-center sm:p-6',
+      )}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -173,11 +181,12 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children }: 
         ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'sf-glass relative z-10 flex w-full max-h-[92svh] flex-col overflow-hidden',
-          // telefon: foaie lipită de jos, colțuri rotunjite doar sus
-          'rounded-t-[28px]',
-          // desktop: card centrat
-          'sm:max-w-lg sm:rounded-[28px]',
+          'sf-glass relative z-10 flex w-full flex-col overflow-hidden',
+          variant === 'modal'
+            // card centrat, compact, cu margine vizibilă în jur pe orice ecran
+            ? 'max-h-[85svh] max-w-md rounded-[28px]'
+            // telefon: foaie lipită de jos, colțuri rotunjite doar sus; desktop: card centrat
+            : 'max-h-[92svh] rounded-t-[28px] sm:max-w-lg sm:rounded-[28px]',
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-graphite/10 px-6 pb-4 pt-5">
