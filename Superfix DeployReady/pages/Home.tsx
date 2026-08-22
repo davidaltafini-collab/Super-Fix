@@ -15,6 +15,10 @@ import {
 } from '@phosphor-icons/react';
 
 const DEFAULT_AVATAR = 'https://super-fix.ro/revizie.png';
+// Banda de eroi cere avatarul la doar 96px reali — varianta mica evita sa
+// tragem fisierul de 797KB (766x766, gandit pentru avatare mari) pentru o
+// poza afisata la ~44px pe ecran.
+const DEFAULT_AVATAR_SM = 'https://super-fix.ro/revizie-sm.png';
 
 /* ============================================================
    SUPERFIX HOME — v3 "Supererou Disney" + motion avansat
@@ -88,7 +92,10 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
       <img
         src="/mascot.png"
         alt="Superfix, robotul erou meseriaș"
-        className="relative w-auto max-h-[42dvh] md:max-h-[74dvh] drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
+        width={377}
+        height={712}
+        fetchPriority="high"
+        className="relative w-auto max-h-[42svh] md:max-h-[74svh] drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
       />
     </div>
     <div className="mx-auto mt-1 w-40 md:w-56 h-4 rounded-[100%] bg-graphite/25 blur-md" aria-hidden="true" />
@@ -169,7 +176,7 @@ export const Home: React.FC = () => {
         <div className="absolute -top-24 right-0 w-[38rem] h-[38rem] rounded-full bg-spark/20 blur-3xl -z-10 animate-float-slow" aria-hidden="true" />
         <div className="absolute -bottom-32 -left-24 w-[34rem] h-[34rem] rounded-full bg-super-red/10 blur-3xl -z-10" aria-hidden="true" />
 
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-28 pb-14 md:pb-16 min-h-[100dvh] grid md:grid-cols-2 gap-8 md:gap-6 items-center">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-28 pb-14 md:pb-16 min-h-[100svh] grid md:grid-cols-2 gap-8 md:gap-6 items-center">
           <motion.div variants={heroCopy} initial={reduce ? false : 'hidden'} animate="show" className="text-center md:text-left order-2 md:order-1">
             <motion.span variants={reduce ? undefined : heroItem} className="inline-flex items-center gap-2 bg-white text-graphite font-heading font-semibold text-sm px-4 py-2 rounded-full shadow-clay-sm">
               <SealCheck size={18} weight="fill" className="text-super-red" aria-hidden="true" />
@@ -213,7 +220,7 @@ export const Home: React.FC = () => {
                   className="group inline-flex items-center gap-3 bg-white pl-2 pr-5 py-2 rounded-full shadow-clay-sm whitespace-nowrap transition-transform hover:-translate-y-0.5"
                 >
                   <img
-                    src={thumb(h.avatarUrl || DEFAULT_AVATAR, 96, { square: true })}
+                    src={thumb(h.avatarUrl || DEFAULT_AVATAR_SM, 96, { square: true })}
                     alt=""
                     aria-hidden="true"
                     loading="lazy"
@@ -368,7 +375,7 @@ export const Home: React.FC = () => {
               </div>
               <div className="relative flex justify-center md:justify-end">
                 <div className="animate-float">
-                  <img src="/mascot.png" alt="" aria-hidden="true" className="w-auto max-h-64 md:max-h-80 drop-shadow-[0_26px_36px_rgba(0,0,0,0.5)]" />
+                  <img src="/mascot.png" alt="" aria-hidden="true" width={377} height={712} className="w-auto max-h-64 md:max-h-80 drop-shadow-[0_26px_36px_rgba(0,0,0,0.5)]" />
                 </div>
               </div>
             </div>

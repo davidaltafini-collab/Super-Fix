@@ -462,6 +462,8 @@ export const HeroesList: React.FC = () => {
                 src="/mascot.png"
                 alt=""
                 aria-hidden="true"
+                width={377}
+                height={712}
                 className="mx-auto mb-6 w-auto max-h-44 opacity-90 drop-shadow-[0_18px_26px_rgba(46,51,59,0.3)]"
               />
               <h3 className="font-heading text-2xl font-bold">Niciun erou pe potrivă</h3>

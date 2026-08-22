@@ -2,7 +2,7 @@
    arbitrare, pentru că depinde de variabile care se schimbă la breakpoint. */
 
 .mission-track {
-  --track-h: min(60dvh, 430px);
+  --track-h: min(60svh, 430px);
   /* înălțimea maximă a pozei: banda minus padding-ul slide-ului minus
      rândul de etichetă de sub poză */
   --photo-h: calc(var(--track-h) - 5rem);
@@ -13,7 +13,7 @@
 
 @media (min-width: 640px) {
   .mission-track {
-    --track-h: min(70dvh, 620px);
+    --track-h: min(70svh, 620px);
     --photo-max-w: 46%;
     --overlap: 4%;
   }

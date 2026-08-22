@@ -372,7 +372,7 @@ export const HeroPortal: React.FC = () => {
 
   // === ECRAN LOGIN ===
   if (!isAuthenticated) return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-5 py-24">
+    <div className="flex min-h-[100svh] items-center justify-center px-5 py-24">
       <div className="sf-glass w-full max-w-sm rounded-[28px] p-8">
         <div className="text-center">
           <span className="sf-clay inline-flex h-14 w-14 items-center justify-center rounded-2xl text-super-red">

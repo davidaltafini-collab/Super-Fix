@@ -347,6 +347,8 @@ export const Recruiter: React.FC = () => {
                 src="/mascot.png"
                 alt=""
                 aria-hidden="true"
+                width={377}
+                height={712}
                 className="animate-float w-auto max-h-[38vh] drop-shadow-[0_28px_38px_rgba(46,51,59,0.35)]"
               />
             </div>

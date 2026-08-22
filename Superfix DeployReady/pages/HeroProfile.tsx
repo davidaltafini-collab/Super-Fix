@@ -348,7 +348,7 @@ export const HeroProfile: React.FC = () => {
                 <div className="absolute -inset-4 rounded-[36px] bg-spark/15 blur-2xl" aria-hidden="true" />
                 <div className="sf-clay relative h-44 w-44 overflow-hidden rounded-[26px] p-1.5 sm:h-52 sm:w-52 md:h-60 md:w-60">
                     <img
-                      src={hero.avatarUrl || 'https://super-fix.ro/revizie.png'}
+                      src={thumb(hero.avatarUrl || 'https://super-fix.ro/revizie.png', 720, { square: true })}
                       alt={hero.alias}
                       className="h-full w-full rounded-[20px] object-cover"
                     />
@@ -771,7 +771,7 @@ export const HeroProfile: React.FC = () => {
         originRect={videoOrigin}
         label={`Videoclip de prezentare: ${hero.alias}`}
       >
-        <div className="flex h-[78dvh] w-full items-center justify-center">
+        <div className="flex h-[78svh] w-full items-center justify-center">
           <video
             src={hero.videoUrl}
             controls

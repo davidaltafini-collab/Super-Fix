@@ -173,7 +173,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children }: 
         ref={panelRef}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'sf-glass relative z-10 flex w-full max-h-[92dvh] flex-col overflow-hidden',
+          'sf-glass relative z-10 flex w-full max-h-[92svh] flex-col overflow-hidden',
           // telefon: foaie lipită de jos, colțuri rotunjite doar sus
           'rounded-t-[28px]',
           // desktop: card centrat

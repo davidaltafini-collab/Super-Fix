@@ -300,7 +300,7 @@ export const HeroOrigin: React.FC = () => {
           <img
             src={full(shot)}
             alt=""
-            className="max-h-[82dvh] w-auto max-w-full rounded-[20px] shadow-[0_28px_60px_-24px_rgba(46,51,59,0.6)]"
+            className="max-h-[82svh] w-auto max-w-full rounded-[20px] shadow-[0_28px_60px_-24px_rgba(46,51,59,0.6)]"
           />
         )}
       </Lightbox>
