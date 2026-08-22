@@ -5,17 +5,6 @@
 html {
   scroll-behavior: smooth;
 
-  /* Fara apropiere din doua degete.
-     `user-scalable=no` din <meta> e ignorat de Safari pe iOS din motive de
-     accesibilitate, dar `touch-action` e respectat: orice valoare care nu
-     include `pinch-zoom` opreste gestul. Ramane doar derularea, pe ambele axe.
-     Hartile (Leaflet) isi fac singure apropierea din JS, cu evenimente de
-     atingere proprii, deci nu depind de gestul browserului — continua sa mearga.
-
-     Compromis asumat, cerut explicit: cine are nevoie sa mareasca pagina nu mai
-     poate din doua degete. Ramane marirea din setarile browserului/sistemului. */
-  touch-action: pan-x pan-y;
-
   /* Rezervă permanent locul barei de derulare.
 
      Fără asta, orice panou care blochează scroll-ul (vizualizatorul de misiuni,
@@ -166,6 +155,7 @@ input[type='radio'] {
     backdrop-filter: none;
   }
 }
+
 
 /* ============================================================
    Derulare fără bară.

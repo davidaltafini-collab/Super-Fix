@@ -165,7 +165,15 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
     <div
       className={cn(
         'fixed inset-0 z-[200] flex justify-center',
-        variant === 'modal' ? 'items-center p-4 sm:p-6' : 'items-end sm:items-center sm:p-6',
+        /* Modalul nu se deruleaza pe dinauntru: se deruleaza tot, ca o bucata.
+           Cand continutul depaseste ecranul, cel care aluneca e invelisul asta,
+           deci antetul si butonul pleaca in sus odata cu formularul si nu ramane
+           nimic lipit de ecran. `items-start` + `my-auto` pe panou: centrat cat
+           incape, dar fara sa i se taie capul cand nu incape — flexbox cu
+           `items-center` taie exact partea de sus, la care nu mai ajungi. */
+        variant === 'modal'
+          ? 'items-start overflow-y-auto overscroll-contain p-4 sm:p-6'
+          : 'items-end sm:items-center sm:p-6',
       )}
       role="dialog"
       aria-modal="true"
@@ -178,7 +186,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           : 'opacity 240ms ease 140ms',
       }}
     >
-      <div className="absolute inset-0 bg-white/55 backdrop-blur-[8px] backdrop-saturate-125" />
+      <div className="fixed inset-0 bg-white/55 backdrop-blur-[8px] backdrop-saturate-125" />
 
       <div
         ref={panelRef}
@@ -187,7 +195,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           'sf-glass relative z-10 flex w-full flex-col overflow-hidden',
           variant === 'modal'
             // card centrat, compact, cu margine vizibilă în jur pe orice ecran
-            ? 'max-h-[80svh] max-w-md rounded-[28px]'
+            ? 'my-auto max-w-md rounded-[28px]'
             // telefon: foaie lipită de jos, colțuri rotunjite doar sus; desktop: card centrat
             : 'max-h-[92svh] rounded-t-[28px] sm:max-w-lg sm:rounded-[28px]',
         )}
@@ -218,7 +226,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
         <div
           ref={bodyRef}
           data-fade={fade}
-          className={cn('sf-scroll overflow-y-auto', variant === 'modal' ? 'px-5 pt-4' : 'px-6 pt-5')}
+          className={cn(variant === 'modal' ? 'px-5 pt-4' : 'sf-scroll overflow-y-auto px-6 pt-5')}
           style={
             footer
               // cu subsol lipit, marginea de siguranță de jos e treaba subsolului
@@ -229,15 +237,18 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           <div>{children}</div>
         </div>
 
-        {/* Subsolul nu se derulează niciodată: `shrink-0` îl scoate din
-            împărțirea spațiului, deci zona de deasupra e cea care cedează. */}
+        {/* La 'sheet' subsolul ramane lipit jos: `shrink-0` il scoate din
+            impartirea spatiului, deci zona de deasupra e cea care cedeaza. La
+            'modal' nu se mai lipeste nimic — e ultimul rand al cardului si
+            pleaca in sus odata cu el. Marginea de siguranta de jos are sens
+            doar cand chiar atinge marginea ecranului. */}
         {footer && (
           <div
             className={cn(
               'shrink-0 border-t border-graphite/10 bg-white/45',
-              variant === 'modal' ? 'px-5 pt-3' : 'px-6 pt-4',
+              variant === 'modal' ? 'px-5 pb-4 pt-3' : 'px-6 pt-4',
             )}
-            style={{ paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom))' }}
+            style={variant === 'modal' ? undefined : { paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom))' }}
           >
             {footer}
           </div>

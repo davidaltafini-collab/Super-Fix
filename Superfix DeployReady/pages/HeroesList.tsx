@@ -356,7 +356,7 @@ export const HeroesList: React.FC = () => {
                   type="button"
                   onClick={() => setShowMap(v => !v)}
                   aria-expanded={showMap}
-                  className="sf-glass flex items-center gap-2.5 rounded-full py-3 pl-4 pr-3 font-heading text-sm font-semibold transition-colors hover:bg-white/60 sm:gap-3 sm:pl-5 sm:pr-4"
+                  className="sf-glass relative z-40 flex items-center gap-2.5 rounded-full py-3 pl-4 pr-3 font-heading text-sm font-semibold transition-colors hover:bg-white/60 sm:gap-3 sm:pl-5 sm:pr-4"
               >
                   <MapPin size={18} weight="duotone" className="text-super-red" aria-hidden="true" />
                   Filtru zonă
@@ -381,7 +381,7 @@ export const HeroesList: React.FC = () => {
                   disabled={locating}
                   aria-pressed={sortNearby}
                   title="Sortează după cei mai apropiați de tine"
-                  className="sf-glass inline-flex items-center gap-2 rounded-full py-2 pl-3.5 pr-2 font-heading text-sm font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70"
+                  className="sf-glass relative z-40 inline-flex items-center gap-2 rounded-full py-2 pl-3.5 pr-2 font-heading text-sm font-semibold text-graphite-soft transition-colors hover:text-super-red disabled:cursor-wait disabled:opacity-70"
               >
                   <Target size={16} weight={sortNearby ? 'fill' : 'regular'} className={sortNearby ? 'text-super-red' : ''} aria-hidden="true" />
                   <span>{locating ? 'Te localizez…' : 'Aproape de mine'}</span>
@@ -394,6 +394,20 @@ export const HeroesList: React.FC = () => {
                       />
                   </span>
               </button>
+
+              {/* Inchiderea la atingere in afara nu se mai bazeaza pe un
+                  ascultator pe document: acolo orice element care opreste
+                  propagarea, sau orice zona care nu produce evenimentul, lasa
+                  panoul deschis. Aici e o suprafata reala pe tot ecranul, sub
+                  panou si sub butoane — orice atingere care nu nimereste panoul
+                  nimereste in ea, si atunci se inchide. */}
+              {showMap && (
+                  <div
+                      className="fixed inset-0 z-30"
+                      aria-hidden="true"
+                      onPointerDown={() => { setShowMap(false); setIsDropdownOpen(false); }}
+                  />
+              )}
 
               <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showMap ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'} absolute left-1/2 top-full z-40 mt-3 w-[92vw] -translate-x-1/2 sm:left-0 sm:w-[720px] sm:max-w-[80vw] sm:translate-x-0`}>
                 <div className="overflow-hidden">

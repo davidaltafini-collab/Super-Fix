@@ -4,6 +4,16 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 99;
+  /* Cutia asta ramane la marimea navbarului NESCALAT: cand navbarul e mic
+     (scale 0.73), in jurul lui ramane o banda invizibila de vreo 45px pe
+     fiecare parte care inghitea atingerile — fix acolo unde pui degetul cand
+     incepi sa derulezi de sus. Evenimentele trec prin container si sunt prinse
+     doar de capsula propriu-zisa, cat e ea de mare in momentul ala. */
+  pointer-events: none;
+}
+
+.pill-nav-container > .pill-nav {
+  pointer-events: auto;
 }
 
 .pill-nav {
@@ -146,5 +156,24 @@
   .pill-link {
     font-size: 13px;
     letter-spacing: 0.2px;
+  }
+}
+
+/* Zona de atingere nu se micsoreaza odata cu navbarul.
+
+   La scale 0.73 un link de 48px inaltime ajunge la 35px pe ecran, sub minimul
+   la care degetul nimereste din prima. Extinderea e doar pe verticala: pe
+   orizontala ar suprapune linkurile vecine si ai apasa gresit. */
+.pill-link,
+.pill-logo {
+  position: relative;
+}
+
+@media (hover: none) {
+  .pill-link::after,
+  .pill-logo::after {
+    content: "";
+    position: absolute;
+    inset: -11px 0;
   }
 }

@@ -117,6 +117,12 @@ const PillNav: React.FC<PillNavProps> = ({
   const hoverRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const kickRef = useRef<() => void>(() => {});
+  /** ultima directie de derulare: 1 = in jos, -1 = in sus */
+  const dirRef = useRef(1);
+  const lastYRef = useRef(0);
+  /** cat timp un deget e pe navbar, transformarea sta pe loc */
+  const frozenRef = useRef(false);
+  const freezeRef = useRef<(v: boolean) => void>(() => {});
 
   useEffect(() => {
     const el = containerRef.current;
@@ -128,13 +134,32 @@ const PillNav: React.FC<PillNavProps> = ({
     const END = 170;
     const EASING = 0.18;
 
+    /* Micșorarea urmează derularea în jos, dar creșterea ascultă de direcție.
+
+       Înainte mărimea depindea numai de cât ai derulat, deci navbarul redevenea
+       mare doar dacă ajungeai înapoi în capul paginii. Când ești la jumătatea
+       unei liste lungi și vrei să schimbi pagina, asta înseamnă că nu ai cum:
+       ținta rămâne mică oriunde ai fi. Acum, prima mișcare în sus îl aduce
+       întreg — gestul cu care oricum cauți meniul e chiar gestul care îl aduce. */
     const target = () => {
       if (hoverRef.current) return 0; // mouse deasupra -> revine la mărime maximă
       const y = window.scrollY;
+      if (y <= START) return 0;
+      if (dirRef.current < 0) return 0; // derulezi în sus -> navbar întreg
       return Math.min(1, Math.max(0, (y - START) / (END - START)));
     };
 
     const tick = () => {
+      /* Degetul e pe navbar: nu-i mai schimbăm transformarea.
+
+         Altfel ținta se mișcă sub deget între atingere și ridicare — Safari
+         hit-testează la început, dar decide click-ul la sfârșit, iar dacă
+         elementul a plecat între timp click-ul se pierde. De-aici veneau
+         apăsările care „nu intră" și schimbatul de pagină din a treia
+         încercare, mai ales imediat după o derulare, când navbarul încă se
+         așază. Cât ține atingerea, navbarul e o țintă fixă. */
+      if (frozenRef.current) { rafRef.current = null; return; }
+
       const want = target();
       const next = progressRef.current + (want - progressRef.current) * EASING;
       const settled = Math.abs(want - next) < 0.0015;
@@ -144,17 +169,39 @@ const PillNav: React.FC<PillNavProps> = ({
     };
 
     const kick = () => {
+      const y = window.scrollY;
+      const dy = y - lastYRef.current;
+      // pragul de 3px ignoră tremurul de sub-pixel de la rubber-band-ul iOS,
+      // care altfel ar comuta direcția de câteva ori pe secundă stând pe loc
+      if (Math.abs(dy) > 3) {
+        dirRef.current = dy > 0 ? 1 : -1;
+        lastYRef.current = y;
+      }
       if (rafRef.current === null) rafRef.current = requestAnimationFrame(tick);
     };
     kickRef.current = kick;
+    freezeRef.current = (v: boolean) => {
+      frozenRef.current = v;
+      if (!v) kick();
+    };
 
+    lastYRef.current = window.scrollY;
     kick(); // poziția corectă și la intrarea pe pagină derulată (revenire din back)
     window.addEventListener('scroll', kick, { passive: true });
     window.addEventListener('resize', kick);
 
+    /* Dezghețarea stă pe `window`, nu pe navbar: dacă ridici degetul după ce
+       l-ai tras în afara capsulei, `pointerup` nu mai ajunge la ea și navbarul
+       ar rămâne înghețat pentru totdeauna. */
+    const thaw = () => { if (frozenRef.current) { frozenRef.current = false; kick(); } };
+    window.addEventListener('pointerup', thaw);
+    window.addEventListener('pointercancel', thaw);
+
     return () => {
       window.removeEventListener('scroll', kick);
       window.removeEventListener('resize', kick);
+      window.removeEventListener('pointerup', thaw);
+      window.removeEventListener('pointercancel', thaw);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
@@ -190,6 +237,7 @@ const PillNav: React.FC<PillNavProps> = ({
         aria-label="Primary"
         onPointerEnter={(e) => { if (isMouse(e)) { hoverRef.current = true; kickRef.current(); } }}
         onPointerLeave={(e) => { if (isMouse(e)) { hoverRef.current = false; kickRef.current(); } }}
+        onPointerDown={(e) => { if (!isMouse(e)) freezeRef.current(true); }}
       >
         <GlassSurface
           className="pill-nav-glass"
