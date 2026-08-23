@@ -16,7 +16,11 @@
   /* deasupra pilului de acțiune de pe pagina eroului (~80px cu tot cu padding),
      ca notificarea să nu cadă peste butoanele Sună / Trimite mesaj */
   bottom: calc(5.75rem + env(safe-area-inset-bottom));
-  z-index: 250;
+  /* peste orice alt strat din site (modaluri .adm-veil/.sf-confirm la 300,
+     cropper/camera la 350-360, hărți/loader la 400) - altfel un toast de
+     eroare declanșat cât un modal e deschis se randează, dar rămâne
+     invizibil în spatele lui */
+  z-index: 500;
   display: flex;
   /* cea mai nouă jos, cel mai aproape de degetul care tocmai a apăsat */
   flex-direction: column-reverse;
