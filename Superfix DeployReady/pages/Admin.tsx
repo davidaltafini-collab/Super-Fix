@@ -53,7 +53,14 @@ export const Admin: React.FC = () => {
   const [usernameInput, setUsernameInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS'>('HEROES');
+  // Funnel de recrutare: numărători pe etape + lista etapei deschise.
+  const [funnelCounts, setFunnelCounts] = useState<Record<string, number> | null>(null);
+  const [funnelStage, setFunnelStage] = useState<string | null>(null);
+  const [funnelItems, setFunnelItems] = useState<any[]>([]);
+  const [funnelLoading, setFunnelLoading] = useState(false);
+  const [funnelError, setFunnelError] = useState('');
+  const [funnelAction, setFunnelAction] = useState<string | null>(null);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -340,12 +347,85 @@ export const Admin: React.FC = () => {
         return recruiterRequest(rec.id, 'reactivate', `reactivate:${rec.id}`);
     };
 
+    const fetchFunnelCounts = async () => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setFunnelError('');
+        try {
+            const response = await fetch(`${API_URL}/admin/funnel`, { headers: { Authorization: `Bearer ${token}` } });
+            if (response.status === 401 || response.status === 403) { logoutUser(); setIsAuthenticated(false); throw new Error('Sesiunea a expirat.'); }
+            if (!response.ok) throw new Error(await readApiError(response, 'Funnel-ul nu s-a putut încărca.'));
+            const data = await response.json();
+            setFunnelCounts(data.counts || {});
+        } catch (error) {
+            setFunnelError(error instanceof Error ? error.message : 'Funnel-ul nu s-a putut încărca.');
+        }
+    };
+
+    const openFunnelStage = async (stage: string) => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        setFunnelStage(stage);
+        setFunnelLoading(true);
+        setFunnelError('');
+        setFunnelItems([]);
+        try {
+            const response = await fetch(`${API_URL}/admin/funnel?stage=${encodeURIComponent(stage)}&limit=100`, { headers: { Authorization: `Bearer ${token}` } });
+            if (!response.ok) throw new Error(await readApiError(response, 'Etapa nu s-a putut încărca.'));
+            const data = await response.json();
+            setFunnelItems(Array.isArray(data.items) ? data.items : []);
+        } catch (error) {
+            setFunnelError(error instanceof Error ? error.message : 'Etapa nu s-a putut încărca.');
+        } finally {
+            setFunnelLoading(false);
+        }
+    };
+
+    const resendOnboarding = async (hero: any) => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        if (!(await toast.confirm(`Retrimiți linkul de onboarding către ${hero.alias} (${hero.email})?`, { confirmLabel: 'Trimit' }))) return;
+        setFunnelAction(`resend:${hero.id}`);
+        try {
+            const response = await fetch(`${API_URL}/admin/hero/${encodeURIComponent(hero.id)}/resend-onboarding`, {
+                method: 'POST', headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Linkul nu s-a putut trimite.'));
+            toast.success('Link de onboarding retrimis.');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Linkul nu s-a putut trimite.');
+        } finally {
+            setFunnelAction(null);
+        }
+    };
+
+    const deleteStuckHero = async (hero: any) => {
+        const token = localStorage.getItem('superfix_token');
+        if (!token) return;
+        if (!(await toast.confirm(`Ștergi eroul blocat ${hero.alias}? Se eliberează email-ul și telefonul.`, { confirmLabel: 'Șterg', danger: true }))) return;
+        setFunnelAction(`del:${hero.id}`);
+        try {
+            const response = await fetch(`${API_URL}/heroes/${encodeURIComponent(hero.id)}`, {
+                method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error(await readApiError(response, 'Ștergerea a eșuat.'));
+            toast.success('Erou șters, contactul eliberat.');
+            if (funnelStage) await openFunnelStage(funnelStage);
+            fetchFunnelCounts();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Ștergerea a eșuat.');
+        } finally {
+            setFunnelAction(null);
+        }
+    };
+
     const refreshAllData = () => {
         getHeroes().then(setHeroes);
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
         if (activeTab === 'PAYOUTS') fetchPayouts();
         if (activeTab === 'RECRUITERS') fetchRecruiters();
+        if (activeTab === 'FUNNEL') fetchFunnelCounts();
     };
 
   // === HANDLERS ===
@@ -895,6 +975,7 @@ export const Admin: React.FC = () => {
     { key: 'HEROES', label: 'Eroi', count: 0 },
     { key: 'REQUESTS', label: 'Misiuni', count: 0 },
     { key: 'APPLICATIONS', label: 'Recrutare', count: applications.length },
+    { key: 'FUNNEL', label: 'Pâlnie', count: funnelCounts ? (funnelCounts.APROBAT_FARA_ONBOARDING || 0) + (funnelCounts.ONBOARDED_FARA_CARD || 0) : 0 },
     { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
     { key: 'SETTINGS', label: 'Setări', count: 0 },
@@ -1140,6 +1221,90 @@ export const Admin: React.FC = () => {
             )}
           </section>
         )}
+
+        {/* ---------------- PÂLNIE (funnel de recrutare) ---------------- */}
+        {activeTab === 'FUNNEL' && (() => {
+          const STAGES: { key: string; label: string; hint: string; tone: string }[] = [
+            { key: 'APLICAT', label: 'Aplicat', hint: 'A trimis datele, așteaptă aprobarea ta.', tone: 'wait' },
+            { key: 'APROBAT_FARA_ONBOARDING', label: 'Aprobat, n-a intrat', hint: 'Link trimis, dar nu și-a setat parola/profilul.', tone: 'wait' },
+            { key: 'ONBOARDED_FARA_CARD', label: 'Fără card', hint: 'Și-a făcut contul, dar nu e activ (fără card) → invizibil public.', tone: 'off' },
+            { key: 'ACTIV_FARA_POVESTE', label: 'Activ, fără poveste', hint: 'Activ, dar n-a completat „Cine e sub costum".', tone: 'ok' },
+            { key: 'ACTIV_COMPLET', label: 'Activ, complet', hint: 'Totul făcut.', tone: 'ok' },
+          ];
+          return (
+            <section className="mt-5">
+              {funnelError && <p className="adm-card mb-4 p-4 text-sm text-red-600">{funnelError}</p>}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {STAGES.map(s => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => openFunnelStage(s.key)}
+                    className="adm-card p-4 text-left transition hover:ring-2 hover:ring-graphite/20"
+                    aria-pressed={funnelStage === s.key}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="adm-state" data-tone={s.tone}>{s.label}</span>
+                      <span className="adm-num font-heading text-2xl text-graphite">{funnelCounts ? (funnelCounts[s.key] ?? 0) : '—'}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-graphite-soft">{s.hint}</p>
+                  </button>
+                ))}
+              </div>
+
+              {funnelStage && (
+                <div className="mt-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="font-heading text-lg text-graphite">{STAGES.find(s => s.key === funnelStage)?.label}</h3>
+                    <button type="button" className="adm-btn adm-btn--quiet" onClick={() => { setFunnelStage(null); setFunnelItems([]); }}>Închide</button>
+                  </div>
+                  {funnelLoading ? (
+                    <p className="adm-card p-6 text-center text-sm text-graphite-soft">Se încarcă…</p>
+                  ) : funnelItems.length === 0 ? (
+                    <p className="adm-card p-6 text-center text-sm text-graphite-soft">Nimeni în etapa asta.</p>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {funnelItems.map(item => (
+                        <article key={item.id} className="adm-card p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="font-heading text-base leading-tight text-graphite">{item.name || item.alias}</h4>
+                              <p className="mt-1 text-xs text-graphite-soft">{item.category}</p>
+                            </div>
+                          </div>
+                          <dl className="adm-num mt-3 space-y-1 text-sm text-graphite-soft">
+                            <div><dd>{item.phone || '—'}</dd></div>
+                            <div><dd className="break-all">{item.email || '—'}</dd></div>
+                          </dl>
+                          {(funnelStage === 'APROBAT_FARA_ONBOARDING' || funnelStage === 'ONBOARDED_FARA_CARD') && (
+                            <div className="mt-4 flex gap-2">
+                              <button
+                                type="button"
+                                className="adm-btn adm-btn--main flex-1"
+                                disabled={funnelAction === `resend:${item.id}`}
+                                onClick={() => resendOnboarding(item)}
+                              >
+                                Retrimite link
+                              </button>
+                              <button
+                                type="button"
+                                className="adm-btn adm-btn--danger"
+                                disabled={funnelAction === `del:${item.id}`}
+                                onClick={() => deleteStuckHero(item)}
+                              >
+                                Șterge
+                              </button>
+                            </div>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         {/* ---------------- RECRUITERI ---------------- */}
         {activeTab === 'RECRUITERS' && (
