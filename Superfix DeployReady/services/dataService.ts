@@ -91,15 +91,23 @@ export const deleteApplication = async (id: string) => {
 };
 
 // === ADMIN: HERO MANAGEMENT ===
-export const updateHero = async (id: string, data: Partial<Hero>) => {
+export type SaveHeroResult = { ok: boolean; error?: string };
+
+const readSaveHeroError = async (res: Response): Promise<string> => {
+    const payload = await res.json().catch(() => ({}));
+    return payload?.message || payload?.error || `Eroare HTTP ${res.status}`;
+};
+
+export const updateHero = async (id: string, data: Partial<Hero>): Promise<SaveHeroResult> => {
     try {
         const res = await fetch(`${API_URL}/heroes/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify(data)
         });
-        return res.ok;
-    } catch { return false; }
+        if (res.ok) return { ok: true };
+        return { ok: false, error: await readSaveHeroError(res) };
+    } catch { return { ok: false, error: 'Eroare de conexiune.' }; }
 };
 
 export const deleteHero = async (id: string) => {
@@ -173,15 +181,16 @@ export const createServiceRequest = async (request: ServiceRequest): Promise<boo
     } catch { return false; }
 };
 
-export const createHero = async (hero: Hero): Promise<boolean> => {
+export const createHero = async (hero: Hero): Promise<SaveHeroResult> => {
     try {
         const res = await fetch(`${API_URL}/heroes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify(hero)
         });
-        return res.ok;
-    } catch { return false; }
+        if (res.ok) return { ok: true };
+        return { ok: false, error: await readSaveHeroError(res) };
+    } catch { return { ok: false, error: 'Eroare de conexiune.' }; }
 };
 
 // DASHBOARD

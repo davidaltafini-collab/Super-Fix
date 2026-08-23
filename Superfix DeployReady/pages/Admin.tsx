@@ -446,16 +446,16 @@ export const Admin: React.FC = () => {
       delete payload.id; delete payload.reviews; delete payload.requests; delete payload.createdAt; delete payload.updatedAt;
       if (!payload.actionAreas) payload.actionAreas = [];
 
-      let success = false;
-      if(modalMode === 'EDIT' && selectedHero) success = await updateHero(selectedHero.id, payload);
+      let result: { ok: boolean; error?: string };
+      if(modalMode === 'EDIT' && selectedHero) result = await updateHero(selectedHero.id, payload);
       else {
           if (recruitingAppId) (payload as any).applicationId = recruitingAppId;
-          success = await createHero(payload);
-          if(success && recruitingAppId) setRecruitingAppId(null);
+          result = await createHero(payload);
+          if(result.ok && recruitingAppId) setRecruitingAppId(null);
       }
 
-      if(success) { setShowModal(false); refreshAllData(); toast.success('Eroul a fost salvat.'); }
-      else toast.error('Salvarea a eșuat. Încearcă din nou.');
+      if(result.ok) { setShowModal(false); refreshAllData(); toast.success('Eroul a fost salvat.'); }
+      else toast.error(result.error ||'Salvarea a eșuat. Încearcă din nou.');
   };
 
   const handleDeleteHero = async () => {
@@ -1565,7 +1565,8 @@ export const Admin: React.FC = () => {
             </div>
 
             <div className="p-5 sm:p-6">
-              {/* poza și clipul */}
+              {/* poza și clipul — nu la creare, le pune eroul la onboarding */}
+              {modalMode !== 'ADD' && (
               <div className="flex flex-col gap-4 sm:flex-row">
                 <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-2xl bg-cloud">
                   <img src={thumb(formData.avatarUrl || DEFAULT_AVATAR, 400, { square: true })} alt="" className="h-full w-full object-cover" />
@@ -1597,6 +1598,7 @@ export const Admin: React.FC = () => {
                   )}
                 </div>
               </div>
+              )}
 
               {modalMode === 'VIEW' ? (
                 <div className="mt-6 space-y-5">
@@ -1661,6 +1663,64 @@ export const Admin: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              ) : modalMode === 'ADD' ? (
+                <form onSubmit={handleSave} className="mt-6 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-alias" className="adm-label">Nume de erou</label>
+                      <input id="adm-alias" required className="adm-input" value={formData.alias} onChange={e => setFormData({ ...formData, alias: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-cat" className="adm-label">Meserie</label>
+                      {!isCustomCat ? (
+                        <select
+                          id="adm-cat"
+                          className="adm-input"
+                          value={formData.category}
+                          onChange={e => { if (e.target.value === 'NEW') setIsCustomCat(true); else setFormData({ ...formData, category: e.target.value }); }}
+                        >
+                          {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
+                          <option value="NEW">+ Alta…</option>
+                        </select>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input autoFocus className="adm-input" value={formCustomCat} onChange={e => setFormCustomCat(e.target.value)} />
+                          <button type="button" onClick={() => setIsCustomCat(false)} className="adm-btn adm-btn--quiet" aria-label="Înapoi la listă">
+                            <X size={14} weight="bold" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="adm-phone" className="adm-label">Telefon</label>
+                      <input id="adm-phone" className="adm-input adm-num" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                    </div>
+                    <div>
+                      <label htmlFor="adm-email" className="adm-label">Email</label>
+                      <input id="adm-email" required className="adm-input" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="adm-card p-4">
+                    <label htmlFor="adm-username" className="adm-label">Utilizator de acces</label>
+                    <input id="adm-username" className="adm-input" autoComplete="off" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+                  </div>
+
+                  <p className="text-xs leading-relaxed text-graphite-soft">
+                    Restul profilului — poză, clip, tarif, descriere, parolă, zone de acțiune — le completează eroul singur, la onboarding.
+                    Îi trimitem automat pe email un link de invitație după ce salvezi. Poți edita oricând aceste câmpuri din fișa eroului, după ce își termină profilul.
+                  </p>
+
+                  <div className="flex gap-2 border-t border-graphite/10 pt-4">
+                    <button type="submit" disabled={uploading} className="adm-btn adm-btn--main flex-1">
+                      <FloppyDisk size={15} weight="fill" aria-hidden="true" />
+                      {uploading ? 'Se încarcă…' : 'Salvează'}
+                    </button>
+                  </div>
+                </form>
               ) : (
                 <form onSubmit={handleSave} className="mt-6 space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
