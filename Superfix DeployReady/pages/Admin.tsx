@@ -435,27 +435,32 @@ export const Admin: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
-      const payload = { ...formData };
-      
-      // === MODIFICARE 1: Asigurăm conversia în număr ===
-      payload.hourlyRate = Number(payload.hourlyRate);
-      // =================================================
+      try {
+        const payload = { ...formData };
 
-      if(isCustomCat && formCustomCat) payload.category = formCustomCat; 
-      if(!payload.password) delete payload.password;
-      delete payload.id; delete payload.reviews; delete payload.requests; delete payload.createdAt; delete payload.updatedAt;
-      if (!payload.actionAreas) payload.actionAreas = [];
+        // === MODIFICARE 1: Asigurăm conversia în număr ===
+        payload.hourlyRate = Number(payload.hourlyRate);
+        // =================================================
 
-      let result: { ok: boolean; error?: string };
-      if(modalMode === 'EDIT' && selectedHero) result = await updateHero(selectedHero.id, payload);
-      else {
-          if (recruitingAppId) (payload as any).applicationId = recruitingAppId;
-          result = await createHero(payload);
-          if(result.ok && recruitingAppId) setRecruitingAppId(null);
+        if(isCustomCat && formCustomCat) payload.category = formCustomCat;
+        if(!payload.password) delete payload.password;
+        delete payload.id; delete payload.reviews; delete payload.requests; delete payload.createdAt; delete payload.updatedAt;
+        if (!payload.actionAreas) payload.actionAreas = [];
+
+        let result: { ok: boolean; error?: string };
+        if(modalMode === 'EDIT' && selectedHero) result = await updateHero(selectedHero.id, payload);
+        else {
+            if (recruitingAppId) (payload as any).applicationId = recruitingAppId;
+            result = await createHero(payload);
+            if(result.ok && recruitingAppId) setRecruitingAppId(null);
+        }
+
+        if(result.ok) { setShowModal(false); refreshAllData(); toast.success('Eroul a fost salvat.'); }
+        else toast.error(result.error ||'Salvarea a eșuat. Încearcă din nou.');
+      } catch (err: any) {
+        console.error('handleSave a picat', err);
+        toast.error(err?.message || 'A apărut o eroare neașteptată la salvare.');
       }
-
-      if(result.ok) { setShowModal(false); refreshAllData(); toast.success('Eroul a fost salvat.'); }
-      else toast.error(result.error ||'Salvarea a eșuat. Încearcă din nou.');
   };
 
   const handleDeleteHero = async () => {
@@ -1700,7 +1705,7 @@ export const Admin: React.FC = () => {
                     </div>
                     <div>
                       <label htmlFor="adm-email" className="adm-label">Email</label>
-                      <input id="adm-email" required className="adm-input" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                      <input id="adm-email" className="adm-input" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                     </div>
                   </div>
 
