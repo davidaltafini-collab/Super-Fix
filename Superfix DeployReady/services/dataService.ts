@@ -209,14 +209,27 @@ export const peekMyMissions = (): ServiceRequest[] | undefined => cacheGet(Cache
 export const peekMission = (id?: string): ServiceRequest | undefined =>
     id ? peekMyMissions()?.find(m => m.id === id) : undefined;
 
-export const updateMissionStatus = async (id: string, status: string, photo: string | null) => {
+export const updateMissionStatus = async (
+    id: string,
+    status: string,
+    photo: string | null,
+    portfolioConsent?: boolean,
+) => {
     try {
+        const body: Record<string, unknown> = { status, photo };
+        if (status === 'COMPLETED' && portfolioConsent) {
+            body.publishToPortfolio = true;
+            body.portfolioConsentAt = new Date().toISOString();
+        }
         const res = await fetch(`${API_URL}/missions/${id}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-            body: JSON.stringify({ status, photo })
+            body: JSON.stringify(body)
         });
-        if (res.ok) cacheDrop(CacheKey.missions); // s-a schimbat ceva: nu mai servim vechiul
+        if (res.ok) {
+            cacheDrop(CacheKey.missions); // s-a schimbat ceva: nu mai servim vechiul
+            if (status === 'COMPLETED' && portfolioConsent) cacheDrop(CacheKey.myPortfolio);
+        }
         return res.ok;
     } catch { return false; }
 };
@@ -292,6 +305,48 @@ export const saveOriginDraft = async (
     if (res.ok) cacheDrop(CacheKey.origin(token)); // ce am salvat inlocuieste ce stiam
     return res.ok ? { ok: true } : { ok: false, message: await readMessage(res) };
   } catch { return { ok: false }; }
+};
+
+/* === PORTOFOLIUL PUBLIC ===
+   Eroul își vede toate lucrările trimise spre portofoliu (orice stare) și poate
+   ascunde din vitrina publică pe oricare dintre ele. Publicarea unei lucrări noi
+   se întâmplă la finalizarea misiunii (vezi `updateMissionStatus`), cu
+   consimțământ explicit — nu există o cale de a republica retroactiv o misiune
+   veche, deja finalizată fără consimțământ. */
+
+export interface MyPortfolioItem {
+  id: string;
+  missionId?: string | null;
+  beforeUrl: string;
+  afterUrl: string;
+  title?: string | null;
+  category?: string | null;
+  completedAt?: string | null;
+  reviewStatus: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'REMOVED';
+  reviewReason?: string | null;
+  createdAt: string;
+}
+
+export const getMyPortfolio = (): Promise<MyPortfolioItem[]> =>
+  dedupe(CacheKey.myPortfolio, async () => {
+    try {
+      const res = await fetch(`${API_URL}/hero/portfolio`, { headers: getAuthHeader() });
+      if (!res.ok) return cacheGet<MyPortfolioItem[]>(CacheKey.myPortfolio) ?? [];
+      return cacheSet(CacheKey.myPortfolio, await res.json() as MyPortfolioItem[]);
+    } catch { return cacheGet<MyPortfolioItem[]>(CacheKey.myPortfolio) ?? []; }
+  });
+
+export const peekMyPortfolio = (): MyPortfolioItem[] | undefined => cacheGet(CacheKey.myPortfolio);
+
+export const retractPortfolioItem = async (id: string): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_URL}/hero/portfolio/${id}/retract`, {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+    });
+    if (res.ok) { cacheDrop(CacheKey.myPortfolio); cacheDrop('hero'); }
+    return res.ok;
+  } catch { return false; }
 };
 
 /* === DATELE DE BAZĂ ALE EROULUI ===

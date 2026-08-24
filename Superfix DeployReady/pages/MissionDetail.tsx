@@ -17,6 +17,7 @@ import {
 } from '../lib/geo';
 import { MapPreview } from '../components/Map';
 import { CameraCapture } from '../components/CameraCapture';
+import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 
 import './portal.css';
@@ -61,6 +62,10 @@ export const MissionDetail: React.FC = () => {
   const [loading, setLoading] = useState(() => !known);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<'START' | 'FINISH'>('START');
+  /* Poza de final e gata, dar misiunea nu s-a închis încă: întrebăm întâi dacă
+     lucrarea asta intră în portofoliul public, ca finalizarea și consimțământul
+     să plece spre server într-un singur apel. */
+  const [portfolioPrompt, setPortfolioPrompt] = useState<{ photoUrl: string } | null>(null);
 
   const load = async () => {
     const all = await getMyMissions();
@@ -109,10 +114,18 @@ export const MissionDetail: React.FC = () => {
     const file = new File([blob], `mission-${mission.id}-${Date.now()}.jpg`, { type: 'image/jpeg' });
     const shot = await uploadSignedMedia(file, 'image');
     if (!shot.url) { toast.error(uploadErrorText(shot.reason || 'network', 'image')); return; }
-    const next = cameraMode === 'START' ? 'IN_PROGRESS' : 'COMPLETED';
-    const ok = await updateMissionStatus(mission.id, next, shot.url);
-    if (!ok) { toast.error('Poza s-a încărcat, dar statusul nu s-a actualizat.'); return; }
     setShowCamera(false);
+    if (cameraMode === 'FINISH') { setPortfolioPrompt({ photoUrl: shot.url }); return; }
+    const ok = await updateMissionStatus(mission.id, 'IN_PROGRESS', shot.url);
+    if (!ok) { toast.error('Poza s-a încărcat, dar statusul nu s-a actualizat.'); return; }
+    load();
+  };
+
+  const finishMission = async (publishToPortfolio: boolean) => {
+    if (!mission || !portfolioPrompt) return;
+    const ok = await updateMissionStatus(mission.id, 'COMPLETED', portfolioPrompt.photoUrl, publishToPortfolio);
+    setPortfolioPrompt(null);
+    if (!ok) { toast.error('Poza s-a încărcat, dar statusul nu s-a actualizat.'); return; }
     load();
   };
 
@@ -381,6 +394,32 @@ export const MissionDetail: React.FC = () => {
       {showCamera && (
         <CameraCapture onCapture={onPhoto} onClose={() => setShowCamera(false)} mode={cameraMode} />
       )}
+
+      <Sheet
+        open={!!portfolioPrompt}
+        onClose={() => finishMission(false)}
+        variant="modal"
+        title="Publici lucrarea în portofoliu?"
+        subtitle="Poza dinainte și după apare public pe profilul tău, ca exemplu de lucrare."
+      >
+        <div className="flex flex-col gap-3 pb-4">
+          <button
+            type="button"
+            onClick={() => finishMission(true)}
+            className="portal-action portal-action--primary w-full"
+          >
+            <Images size={19} weight="fill" aria-hidden="true" />
+            Da, publică în portofoliu
+          </button>
+          <button
+            type="button"
+            onClick={() => finishMission(false)}
+            className="portal-action portal-action--no w-full"
+          >
+            Nu, doar închide misiunea
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 };

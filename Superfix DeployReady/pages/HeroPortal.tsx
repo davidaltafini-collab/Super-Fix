@@ -16,7 +16,7 @@ import { Sheet } from '../components/Sheet';
 import {
   ShieldCheck, Target, Phone, Camera, CheckCircle, Info, SignOut,
   UserCircle, MaskHappy, ArrowUpRight, ChatCircleText,
-  MagnifyingGlass, X, Crosshair, EyeSlash, CaretRight,
+  MagnifyingGlass, X, Crosshair, EyeSlash, CaretRight, Images,
 } from '@phosphor-icons/react';
 
 import './portal.css';
@@ -143,6 +143,7 @@ export const HeroPortal: React.FC = () => {
   const [showCamera, setShowCamera] = useState(false);
   const [currentMissionId, setCurrentMissionId] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<'START' | 'FINISH'>('START');
+  const [portfolioPrompt, setPortfolioPrompt] = useState<{ missionId: string; photoUrl: string } | null>(null);
 
   // === NEW: Modal Info State ===
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -298,15 +299,29 @@ export const HeroPortal: React.FC = () => {
           return;
       }
       const photoUrl = shot.url;
-      const newStatus = cameraMode === 'START' ? 'IN_PROGRESS' : 'COMPLETED';
-      const success = await updateMissionStatus(currentMissionId, newStatus, photoUrl);
+      setShowCamera(false);
+      if (cameraMode === 'FINISH') {
+          setPortfolioPrompt({ missionId: currentMissionId, photoUrl });
+          return;
+      }
+      const success = await updateMissionStatus(currentMissionId, 'IN_PROGRESS', photoUrl);
       if (!success) {
           toast.error('Poza s-a încărcat, dar statusul misiunii nu s-a actualizat. Reîncearcă.');
           return;
       }
-
-      setShowCamera(false);
       setCurrentMissionId(null);
+      refreshData(currentHero.id);
+  };
+
+  const finishMission = async (publishToPortfolio: boolean) => {
+      if (!portfolioPrompt || !currentHero) return;
+      const success = await updateMissionStatus(portfolioPrompt.missionId, 'COMPLETED', portfolioPrompt.photoUrl, publishToPortfolio);
+      setPortfolioPrompt(null);
+      setCurrentMissionId(null);
+      if (!success) {
+          toast.error('Poza s-a încărcat, dar statusul misiunii nu s-a actualizat. Reîncearcă.');
+          return;
+      }
       refreshData(currentHero.id);
   };
 
@@ -805,6 +820,32 @@ export const HeroPortal: React.FC = () => {
           mode={cameraMode}
         />
       )}
+
+      <Sheet
+        open={!!portfolioPrompt}
+        onClose={() => finishMission(false)}
+        variant="modal"
+        title="Publici lucrarea în portofoliu?"
+        subtitle="Poza dinainte și după apare public pe profilul tău, ca exemplu de lucrare."
+      >
+        <div className="flex flex-col gap-3 pb-4">
+          <button
+            type="button"
+            onClick={() => finishMission(true)}
+            className="portal-action portal-action--primary w-full"
+          >
+            <Images size={19} weight="fill" aria-hidden="true" />
+            Da, publică în portofoliu
+          </button>
+          <button
+            type="button"
+            onClick={() => finishMission(false)}
+            className="portal-action portal-action--no w-full"
+          >
+            Nu, doar închide misiunea
+          </button>
+        </div>
+      </Sheet>
 
       <Sheet
         open={showInfoModal}

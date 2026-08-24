@@ -53,6 +53,7 @@ export const CacheKey = {
   missions: 'missions',
   origin: (token?: string | null) => `origin:${token || 'me'}`,
   basics: 'basics',
+  myPortfolio: 'myPortfolio',
 } as const;
 
 export function cacheGet<T>(key: string): T | undefined {

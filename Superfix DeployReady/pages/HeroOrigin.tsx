@@ -72,7 +72,8 @@ export const HeroOrigin: React.FC = () => {
   const arsenal = hero?.arsenal?.filter(Boolean) ?? [];
   const proud = useMemo(() => {
     if (!hero?.proudMissionId) return null;
-    return hero.portfolio?.find(p => p.id === hero.proudMissionId) ?? null;
+    // `proudMissionId` e id-ul misiunii alese, nu al item-ului de portofoliu
+    return hero.portfolio?.find(p => p.missionId === hero.proudMissionId) ?? null;
   }, [hero]);
 
   if (loading) {

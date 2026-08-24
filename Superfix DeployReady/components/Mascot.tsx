@@ -12,10 +12,10 @@ import { cn } from '@/lib/utils';
    prima desenare, si totul arata bine: exact „se intampla doar cand intri prima
    data pe site".
 
-   Deci pana la `load` nu punem niciun filtru. Cand imaginea e decodata, punem
-   umbra si se calculeaza o singura data, pe conturul adevarat. Din cache,
-   `complete` e deja adevarat la montare, deci umbra e acolo din prima si nu se
-   vede nicio schimbare.
+   `complete`/`load` spun doar ca octetii au sosit, nu ca imaginea a fost chiar
+   decodata pe GPU — pe telefon diferenta asta e vizibila, mai ales cu conexiuni
+   sau device-uri mai lente. `decode()` se rezolva abia cand imaginea chiar poate
+   fi pictata, deci umbra n-are cum sa mai prinda o cutie nedecodata.
    ============================================================ */
 
 interface MascotProps {
@@ -31,9 +31,13 @@ interface MascotProps {
 export const Mascot: React.FC<MascotProps> = ({ className, shadow, alt = '', fetchPriority }) => {
   const [ready, setReady] = useState(false);
 
-  // din cache, `load` poate sa fi trecut deja pana leaga React ascultatorul
   const attach = useCallback((el: HTMLImageElement | null) => {
-    if (el?.complete && el.naturalWidth > 0) setReady(true);
+    if (!el) return;
+    if (typeof el.decode === 'function') {
+      el.decode().then(() => setReady(true)).catch(() => setReady(true));
+    } else if (el.complete && el.naturalWidth > 0) {
+      setReady(true);
+    }
   }, []);
 
   return (
@@ -45,7 +49,14 @@ export const Mascot: React.FC<MascotProps> = ({ className, shadow, alt = '', fet
       width={377}
       height={712}
       fetchPriority={fetchPriority}
-      onLoad={() => setReady(true)}
+      onLoad={(e) => {
+        const el = e.currentTarget;
+        if (typeof el.decode === 'function') {
+          el.decode().then(() => setReady(true)).catch(() => setReady(true));
+        } else {
+          setReady(true);
+        }
+      }}
       className={cn(className, ready && shadow)}
     />
   );

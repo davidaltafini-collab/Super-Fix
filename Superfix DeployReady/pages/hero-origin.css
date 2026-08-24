@@ -212,7 +212,9 @@
   }
 }
 
-/* alegerea misiunii de care e mândru */
+/* card cu poză + legendă, reutilizat de alegerea misiunii de care e mândru
+   (data-picked = selecția unică) și de vizibilitatea în portofoliul public
+   (data-picked = lucrarea e vizibilă) */
 .origin-pick {
   position: relative;
   display: block;
@@ -264,4 +266,31 @@
   .origin-pick {
     transition: none;
   }
+}
+
+.origin-pick__toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  background: hsl(355 74% 45%);
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.origin-pick__toggle:hover:not(:disabled) { opacity: 0.9; }
+.origin-pick__toggle:disabled { opacity: 0.65; cursor: default; }
+
+.origin-pick__toggle[data-muted='true'] {
+  color: #7c828c;
+  background: #e4e8ef;
+  cursor: default;
 }

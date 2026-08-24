@@ -3,9 +3,14 @@ import { thumb } from '../lib/img';
 import { Skel, SkeletonPage } from '../components/Loader';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowUpRight, ArrowLeft, FloppyDisk, Plus, Trash, Wrench, Images } from '@phosphor-icons/react';
+import {
+  ArrowUpRight, ArrowLeft, FloppyDisk, Plus, Trash, Wrench, Images, Eye, EyeSlash, Trophy,
+} from '@phosphor-icons/react';
 
-import { getOriginDraft, peekOriginDraft, saveOriginDraft, OriginDraft } from '../services/dataService';
+import {
+  getOriginDraft, peekOriginDraft, saveOriginDraft, OriginDraft,
+  getMyPortfolio, peekMyPortfolio, retractPortfolioItem, MyPortfolioItem,
+} from '../services/dataService';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
 
@@ -76,6 +81,30 @@ export const HeroOriginEditor: React.FC = () => {
     })();
     return () => { alive = false; };
   }, [token]);
+
+  /* Portofoliul cere sesiune de erou (Bearer) — nu merge pe calea cu token din
+     email, deci secțiunea de mai jos apare doar cand esti logat direct. */
+  const [portfolio, setPortfolio] = useState<MyPortfolioItem[]>(() => (!token ? peekMyPortfolio() ?? [] : []));
+  const [retracting, setRetracting] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (token) return;
+    let alive = true;
+    (async () => {
+      const items = await getMyPortfolio();
+      if (alive) setPortfolio(items);
+    })();
+    return () => { alive = false; };
+  }, [token]);
+
+  const retract = async (id: string) => {
+    setRetracting(id);
+    const ok = await retractPortfolioItem(id);
+    setRetracting(null);
+    if (!ok) { toast.error('Nu s-a putut ascunde din portofoliu. Mai încearcă o dată.'); return; }
+    setPortfolio(prev => prev.map(p => (p.id === id ? { ...p, reviewStatus: 'REMOVED' } : p)));
+    toast.success('Ascunsă din portofoliul public.');
+  };
 
   const set = <K extends keyof OriginDraft>(key: K, value: OriginDraft[K]) => {
     setDraft(prev => ({ ...(prev ?? {}), [key]: value }));
@@ -317,10 +346,13 @@ export const HeroOriginEditor: React.FC = () => {
         {draft.missions && draft.missions.length > 0 && (
           <section className="mt-14">
             <h2 className="flex items-center gap-2 font-heading text-2xl font-bold text-graphite">
-              <Images size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
+              <Trophy size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
               Misiunea de care ești mândru
             </h2>
-            <p className="mt-2 text-graphite-soft">Alege una dintre lucrările tale finalizate.</p>
+            <p className="mt-2 text-graphite-soft">
+              Alege o singură lucrare — cea mai bună dovadă a muncii tale. Apare într-o
+              secțiune specială pe pagina ta publică, separat de restul portofoliului.
+            </p>
 
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
               {draft.missions.map(m => {
@@ -329,13 +361,10 @@ export const HeroOriginEditor: React.FC = () => {
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => set('proudMissionId', picked ? null : m.id)}
-                    aria-pressed={picked}
-                    className="origin-pick"
+                    className="origin-pick cursor-pointer appearance-none border-0 bg-transparent p-0 text-left"
                     data-picked={picked}
+                    onClick={() => set('proudMissionId', picked ? null : m.id)}
                   >
-                    {/* Serverul trimite pana la 50 de lucrari finalizate. Fara
-                        `lazy`, browserul cerea toate originalele deodata. */}
                     <img
                       src={thumb(m.afterUrl || m.beforeUrl, 480, { square: true })}
                       alt=""
@@ -344,6 +373,57 @@ export const HeroOriginEditor: React.FC = () => {
                     />
                     <span>{m.title || 'Misiune'}</span>
                   </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* PORTOFOLIUL PUBLIC */}
+        {!token && draft.missions && draft.missions.length > 0 && (
+          <section className="mt-14">
+            <h2 className="flex items-center gap-2 font-heading text-2xl font-bold text-graphite">
+              <Images size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
+              Portofoliul tău public
+            </h2>
+            <p className="mt-2 text-graphite-soft">
+              Alege ce lucrări apar pe profilul tău. O lucrare nouă intră în portofoliu doar
+              dacă bifezi consimțământul chiar la finalizarea misiunii — cele de mai jos fără
+              acel pas rămân nepublicate.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {draft.missions.map(m => {
+                const item = portfolio.find(p => p.missionId === m.id);
+                const visible = item?.reviewStatus === 'APPROVED' || item?.reviewStatus === 'PENDING_REVIEW';
+                const removed = item?.reviewStatus === 'REMOVED';
+                const isBusy = retracting === item?.id;
+                return (
+                  <div key={m.id} className="origin-pick" data-picked={visible}>
+                    <img
+                      src={thumb(m.afterUrl || m.beforeUrl, 480, { square: true })}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span>{m.title || 'Misiune'}</span>
+                    {visible ? (
+                      <button
+                        type="button"
+                        onClick={() => item && retract(item.id)}
+                        disabled={isBusy}
+                        className="origin-pick__toggle"
+                      >
+                        <Eye size={14} weight="bold" aria-hidden="true" />
+                        {isBusy ? 'Se ascunde…' : 'Vizibilă — ascunde'}
+                      </button>
+                    ) : (
+                      <div className="origin-pick__toggle" data-muted="true">
+                        <EyeSlash size={14} weight="bold" aria-hidden="true" />
+                        {removed ? 'Ascunsă' : 'Nepublicată'}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
