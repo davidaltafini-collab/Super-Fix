@@ -294,3 +294,14 @@
   background: #e4e8ef;
   cursor: default;
 }
+
+/* avertisment sub alegerea misiunii: spune unde se rezolvă, nu doar că nu merge */
+.origin-warn {
+  margin-top: 1rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: hsl(355 55% 38%);
+  background: hsl(355 74% 96%);
+}

@@ -4,12 +4,12 @@ import { Skel, SkeletonPage } from '../components/Loader';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import {
-  ArrowUpRight, ArrowLeft, FloppyDisk, Plus, Trash, Wrench, Images, Eye, EyeSlash, Trophy,
+  ArrowUpRight, ArrowLeft, FloppyDisk, Plus, Trash, Wrench, Trophy,
 } from '@phosphor-icons/react';
 
 import {
   getOriginDraft, peekOriginDraft, saveOriginDraft, OriginDraft,
-  getMyPortfolio, peekMyPortfolio, retractPortfolioItem, MyPortfolioItem,
+  getMyPortfolio, peekMyPortfolio, MyPortfolioItem,
 } from '../services/dataService';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
@@ -82,10 +82,11 @@ export const HeroOriginEditor: React.FC = () => {
     return () => { alive = false; };
   }, [token]);
 
-  /* Portofoliul cere sesiune de erou (Bearer) — nu merge pe calea cu token din
-     email, deci secțiunea de mai jos apare doar cand esti logat direct. */
+  /* Misiunea aleasă aici se vede public DOAR dacă lucrarea e publicată în
+     portofoliu — pozele vin de acolo. Citim portofoliul doar ca să putem
+     avertiza; administrarea lui stă pe „Datele mele", unde îi e locul.
+     Cere sesiune de erou, deci nu merge pe calea cu token din email. */
   const [portfolio, setPortfolio] = useState<MyPortfolioItem[]>(() => (!token ? peekMyPortfolio() ?? [] : []));
-  const [retracting, setRetracting] = useState<string | null>(null);
 
   useEffect(() => {
     if (token) return;
@@ -97,14 +98,15 @@ export const HeroOriginEditor: React.FC = () => {
     return () => { alive = false; };
   }, [token]);
 
-  const retract = async (id: string) => {
-    setRetracting(id);
-    const ok = await retractPortfolioItem(id);
-    setRetracting(null);
-    if (!ok) { toast.error('Nu s-a putut ascunde din portofoliu. Mai încearcă o dată.'); return; }
-    setPortfolio(prev => prev.map(p => (p.id === id ? { ...p, reviewStatus: 'REMOVED' } : p)));
-    toast.success('Ascunsă din portofoliul public.');
-  };
+  /* „Se vede public" = are item de portofoliu aprobat. Aceeași regulă ca pe
+     pagina publică, care caută pozele exact în lista aia. */
+  const proudIsPublic = useMemo(() => {
+    if (!draft?.proudMissionId) return false;
+    return portfolio.some(
+      p => p.missionId === draft.proudMissionId
+        && (p.reviewStatus === 'APPROVED' || p.reviewStatus === 'PENDING_REVIEW'),
+    );
+  }, [draft?.proudMissionId, portfolio]);
 
   const set = <K extends keyof OriginDraft>(key: K, value: OriginDraft[K]) => {
     setDraft(prev => ({ ...(prev ?? {}), [key]: value }));
@@ -376,59 +378,21 @@ export const HeroOriginEditor: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Alegerea singură nu ajunge: pozele vin din portofoliu. Dacă lucrarea
+                nu e publicată, spunem exact unde se rezolvă, nu doar că „nu apare". */}
+            {!token && draft.proudMissionId && !proudIsPublic && (
+              <p className="origin-warn">
+                Lucrarea asta nu e publicată încă, așa că nu se vede pe pagina ta publică.
+                Public-o din{' '}
+                <Link to="/portal/profil" className="underline underline-offset-2">
+                  Datele mele → Ce lucrări arăt pe profil
+                </Link>.
+              </p>
+            )}
           </section>
         )}
 
-        {/* PORTOFOLIUL PUBLIC */}
-        {!token && draft.missions && draft.missions.length > 0 && (
-          <section className="mt-14">
-            <h2 className="flex items-center gap-2 font-heading text-2xl font-bold text-graphite">
-              <Images size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
-              Portofoliul tău public
-            </h2>
-            <p className="mt-2 text-graphite-soft">
-              Alege ce lucrări apar pe profilul tău. O lucrare nouă intră în portofoliu doar
-              dacă bifezi consimțământul chiar la finalizarea misiunii — cele de mai jos fără
-              acel pas rămân nepublicate.
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {draft.missions.map(m => {
-                const item = portfolio.find(p => p.missionId === m.id);
-                const visible = item?.reviewStatus === 'APPROVED' || item?.reviewStatus === 'PENDING_REVIEW';
-                const removed = item?.reviewStatus === 'REMOVED';
-                const isBusy = retracting === item?.id;
-                return (
-                  <div key={m.id} className="origin-pick" data-picked={visible}>
-                    <img
-                      src={thumb(m.afterUrl || m.beforeUrl, 480, { square: true })}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <span>{m.title || 'Misiune'}</span>
-                    {visible ? (
-                      <button
-                        type="button"
-                        onClick={() => item && retract(item.id)}
-                        disabled={isBusy}
-                        className="origin-pick__toggle"
-                      >
-                        <Eye size={14} weight="bold" aria-hidden="true" />
-                        {isBusy ? 'Se ascunde…' : 'Vizibilă — ascunde'}
-                      </button>
-                    ) : (
-                      <div className="origin-pick__toggle" data-muted="true">
-                        <EyeSlash size={14} weight="bold" aria-hidden="true" />
-                        {removed ? 'Ascunsă' : 'Nepublicată'}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
       </main>
 
       {/* Bara de salvare: andocată, ca pilul de pe profil */}

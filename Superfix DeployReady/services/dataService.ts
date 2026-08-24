@@ -349,6 +349,33 @@ export const retractPortfolioItem = async (id: string): Promise<boolean> => {
   } catch { return false; }
 };
 
+/* Publică o misiune deja finalizată. Acoperă și lucrările vechi (fără item de
+   portofoliu), și pe cele retrase anterior de erou. Serverul cere ca misiunea
+   să aibă AMBELE poze — de aceea întoarcem motivul, nu doar un bool: „nu merge"
+   fără explicație e exact ce nu poate omul repara. */
+export const publishPortfolioItem = async (
+  missionId: string,
+): Promise<{ ok: true; item: MyPortfolioItem } | { ok: false; reason: string }> => {
+  try {
+    const res = await fetch(`${API_URL}/hero/portfolio/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ missionId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reason = body?.error === 'PHOTOS_MISSING'
+        ? 'Lucrarea n-are și poza de dinainte, și pe cea de după. Fără amândouă nu se poate publica.'
+        : body?.message || 'Nu s-a putut publica. Mai încearcă o dată.';
+      return { ok: false, reason };
+    }
+    cacheDrop(CacheKey.myPortfolio); cacheDrop('hero');
+    return { ok: true, item: body.item as MyPortfolioItem };
+  } catch {
+    return { ok: false, reason: 'Nu s-a putut publica. Verifică internetul și mai încearcă.' };
+  }
+};
+
 /* === DATELE DE BAZĂ ALE EROULUI ===
    Se salvează direct: nu există coadă de aprobare. Serverul validează pe loc
    și întoarce mesaje gata scrise în română când ceva nu e bun. */

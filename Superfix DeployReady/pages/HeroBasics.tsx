@@ -12,6 +12,7 @@ import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { readVideoFacts, videoComplaint } from '../lib/shrink';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { PhotoCropper } from '../components/PhotoCropper';
+import { PortfolioManager } from '../components/PortfolioManager';
 import { useToast } from '../components/Toast';
 
 import './portal.css';
@@ -387,6 +388,9 @@ export const HeroBasics: React.FC = () => {
             <RomaniaMap value={areas} onToggle={toggleArea} />
           </div>
         </section>
+
+        {/* PORTOFOLIU — se salvează singur, pe loc, deci nu atinge bara de jos */}
+        <PortfolioManager />
       </main>
 
       {/* bara de salvare, ca peste tot pe site */}

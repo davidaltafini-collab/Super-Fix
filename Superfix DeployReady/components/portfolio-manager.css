@@ -1,0 +1,111 @@
+/* ============================================================
+   Cardurile din „Ce lucrări arăt pe profil" (pagina Datele mele).
+
+   Un card = o lucrare + un singur buton care spune ce se întâmplă.
+   Starea se citește din poză: publicată = culoare plină, ascunsă = stinsă.
+   ============================================================ */
+
+.pfm-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 12px 26px -18px rgba(46, 51, 59, 0.5);
+}
+
+.pfm-card__shot {
+  position: relative;
+  display: block;
+}
+
+.pfm-card__shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  transition: filter 260ms ease;
+}
+
+/* Ascunsă: poza se stinge, ca să se vadă dintr-o privire care lucrări sunt pe profil. */
+.pfm-card[data-on='false'] .pfm-card__shot img {
+  filter: saturate(0.35) brightness(0.94);
+}
+
+.pfm-card[data-on='true'] {
+  box-shadow:
+    0 0 0 2px hsl(152 60% 40%),
+    0 16px 30px -20px hsl(152 60% 40% / 0.7);
+}
+
+/* eticheta „Mândru" stă peste colțul pozei, nu fură rândul titlului */
+.pfm-card__proud {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: hsl(355 74% 48%);
+}
+
+.pfm-card__title {
+  flex: 1;
+  padding: 0.6rem 0.7rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #474e59;
+}
+
+.pfm-card__btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  border: 0;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  background: hsl(152 45% 34%);
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.pfm-card__btn[data-off='true'] {
+  color: #4a515d;
+  background: #dfe4ec;
+}
+
+.pfm-card__btn:hover:not(:disabled) { opacity: 0.88; }
+.pfm-card__btn:disabled { opacity: 0.6; cursor: default; }
+
+.pfm-card__note,
+.pfm-card__warn {
+  padding: 0.5rem 0.7rem 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: #8b929c;
+}
+
+.pfm-card__warn {
+  color: hsl(355 60% 42%);
+  background: hsl(355 74% 96%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pfm-card__shot img,
+  .pfm-card__btn {
+    transition: none;
+  }
+}
