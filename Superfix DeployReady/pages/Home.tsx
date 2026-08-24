@@ -98,11 +98,15 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
            Era `max-h-[42svh] md:max-h-[74svh]`. Pe telefon, orice unitate legata
            de viewport se reevalueaza cand bara de adrese a browserului se retrage
            la scroll — adica mascota se facea mai mica si mai mare in timp ce
-           derulai, si tragea dupa ea inaltimea hero-ului. In rem, mascota are
-           aceeasi marime ca inainte pe un ecran obisnuit (22rem = 352px, cat
-           dadea 42svh pe un iPhone), dar nu mai depinde de interfata browserului.
-           `max-w-full` o tine in coloana si pe telefoanele inguste. */
-        className="relative h-auto w-auto max-h-[22rem] max-w-full md:max-h-[41rem]"
+           derulai, si tragea dupa ea inaltimea hero-ului. In rem nu mai depinde
+           de interfata browserului. `max-w-full` o tine in coloana si pe
+           telefoanele inguste.
+
+           Cifrele sunt masurate, nu convertite din svh: la 42svh mascota impingea
+           titlul si butoanele sub prima pagina pe telefon, iar pe laptop ii ieseau
+           picioarele din cadru. 16rem lasa loc titlului si celor doua butoane pe
+           un ecran de telefon, 34rem o aduce la inaltimea coloanei de text. */
+        className="relative h-auto w-auto max-h-[16rem] max-w-full md:max-h-[34rem]"
         shadow="drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
       />
     </div>
