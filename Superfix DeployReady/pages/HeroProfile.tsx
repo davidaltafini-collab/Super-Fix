@@ -838,18 +838,9 @@ export const HeroProfile: React.FC = () => {
         variant="modal"
       >
         <div className="flex flex-col gap-2.5">
-          {/* Fără conectare funcțională încă (Pasul 8, rundă separată) — layout-ul
-              e deja cel corect pentru când vine handler-ul. Eticheta „În curând"
-              (limbaj deja folosit în Subscription.tsx) e obligatorie aici: un
-              buton dezactivat fără explicație pare stricat, nu „vine mai încolo". */}
-          <div className="relative">
-            <GlassButton type="button" tone="neutral" full disabled>
-              Conectează-te cu Google
-            </GlassButton>
-            <span className="pointer-events-none absolute -top-2 right-3 rounded-full bg-graphite px-2 py-0.5 font-heading text-[10px] font-semibold text-white">
-              În curând
-            </span>
-          </div>
+          {/* Login Google nu există încă (Pasul 8, rundă separată — are nevoie
+              de Client ID/Secret reale din Google Cloud Console). Fără buton
+              dezactivat/etichetat aici: intră direct când handler-ul e gata. */}
           <GlassButton
             type="button"
             tone="dark"
