@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Sheet } from '../components/Sheet';
 import { Lightbox } from '../components/Lightbox';
+import { ClientAuthPanel } from '../components/ClientAuthPanel';
 import { useToast } from '../components/Toast';
 import { getCurrentLocation, geocodeAddress, isLocationError, locationErrorText } from '../lib/geo';
 import { AddressAutocomplete } from '../components/AddressAutocomplete';
@@ -221,6 +222,13 @@ export const HeroProfile: React.FC = () => {
       return;
     }
     toast.error(result.message || 'Nu am putut deschide numărul. Încearcă din nou.');
+  };
+
+  /* După login (Google sau cod pe email), reia direct cererea de telefon —
+     omul a ajuns aici fiindcă voia un număr, nu un cont în sine. */
+  const handleAuthSuccess = () => {
+    setShowPhoneQuota(false);
+    handleCallClick();
   };
 
   /* `powers` e text liber scris de erou. Dacă e o enumerare, o arătăm ca listă
@@ -838,12 +846,10 @@ export const HeroProfile: React.FC = () => {
         variant="modal"
       >
         <div className="flex flex-col gap-2.5">
-          {/* Login Google nu există încă (Pasul 8, rundă separată — are nevoie
-              de Client ID/Secret reale din Google Cloud Console). Fără buton
-              dezactivat/etichetat aici: intră direct când handler-ul e gata. */}
+          <ClientAuthPanel onSuccess={handleAuthSuccess} />
           <GlassButton
             type="button"
-            tone="dark"
+            tone="neutral"
             full
             onClick={() => {
               setShowPhoneQuota(false);

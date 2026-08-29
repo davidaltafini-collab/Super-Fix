@@ -273,6 +273,73 @@ export const getHeroPhone = async (id: string): Promise<HeroPhoneResult> => {
     } catch { return { ok: false }; }
 };
 
+// === LOGIN CLIENT: Google / Apple / cod pe email (CONT-FANTOMA.md §6) ===
+/* Server-ul poate cere telefonul (409 PHONE_REQUIRED) când identitatea nu
+   nimerește niciun cont existent — nu e o poartă înaintea cererii, ci ultimul
+   pas al unei conectări pe care omul a ales-o (identity.ts). */
+export type ClientAuthResult = {
+    ok: boolean;
+    status?: number;
+    error?: string;
+    message?: string;
+    client?: { id: string; name: string; email: string | null; phone: string | null };
+};
+
+const applyClientSession = (data: any) => {
+    localStorage.setItem('superfix_token', data.token);
+    localStorage.setItem('superfix_role', 'CLIENT');
+    cacheClear();
+};
+
+const readClientAuthResponse = async (res: Response): Promise<ClientAuthResult> => {
+    const data = await res.json().catch(() => ({} as any));
+    if (res.ok) {
+        applyClientSession(data);
+        return { ok: true, client: data.client };
+    }
+    return {
+        ok: false,
+        status: res.status,
+        error: typeof data?.error === 'string' ? data.error : undefined,
+        message: typeof data?.message === 'string' ? data.message : undefined,
+    };
+};
+
+export const requestEmailCode = async (email: string): Promise<{ ok: boolean; message?: string }> => {
+    try {
+        const res = await fetch(`${API_URL}/auth/email-code/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        if (res.ok) return { ok: true };
+        const data = await res.json().catch(() => ({} as any));
+        return { ok: false, message: typeof data?.message === 'string' ? data.message : undefined };
+    } catch { return { ok: false }; }
+};
+
+export const verifyEmailCode = async (email: string, code: string, phone?: string): Promise<ClientAuthResult> => {
+    try {
+        const res = await fetch(`${API_URL}/auth/email-code/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getDeviceHeader() },
+            body: JSON.stringify(phone ? { email, code, phone } : { email, code }),
+        });
+        return await readClientAuthResponse(res);
+    } catch { return { ok: false }; }
+};
+
+export const loginWithGoogle = async (idToken: string, phone?: string): Promise<ClientAuthResult> => {
+    try {
+        const res = await fetch(`${API_URL}/auth/oauth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getDeviceHeader() },
+            body: JSON.stringify(phone ? { idToken, phone } : { idToken }),
+        });
+        return await readClientAuthResponse(res);
+    } catch { return { ok: false }; }
+};
+
 export const createHero = async (hero: Hero): Promise<SaveHeroResult> => {
     try {
         const res = await fetch(`${API_URL}/heroes`, {
