@@ -11,6 +11,46 @@ const getAuthHeader = () => {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
+// === TOKENUL DE DISPOZITIV (cont fantomă) ===
+const DEVICE_TOKEN_KEY = 'superfix_device_token';
+
+export const getDeviceToken = (): string | null => {
+    try { return localStorage.getItem(DEVICE_TOKEN_KEY); } catch { return null; }
+};
+
+export const setDeviceToken = (token: string) => {
+    try { localStorage.setItem(DEVICE_TOKEN_KEY, token); } catch { /* ignore */ }
+};
+
+export const clearDeviceToken = () => {
+    try { localStorage.removeItem(DEVICE_TOKEN_KEY); } catch { /* ignore */ }
+};
+
+const getDeviceHeader = () => {
+    const token = getDeviceToken();
+    return token ? { 'X-Device-Token': token } : {};
+};
+
+/* O singură dată per dispozitiv: dacă exista deja un token local, nu mai
+   lovește reteaua. Nu aruncă niciodată — un `null` aici nu are voie să
+   blocheze restul sitului (CONT-FANTOMA.md, Pasul 2). */
+export const ensureDeviceToken = async (): Promise<string | null> => {
+    const existing = getDeviceToken();
+    if (existing) return existing;
+    try {
+        const res = await fetch(`${API_URL}/device`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getDeviceHeader() },
+            body: JSON.stringify({ platform: 'web' }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (typeof data?.token !== 'string') return null;
+        setDeviceToken(data.token);
+        return data.token;
+    } catch { return null; }
+};
+
 /* Sesiunea sta in localStorage, care se citeste SINCRON. Paginile o pot afla la
    primul render, nu intr-un `useEffect` de dupa desenare — altfel portalul apuca
    sa afiseze o data ecranul de login unui om deja logat. */
@@ -21,22 +61,50 @@ export const hasHeroSession = (): boolean =>
 export const currentHeroId = (): string | null => localStorage.getItem('superfix_hero_id');
 
 // === AUTH ===
-export const loginUser = async (username: string, password: string) => {
+/* Formă plată, ca `SaveHeroResult` — nu uniune discriminată: proiectul rulează
+   cu `strictNullChecks` oprit, unde TS nu restrânge fiabil `ok:true`/`ok:false`
+   la două forme diferite (confirmat: `if (result.ok) return; result.error`
+   rămâne eroare de tip chiar și izolat, cu acest tsconfig). */
+export type LoginResult = {
+    ok: boolean;
+    totpEnabled?: boolean;
+    totpSetupRequired?: boolean;
+    adminRole?: string;
+    status?: number;
+    error?: string;
+    message?: string;
+};
+
+/* Al doilea factor (CONT-FANTOMA.md §10): `totpCode` lipsă la prima încercare,
+   completat la a doua, după ce serverul cere `TOTP_REQUIRED`. Corpul de răspuns
+   nu mai e aruncat — `Admin.tsx` are nevoie de `totpSetupRequired` ca să știe
+   dacă duce omul pe ecranul de înrolare în loc de panou. */
+export const loginUser = async (username: string, password: string, totpCode?: string): Promise<LoginResult> => {
     try {
         const res = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify(totpCode ? { username, password, totpCode } : { username, password })
         });
+        const data = await res.json().catch(() => ({} as any));
         if (res.ok) {
-            const data = await res.json();
             localStorage.setItem('superfix_token', data.token);
             localStorage.setItem('superfix_role', 'ADMIN');
             cacheClear(); // alt cont, alte date
-            return true;
+            return {
+                ok: true,
+                totpEnabled: !!data.totpEnabled,
+                totpSetupRequired: !!data.totpSetupRequired,
+                adminRole: typeof data.adminRole === 'string' ? data.adminRole : undefined,
+            };
         }
-        return false;
-    } catch (e) { return false; }
+        return {
+            ok: false,
+            status: res.status,
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch (e) { return { ok: false }; }
 };
 
 export const logoutUser = () => {
@@ -173,12 +241,36 @@ export const createServiceRequest = async (request: ServiceRequest): Promise<boo
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...getDeviceHeader(),
                 ...(request.clientNonce || request.id ? { 'Idempotency-Key': String(request.clientNonce || request.id) } : {}),
             },
             body: JSON.stringify(request)
         });
         return res.ok;
     } catch { return false; }
+};
+
+/* Numărul se cere abia la apăsarea butonului „Sună acum" (CONT-FANTOMA.md §7),
+   niciodată la încărcarea listei/paginii — de-asta e o funcție separată, nu
+   parte din `getHeroBySlug`/`getHeroById`. Formă plată (nu uniune
+   discriminată) ca `SaveHeroResult`/`SaveResult` de mai jos: proiectul are
+   `strictNullChecks` oprit, unde TS nu restrânge fiabil o uniune pe `ok`. */
+export type HeroPhoneResult = { ok: boolean; phone?: string; error?: string; message?: string; canClaimAccount?: boolean };
+
+export const getHeroPhone = async (id: string): Promise<HeroPhoneResult> => {
+    try {
+        const res = await fetch(`${API_URL}/heroes/${id}/phone`, {
+            headers: { ...getAuthHeader(), ...getDeviceHeader() },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && typeof body?.phone === 'string') return { ok: true, phone: body.phone };
+        return {
+            ok: false,
+            error: typeof body?.error === 'string' ? body.error : undefined,
+            message: typeof body?.message === 'string' ? body.message : undefined,
+            canClaimAccount: body?.canClaimAccount === true,
+        };
+    } catch { return { ok: false }; }
 };
 
 export const createHero = async (hero: Hero): Promise<SaveHeroResult> => {

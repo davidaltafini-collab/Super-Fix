@@ -119,6 +119,102 @@ export async function geocodeAddress(address: string): Promise<GeoPoint | null> 
   return null;
 }
 
+/* ---------------- sugestii de adresă, în timp ce scrie ---------------- */
+
+/** O variantă propusă sub câmpul de adresă. */
+export interface AddressSuggestion {
+  /** ce vede omul în listă: „Strada Republicii 12, Timișoara" */
+  label: string;
+  /** partea a doua, mai ștearsă: județul sau cartierul */
+  detail?: string;
+  lat: number;
+  lng: number;
+}
+
+/* Nominatim NU se folosește aici, deși e chiar deasupra.
+   Politica lui de utilizare interzice pe față căutarea în timp ce scrii
+   („no autocomplete search"), iar sancțiunea e blocarea adresei IP — adică
+   s-ar strica și geocodarea de mai sus, care merge bine azi.
+
+   Photon e tot pe date OpenStreetMap, tot fără cheie, dar e construit exact
+   pentru asta: caută după cuvinte incomplete și răspunde în câteva zeci de
+   milisecunde. Numele vin în limba locului, deci în română. */
+const PHOTON = 'https://photon.komoot.io/api/';
+
+/** Colțurile României, ca să nu propună o stradă din Portugalia. */
+const RO_BBOX = '20.26,43.62,29.71,48.27';
+
+/** Aceleași litere, același răspuns: omul șterge și rescrie mult. */
+const suggestCache = new Map<string, AddressSuggestion[]>();
+
+/** Ce scrie pe rândul din listă. Photon dă bucățile separat. */
+function describe(p: Record<string, any>): AddressSuggestion['label'] | null {
+  const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+  const place = p.city || p.town || p.village || p.county;
+  // `name` e numele locului (o firmă, un parc); strada bate numele doar dacă
+  // n-avem nume, altfel „Kaufland, Calea Aradului" e mai util decât strada seacă
+  const head = p.name || street;
+  if (!head) return null;
+  const parts = [head];
+  if (street && street !== head) parts.push(street);
+  if (place && !parts.includes(place)) parts.push(place);
+  return parts.join(', ');
+}
+
+/**
+ * Ce a scris până acum → câteva adrese din care poate alege.
+ *
+ * Nu aruncă niciodată: fără rețea sau cu serviciul picat, întoarce listă goală
+ * și câmpul rămâne un câmp de text obișnuit, exact ca înainte.
+ *
+ * `signal` vine din `AbortController`: la fiecare literă nouă o anulăm pe cea
+ * veche, altfel răspunsurile se întorc în altă ordine decât au plecat și lista
+ * ar clipi cu rezultate pentru un text pe care omul l-a lăsat deja în urmă.
+ */
+export async function suggestAddresses(
+  query: string,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
+  const clean = (query || '').trim();
+  if (clean.length < 3) return [];
+
+  const key = clean.toLowerCase();
+  const cached = suggestCache.get(key);
+  if (cached) return cached;
+
+  try {
+    const url = `${PHOTON}?q=${encodeURIComponent(clean)}&limit=6&bbox=${RO_BBOX}`;
+    const res = await fetch(url, { signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const features = Array.isArray(data?.features) ? data.features : [];
+
+    const seen = new Set<string>();
+    const out: AddressSuggestion[] = [];
+    for (const f of features) {
+      const p = f?.properties || {};
+      // bbox e un dreptunghi, iar dreptunghiul din jurul României prinde și
+      // bucăți din vecini; codul de țară taie fix
+      if (p.countrycode && p.countrycode !== 'RO') continue;
+      const coords = f?.geometry?.coordinates;
+      if (!Array.isArray(coords) || coords.length < 2) continue;
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!valid(lat, lng)) continue;
+      const label = describe(p);
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      out.push({ label, detail: p.county || p.district || undefined, lat, lng });
+    }
+
+    suggestCache.set(key, out);
+    return out;
+  } catch {
+    /* anulare sau rețea: lista rămâne goală, câmpul merge mai departe */
+    return [];
+  }
+}
+
 /** Coordonate → adresă lizibilă, scurtă (stradă, număr, oraș). */
 export async function reverseGeocode(point: GeoPoint): Promise<string | undefined> {
   try {

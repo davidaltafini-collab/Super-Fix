@@ -1,0 +1,255 @@
+/* ============================================================
+   Pozele cererii: câmpul din formular și fâșia de miniaturi.
+   Perechea lui `components/RequestPhotos.tsx`.
+   ============================================================ */
+
+.rqp__optional {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #474e59;
+  opacity: 0.8;
+}
+
+.rqp__hint {
+  margin: 0.15rem 0 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #474e59;
+}
+
+/* ---------------- câmpul ---------------- */
+
+.rqp__grid {
+  display: grid;
+  /* Trei pe telefon, patru de la lățimea unei tablete. Pătratele rămân pătrate
+     la orice lățime — de asta `1fr` și `aspect-ratio`, nu înălțime fixă. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 420px) {
+  .rqp__grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.rqp__cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #eef3fb;
+}
+
+.rqp__cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* butonul de scos poza: disc întunecat, sus-dreapta, cu sticlă sub el */
+.rqp__drop {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 30px arată bine, dar degetul are nevoie de 44: ținta se lărgește cu un
+     pseudo-element transparent, fără să crească discul vizibil */
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(46, 51, 59, 0.72);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  transition: transform 200ms ease, background-color 200ms ease;
+}
+
+.rqp__drop::after {
+  content: '';
+  position: absolute;
+  inset: -0.55rem;
+}
+
+@media (hover: hover) {
+  .rqp__drop:hover { transform: scale(1.08); background: hsl(355 66% 45% / 0.9); }
+}
+
+.rqp__drop:active { transform: scale(0.94); }
+
+.rqp__cell--busy,
+.rqp__cell--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #474e59;
+}
+
+.rqp__cell--busy {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(46, 51, 59, 0.12);
+}
+
+.rqp__cell--add {
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px dashed rgba(46, 51, 59, 0.22);
+  transition: border-color 220ms ease, color 220ms ease, transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.rqp__add {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .rqp__cell--add:hover {
+    transform: translateY(-3px);
+    border-color: hsl(355 74% 55% / 0.55);
+    color: hsl(355 66% 45%);
+  }
+}
+
+/* câmpul de fișier e ascuns înăuntru, deci focusul cade pe el, nu pe casetă */
+.rqp__cell--add:focus-within {
+  outline: 3px solid hsl(355 74% 55% / 0.4);
+  outline-offset: 2px;
+}
+
+.rqp__spin { animation: rqp-spin 900ms linear infinite; }
+
+@keyframes rqp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------- fâșia de citit ---------------- */
+
+.rqp__strip {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0 0 0.2rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* pe telefon se trage cu degetul; pe ecran mare intră toate șase oricum */
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rqp__strip::-webkit-scrollbar { display: none; }
+
+.rqp__strip > li { flex: 0 0 auto; scroll-snap-align: start; }
+
+.rqp__shot {
+  display: block;
+  width: 5.5rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #eef3fb;
+  box-shadow: 0 12px 26px -16px rgba(46, 51, 59, 0.55);
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (min-width: 640px) {
+  .rqp__shot { width: 6.5rem; }
+}
+
+.rqp__shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (hover: hover) {
+  .rqp__shot:hover { transform: translateY(-3px); }
+}
+
+.rqp__shot:active { transform: scale(0.97); }
+
+/* ---------------- poza mare ---------------- */
+
+.rqp__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.rqp__stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 20px;
+  box-shadow: 0 30px 66px -20px rgba(46, 51, 59, 0.5);
+}
+
+.rqp__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(46, 51, 59, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  color: #2e333b;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 30px -14px rgba(46, 51, 59, 0.5);
+  transition: transform 200ms ease;
+}
+
+.rqp__arrow--prev { left: 0.6rem; }
+.rqp__arrow--next { right: 0.6rem; }
+
+@media (hover: hover) {
+  .rqp__arrow:hover { transform: translateY(-50%) scale(1.06); }
+}
+
+.rqp__arrow:active { transform: translateY(-50%) scale(0.94); }
+
+.rqp__count {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(46, 51, 59, 0.72);
+  color: #fff;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rqp__cell--add,
+  .rqp__drop,
+  .rqp__shot,
+  .rqp__arrow { transition: none; }
+  .rqp__spin { animation: none; }
+}

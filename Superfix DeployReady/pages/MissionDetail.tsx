@@ -17,6 +17,7 @@ import {
 } from '../lib/geo';
 import { MapPreview } from '../components/Map';
 import { CameraCapture } from '../components/CameraCapture';
+import { RequestPhotoStrip } from '../components/RequestPhotos';
 import { Sheet } from '../components/Sheet';
 import { useToast } from '../components/Toast';
 
@@ -264,6 +265,25 @@ export const MissionDetail: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* CE A TRIMIS CLIENTUL */}
+        {mission.requestPhotos && mission.requestPhotos.length > 0 && (
+          <section className="mission-card overflow-hidden rounded-[28px] p-6 md:p-7">
+            <h2 className="flex items-center gap-2 font-heading text-xl font-medium text-graphite">
+              <Camera size={22} weight="duotone" className="text-super-red" aria-hidden="true" />
+              Ce ți-a trimis clientul
+            </h2>
+            <p className="mt-2 text-sm text-graphite-soft">
+              Pozele făcute de el când a cerut ajutorul. Uită-te înainte să pleci: de
+              obicei se vede din ele ce scule îți trebuie.
+            </p>
+            <RequestPhotoStrip
+              urls={mission.requestPhotos}
+              who={mission.clientName}
+              className="mt-5"
+            />
+          </section>
+        )}
 
         {/* UNDE */}
         <section className="mission-card overflow-hidden rounded-[28px] p-6 md:p-7">

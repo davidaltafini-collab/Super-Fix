@@ -3,6 +3,8 @@ import { Sheet } from '../components/Sheet';
 import { Lightbox } from '../components/Lightbox';
 import { useToast } from '../components/Toast';
 import { getCurrentLocation, geocodeAddress, isLocationError, locationErrorText } from '../lib/geo';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
+import { RequestPhotosField } from '../components/RequestPhotos';
 /* Leaflet are ~150 KB si se foloseste abia daca omul deschide formularul SI apasa
    pe locatie. In pachetul de start n-are ce cauta: il aducem la nevoie. */
 const MapPicker = lazy(() => import('../components/Map').then(m => ({ default: m.MapPicker })));
@@ -10,7 +12,7 @@ import '../components/form.css';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Hero, ServiceRequest } from '../types';
 import {
-  getHeroById, createServiceRequest, addReview, getHeroBySlug, peekHeroBySlug,
+  getHeroById, createServiceRequest, addReview, getHeroBySlug, peekHeroBySlug, getHeroPhone,
 } from '../services/dataService';
 import { Skel, SkeletonPage } from '../components/Loader';
 import { thumb } from '../lib/img';
@@ -47,6 +49,13 @@ export const HeroProfile: React.FC = () => {
   const posterRef = React.useRef<HTMLButtonElement>(null);
   const [videoOpen, setVideoOpen] = React.useState(false);
   const [videoOrigin, setVideoOrigin] = React.useState<DOMRect | null>(null);
+
+  // === STATE BUTON „SUNĂ ACUM" (numărul se cere la apăsare, CONT-FANTOMA.md §7) ===
+  const phoneBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [phoneLoading, setPhoneLoading] = React.useState(false);
+  const [showPhoneQuota, setShowPhoneQuota] = React.useState(false);
+  const [phoneQuotaOrigin, setPhoneQuotaOrigin] = React.useState<DOMRect | null>(null);
+  const [phoneQuotaMessage, setPhoneQuotaMessage] = React.useState('');
   const canReview = localStorage.getItem('superfix_role') === 'CLIENT' && !!localStorage.getItem('superfix_token');
   
   // === STATE DATE ===
@@ -62,6 +71,8 @@ export const HeroProfile: React.FC = () => {
      eroul primește doar adresa scrisă, iar harta se aprinde prin geocodare,
      care e mai puțin precisă. */
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  /** adresele pozelor deja urcate; se trimit ca `requestPhotos` */
+  const [photos, setPhotos] = useState<string[]>([]);
   const [locating, setLocating] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -167,6 +178,9 @@ export const HeroProfile: React.FC = () => {
       address: formData.address.trim() || null,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
+      /* Serverul ignoră în tăcere ce nu e de pe media noastră, dar aici nu are
+         ce ignora: adresele vin chiar din răspunsul lui la urcare. */
+      requestPhotos: photos,
     };
 
     const requestCreated = await createServiceRequest(request);
@@ -182,8 +196,31 @@ export const HeroProfile: React.FC = () => {
       setSubmitSuccess(false);
       setFormData({ name: '', phone: '', email: '', desc: '', address: '' });
       setCoords(null);
+      setPhotos([]);
       setTermsAccepted(false);
     }, 4000);
+  };
+
+  /* HANDLER: „Sună acum" — numărul se cere abia acum, niciodată la încărcarea
+     paginii (CONT-FANTOMA.md §7): un anonim are dreptul la un singur număr, o
+     dată; a doua oară serverul întoarce `PHONE_QUOTA` și arătăm oferta de cont,
+     nu o eroare. */
+  const handleCallClick = async () => {
+    if (!hero || phoneLoading) return;
+    setPhoneLoading(true);
+    const result = await getHeroPhone(hero.id);
+    setPhoneLoading(false);
+    if (result.ok) {
+      window.location.href = `tel:${result.phone}`;
+      return;
+    }
+    if (result.error === 'PHONE_QUOTA') {
+      setPhoneQuotaMessage(result.message || 'Cu un cont ai numerele salvate, vezi când ajunge omul și îi poți scrie.');
+      setPhoneQuotaOrigin(phoneBtnRef.current?.getBoundingClientRect() ?? null);
+      setShowPhoneQuota(true);
+      return;
+    }
+    toast.error(result.message || 'Nu am putut deschide numărul. Încearcă din nou.');
   };
 
   /* `powers` e text liber scris de erou. Dacă e o enumerare, o arătăm ca listă
@@ -740,13 +777,16 @@ export const HeroProfile: React.FC = () => {
         style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       >
         <div className="sf-glass mx-auto flex max-w-xl gap-2.5 rounded-full p-2">
-          <a
-            href={`tel:${hero.phone}`}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(5,150,105,0.8)] transition-transform active:scale-[0.97] sm:hover:-translate-y-0.5"
+          <button
+            ref={phoneBtnRef}
+            type="button"
+            onClick={handleCallClick}
+            disabled={phoneLoading}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(5,150,105,0.8)] transition-transform active:scale-[0.97] disabled:opacity-70 sm:hover:-translate-y-0.5"
           >
             <Phone size={18} weight="fill" aria-hidden="true" />
-            Sună acum
-          </a>
+            {phoneLoading ? 'Se caută numărul…' : 'Sună acum'}
+          </button>
           <button
             ref={msgBtnRef}
             type="button"
@@ -785,6 +825,38 @@ export const HeroProfile: React.FC = () => {
           </video>
         </div>
       </Lightbox>
+
+      {/* Oferta de cont la a doua cerere de număr într-o zi (CONT-FANTOMA.md §8).
+          Copy-ul e dat cuvânt cu cuvânt acolo — nu-l reformula. Reutilizează
+          Sheet + GlassButton, niciun stil nou. */}
+      <Sheet
+        open={showPhoneQuota}
+        onClose={() => setShowPhoneQuota(false)}
+        originRect={phoneQuotaOrigin}
+        title="Ține minte eroii pe care i-ai sunat"
+        subtitle={phoneQuotaMessage}
+        variant="modal"
+      >
+        <div className="flex flex-col gap-2.5">
+          {/* Fără conectare funcțională încă (Pasul 8, rundă separată) — layout-ul
+              e deja cel corect pentru când vine handler-ul. */}
+          <GlassButton type="button" tone="neutral" full disabled>
+            Conectează-te cu Google
+          </GlassButton>
+          <GlassButton
+            type="button"
+            tone="dark"
+            full
+            onClick={() => {
+              setShowPhoneQuota(false);
+              setFormOrigin(phoneQuotaOrigin);
+              setShowForm(true);
+            }}
+          >
+            Cere ajutor fără cont
+          </GlassButton>
+        </div>
+      </Sheet>
 
       {/* Formularul nu mai sta in pagina: creste din butonul de mai sus.
           variant="modal": card centrat, compact, cu margine vizibila in jur,
@@ -841,23 +913,27 @@ export const HeroProfile: React.FC = () => {
                   reverse-geocode, ca omul să nu scrie nimic dacă nu vrea. */}
               <div className="sf-field">
                 <label htmlFor="sos-address" className="sf-field__label">Unde e problema</label>
-                <input
+                <AddressAutocomplete
                   id="sos-address"
-                  type="text"
-                  autoComplete="street-address"
-                  className="sf-field__input"
                   placeholder="Stradă, număr, oraș"
                   value={formData.address}
-                  aria-invalid={Boolean(fieldErrors.address)}
-                  aria-describedby={fieldErrors.address ? 'sos-address-error' : undefined}
-                  onChange={e => {
-                    setFormData({ ...formData, address: e.target.value });
+                  invalid={Boolean(fieldErrors.address)}
+                  describedBy={fieldErrors.address ? 'sos-address-error' : undefined}
+                  onChange={text => {
+                    setFormData({ ...formData, address: text });
                     if (fieldErrors.address) setFieldErrors(prev => { const n = { ...prev }; delete n.address; return n; });
                   }}
+                  onPick={picked => {
+                    /* Ales din listă: coordonatele vin odată cu textul, deci nu
+                       mai ghicim nimic. Harta apare pe loc, cu pinul unde trebuie. */
+                    setFormData(f => ({ ...f, address: picked.label }));
+                    setCoords({ lat: picked.lat, lng: picked.lng });
+                    setFieldErrors(prev => { const n = { ...prev }; delete n.address; return n; });
+                  }}
                   onBlur={e => {
-                    /* Adresa scrisă de mână se transformă în pin, ca omul să vadă
-                       unde a nimerit și să corecteze. Fără asta, ar trimite o
-                       adresă pe care n-a verificat-o nimeni. */
+                    /* Scrisă de mână și netrecută prin listă: tot o transformăm
+                       în pin, ca omul să vadă unde a nimerit și să corecteze.
+                       Fără asta, ar trimite o adresă pe care n-a verificat-o nimeni. */
                     const text = e.target.value.trim();
                     if (!text || coords) return;
                     geocodeAddress(text).then(found => { if (found) setCoords(found); });
@@ -988,6 +1064,10 @@ export const HeroProfile: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              {/* Pozele vin după descriere, nu înaintea ei: cine nu are chef de
+                  poze a terminat deja de completat ce e obligatoriu. */}
+              <RequestPhotosField urls={photos} onChange={setPhotos} />
 
               {/* ZONA GDPR */}
               <div className="sf-consent" data-invalid={Boolean(fieldErrors.terms)}>

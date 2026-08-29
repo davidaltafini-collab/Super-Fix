@@ -105,8 +105,14 @@ const HeroMascot: React.FC<{ mx: any; my: any }> = ({ mx, my }) => (
            Cifrele sunt masurate, nu convertite din svh: la 42svh mascota impingea
            titlul si butoanele sub prima pagina pe telefon, iar pe laptop ii ieseau
            picioarele din cadru. 16rem lasa loc titlului si celor doua butoane pe
-           un ecran de telefon, 34rem o aduce la inaltimea coloanei de text. */
-        className="relative h-auto w-auto max-h-[16rem] max-w-full md:max-h-[34rem]"
+           un ecran de telefon, 34rem o aduce la inaltimea coloanei de text.
+
+           Pasul de 41rem e pe `min-height`, nu pe latime: pe un monitor mare
+           mascota la 34rem arata pierduta langa titlu, dar aceeasi valoare pe un
+           laptop de 1280x705 ii scoate picioarele 52px sub fold — masurat. Un
+           breakpoint de latime nu ajuta, fiindcă laptopul ala e tot 1280px lat.
+           Peste 880px inaltime de fereastra mai raman 136px sub talpi. */
+        className="relative h-auto w-auto max-h-[16rem] max-w-full md:max-h-[34rem] [@media(min-width:768px)_and_(min-height:880px)]:max-h-[41rem]"
         shadow="drop-shadow-[0_34px_44px_rgba(46,51,59,0.4)]"
       />
     </div>

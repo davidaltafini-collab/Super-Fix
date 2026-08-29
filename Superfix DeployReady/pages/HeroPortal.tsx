@@ -9,6 +9,7 @@ import { Skel, SkeletonPage } from '../components/Loader';
 import { searchMissions } from '../lib/search';
 import { getCurrentLocation, haversineKm, routeMatrix, isLocationError, locationErrorText, GeoPoint, Leg } from '../lib/geo';
 import { CameraCapture } from '../components/CameraCapture';
+import { thumb } from '../lib/img';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
 import { getSubscriptionStatus } from '../services/subscription';
@@ -656,6 +657,22 @@ export const HeroPortal: React.FC = () => {
                   <span className="mcard__mark" aria-hidden="true">„</span>
                   <p className="mcard__words">{mission.description}</p>
                 </div>
+
+                {/* Pozele trimise de client. Aici sunt doar un semn că omul a
+                    arătat ce s-a stricat — trei bucăți și „+N", ca să nu împingă
+                    butonul de preluare sub marginea ecranului. Se văd întregi în
+                    misiune; de asta rămân în interiorul linkului, nu se deschid
+                    separat. */}
+                {mission.requestPhotos && mission.requestPhotos.length > 0 && (
+                  <div className="mcard__shots" aria-label={`${mission.requestPhotos.length} poze de la client`}>
+                    {mission.requestPhotos.slice(0, 3).map(url => (
+                      <img key={url} src={thumb(url, 160, { square: true })} alt="" loading="lazy" />
+                    ))}
+                    {mission.requestPhotos.length > 3 && (
+                      <span className="mcard__more">+{mission.requestPhotos.length - 3}</span>
+                    )}
+                  </div>
+                )}
               </Link>
 
               <div className="mcard__who">

@@ -10,6 +10,7 @@ import { Footer } from './components/Footer';
 import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
 import { LoadingVeilProvider, VeilHold } from './components/Loader';
+import { ensureDeviceToken } from './services/dataService';
 
 /* Drumul principal ramane in pachetul de start: pe astea intra lumea de pe
    Google, si n-au voie sa astepte inca un fisier ca sa apara. */
@@ -84,6 +85,12 @@ const SiteNav = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // O singură dată la deschiderea sitului, în fundal — nu ține loc de gate
+    // (CONT-FANTOMA.md, Pasul 2): site-ul merge normal chiar dacă asta pică.
+    ensureDeviceToken();
+  }, []);
+
   return (
     // 1. HelmetProvider gestionează titlurile paginilor (SEO)
     <HelmetProvider>

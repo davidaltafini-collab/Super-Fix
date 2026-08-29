@@ -514,6 +514,35 @@
 
 .mcard__words { font-size: 1.0625rem; line-height: 1.5; color: #2e333b; }
 
+/* Pozele clientului, în mic. Nu au buton propriu și nu se măresc de aici:
+   cardul e un singur link, iar o miniatură care s-ar deschide separat ar face
+   din el două ținte suprapuse sub același deget. */
+.mcard__shots {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
+.mcard__shots img {
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #eef3fb;
+  /* rama albă le desparte între ele când clientul trimite trei poze din
+     aceeași cameră, toate cam de aceeași culoare */
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 18px -12px rgba(46, 51, 59, 0.6);
+}
+
+.mcard__more {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--st-ink) 75%, transparent);
+}
+
 .mcard__who {
   display: flex;
   align-items: center;

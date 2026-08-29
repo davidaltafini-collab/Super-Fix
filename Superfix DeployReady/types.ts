@@ -90,6 +90,15 @@ export interface ServiceRequest {
     clientNonce?: string;
     hero?: Hero;
 
+    /* Pozele făcute de client când a cerut ajutorul: ce s-a stricat, înainte să
+       vină cineva. Cel mult șase adrese Cloudinary. Se trimit la `POST /api/request`
+       și vin înapoi la orice citire de cerere sau misiune, fără să le ceri.
+
+       Nu se confundă cu `photoBefore` / `photoAfter`: alea sunt jurnalul eroului,
+       făcute la fața locului, și pot ajunge în portofoliul public. Astea rămân
+       între client, erou și administrator. */
+    requestPhotos?: string[];
+
     /* Unde e lucrarea. Serverul le stochează pe toate trei și le întoarce în
        `GET /api/hero/my-missions`. Coordonatele pot lipsi (client care a scris
        doar adresa); atunci se geocodează la afișare — vezi useJobLocation. */

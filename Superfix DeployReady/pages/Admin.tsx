@@ -18,7 +18,8 @@ import { useToast } from '../components/Toast';
 import { SuperfixMark } from '../components/SuperfixMark';
 import { PhotoCropper } from '../components/PhotoCropper';
 import { netLog, onNetLog, clearNetLog, NetEntry } from '../services/netlog';
-import { thumb } from '../lib/img';
+import { thumb, full } from '../lib/img';
+import QRCode from 'qrcode';
 
 import './admin.css';
 
@@ -52,7 +53,25 @@ export const Admin: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [usernameInput, setUsernameInput] = useState('admin');
   const [passwordInput, setPasswordInput] = useState('');
-  
+  const [loginLoading, setLoginLoading] = useState(false);
+  // al doilea factor la login (CONT-FANTOMA.md Pasul 13): câmpul de cod apare
+  // pe același formular abia după ce serverul cere TOTP_REQUIRED.
+  const [needsTotpCode, setNeedsTotpCode] = useState(false);
+  const [totpCodeInput, setTotpCodeInput] = useState('');
+
+  // înrolarea TOTP: contul n-are încă un cod activ, ecranul înlocuiește
+  // complet poarta (nu se vede panoul din spate, la fel ca poarta normală).
+  const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
+  const [totpEnrollLoading, setTotpEnrollLoading] = useState(false);
+  const [totpEnrollError, setTotpEnrollError] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpQrDataUrl, setTotpQrDataUrl] = useState('');
+  const [totpEnrollCode, setTotpEnrollCode] = useState('');
+  const [totpEnrollSubmitting, setTotpEnrollSubmitting] = useState(false);
+  // parola nu se ține în stare după apelul inițial (venea din câmpul de login,
+  // golit imediat); dacă /setup pică din orice motiv, o cerem din nou aici.
+  const [totpEnrollPasswordInput, setTotpEnrollPasswordInput] = useState('');
+
   const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS'>('HEROES');
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
   const [funnelCounts, setFunnelCounts] = useState<Record<string, number> | null>(null);
@@ -429,21 +448,132 @@ export const Admin: React.FC = () => {
     };
 
   // === HANDLERS ===
+  /* Pornește înrolarea TOTP cu parola tocmai introdusă la login (nu o mai cer
+     a doua oară — CONT-FANTOMA.md Pasul 13). QR-ul se generează local din
+     `otpauthUrl`, nu la un serviciu extern: ar scurge secretul către un terț. */
+  const startTotpEnrollment = async (password: string) => {
+    setTotpEnrollError('');
+    setTotpEnrollLoading(true);
+    setTotpSecret('');
+    setTotpQrDataUrl('');
+    try {
+        const token = localStorage.getItem('superfix_token');
+        const res = await fetch(`${API_URL}/admin/totp/setup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok && typeof data?.secret === 'string' && typeof data?.otpauthUrl === 'string') {
+            setTotpSecret(data.secret);
+            setTotpQrDataUrl(await QRCode.toDataURL(data.otpauthUrl, { margin: 1, width: 240 }));
+        } else if (data?.error === 'TOTP_ALREADY_ENABLED') {
+            // s-a activat deja (alt tab/dispozitiv) cât timp deschideam ecranul ăsta
+            setNeedsTotpSetup(false);
+            setIsAuthenticated(true);
+        } else {
+            setTotpEnrollError(data?.message || 'Nu am putut porni înrolarea. Încearcă din nou.');
+        }
+    } catch {
+        setTotpEnrollError('Nu am putut porni înrolarea. Încearcă din nou.');
+    } finally {
+        setTotpEnrollLoading(false);
+    }
+  };
+
+  const handleTotpEnrollRetryPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const password = totpEnrollPasswordInput;
+    setTotpEnrollPasswordInput('');
+    await startTotpEnrollment(password);
+  };
+
+  const handleTotpEnable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (totpEnrollSubmitting) return;
+    setTotpEnrollSubmitting(true);
+    setTotpEnrollError('');
+    try {
+        const token = localStorage.getItem('superfix_token');
+        const res = await fetch(`${API_URL}/admin/totp/enable`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ code: totpEnrollCode }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok && data?.success) {
+            setNeedsTotpSetup(false);
+            setIsAuthenticated(true);
+            setTotpSecret('');
+            setTotpQrDataUrl('');
+            setTotpEnrollCode('');
+        } else if (data?.error === 'TOTP_ALREADY_ENABLED') {
+            setNeedsTotpSetup(false);
+            setIsAuthenticated(true);
+        } else if (data?.error === 'TOTP_NOT_STARTED') {
+            setTotpEnrollError(data?.message || 'Începe cu pasul de configurare.');
+            setTotpSecret('');
+            setTotpQrDataUrl('');
+        } else {
+            setTotpEnrollError(data?.message || 'Codul nu e bun. Încearcă cu cel care se arată acum.');
+            setTotpEnrollCode('');
+        }
+    } catch {
+        setTotpEnrollError('Nu am putut activa codul. Încearcă din nou.');
+    } finally {
+        setTotpEnrollSubmitting(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (await loginUser(usernameInput, passwordInput)) {
-        if (localStorage.getItem('superfix_role') === 'ADMIN') {
+    if (loginLoading) return;
+    setLoginLoading(true);
+    const result = await loginUser(usernameInput, passwordInput, needsTotpCode ? totpCodeInput : undefined);
+    setLoginLoading(false);
+
+    if (result.ok) {
+        if (result.totpSetupRequired) {
+            const password = passwordInput;
+            setNeedsTotpSetup(true);
+            setNeedsTotpCode(false);
+            setTotpCodeInput('');
+            setUsernameInput('');
+            setPasswordInput('');
+            void startTotpEnrollment(password);
+        } else {
             setIsAuthenticated(true);
             setUsernameInput('');
             setPasswordInput('');
-        } else {
-            toast.error('Contul acesta nu are drepturi de administrator.');
-            logoutUser();
+            setTotpCodeInput('');
+            setNeedsTotpCode(false);
         }
-    } else toast.error('Date incorecte.');
+        return;
+    }
+
+    if (result.error === 'TOTP_REQUIRED') { setNeedsTotpCode(true); return; }
+    if (result.error === 'TOTP_INVALID') {
+        toast.error(result.message || 'Codul nu e bun. Încearcă cu cel care se arată acum.');
+        setTotpCodeInput('');
+        return;
+    }
+    if (result.error === 'ADMIN_DISABLED') {
+        toast.error(result.message || 'Contul tău a fost suspendat. Vorbește cu administratorul principal.');
+        return;
+    }
+    toast.error(result.message || 'Date incorecte.');
   };
 
-  const handleLogout = () => { logoutUser(); setIsAuthenticated(false); };
+  const handleLogout = () => {
+    logoutUser();
+    setIsAuthenticated(false);
+    setNeedsTotpCode(false);
+    setTotpCodeInput('');
+    setNeedsTotpSetup(false);
+    setTotpSecret('');
+    setTotpQrDataUrl('');
+    setTotpEnrollCode('');
+  };
 
   const addCategory = () => {
       if (!newCatInput.trim() || categoryList.includes(newCatInput)) return;
@@ -731,11 +861,34 @@ export const Admin: React.FC = () => {
             }
             
             /* GRID POZE */
-            .grid { 
-                display: grid; 
-                grid-template-columns: 1fr 1fr; 
+            .grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
                 gap: 20px;
                 margin-bottom: 30px;
+            }
+            /* Pozele trimise de client la cerere. Stau mai mici decât perechea
+               înainte/după: alea sunt dovada lucrării, astea sunt contextul. */
+            .shots {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 12px;
+                margin-bottom: 30px;
+                break-inside: avoid;
+            }
+            .shots img {
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                object-fit: cover;
+                border: 4px solid black;
+                box-shadow: 4px 4px 0 #000;
+            }
+            .shots-title {
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                font-size: 13px;
+                margin-bottom: 12px;
             }
             .box { 
                 text-align: center;
@@ -910,6 +1063,14 @@ export const Admin: React.FC = () => {
             </div>
           </div>
 
+          ${viewEvidence.requestPhotos && viewEvidence.requestPhotos.length > 0 ? `
+          <div class="shots-title">📷 Ce a trimis clientul când a cerut ajutorul</div>
+          <div class="shots">
+            ${viewEvidence.requestPhotos
+              .map(url => `<img src="${escapeHtml(thumb(url, 600, { square: true }))}" alt="Poză de la client" />`)
+              .join('')}
+          </div>` : ''}
+
           <div class="footer">
             <div>🏆 Certificat emis de SuperFix HQ<br/>✓ Validat de Administrator</div>
             <div>📍 Portal Admin<br/>🔒 Confidențial</div>
@@ -983,6 +1144,91 @@ export const Admin: React.FC = () => {
   ] as const;
 
   /* ---------------- poarta ---------------- */
+  if (needsTotpSetup) return (
+    <div className="flex min-h-screen items-center justify-center px-5 font-sans text-graphite">
+      <div className="adm adm-card w-full max-w-sm p-7">
+        <SuperfixMark className="mx-auto h-14 w-14" />
+        <h1 className="mt-5 text-center font-heading text-2xl font-bold text-graphite">Cod de autentificare</h1>
+        <p className="mt-2 text-center text-sm text-graphite-soft">
+          Contul tău n-are încă un cod activ. Scanează codul cu o aplicație de autentificare (Google Authenticator, Authy etc.), apoi confirmă mai jos.
+        </p>
+
+        {totpQrDataUrl ? (
+          <>
+            <div className="mt-6 flex justify-center">
+              <img
+                src={totpQrDataUrl}
+                alt="Cod QR pentru aplicația de autentificare"
+                width={180}
+                height={180}
+                className="rounded-2xl border border-graphite/10"
+              />
+            </div>
+            <div className="mt-3 rounded-xl bg-graphite/5 p-3 text-center">
+              <p className="text-[0.65rem] uppercase tracking-wide text-graphite-soft">Sau scrie manual</p>
+              <p className="mt-1 select-all break-all font-mono text-xs text-graphite">{totpSecret}</p>
+            </div>
+            <div role="alert" className="mt-3 flex items-start gap-2 rounded-2xl bg-super-red/8 p-3 text-xs font-semibold text-super-red-dark">
+              <Warning size={16} weight="bold" className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>Acest cod se arată o singură dată. Salvează-l acum în aplicația de autentificare.</span>
+            </div>
+
+            <form onSubmit={handleTotpEnable} className="mt-4 space-y-3">
+              {totpEnrollError && (
+                <div role="alert" className="rounded-2xl bg-super-red/8 p-3 text-sm font-semibold text-super-red-dark">
+                  {totpEnrollError}
+                </div>
+              )}
+              <div>
+                <label htmlFor="totp-enable-code" className="adm-label">Cod din aplicație</label>
+                <input
+                  id="totp-enable-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  className="adm-input text-center tracking-[0.4em]"
+                  value={totpEnrollCode}
+                  onChange={e => setTotpEnrollCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={totpEnrollSubmitting || totpEnrollCode.length !== 6}
+                className="adm-btn adm-btn--main w-full"
+              >
+                {totpEnrollSubmitting ? 'Se activează…' : 'Activează codul'}
+              </button>
+            </form>
+          </>
+        ) : totpEnrollLoading ? (
+          <p className="mt-6 text-center text-sm text-graphite-soft">Se pregătește codul…</p>
+        ) : (
+          <form onSubmit={handleTotpEnrollRetryPassword} className="mt-6 space-y-3">
+            {totpEnrollError && (
+              <div role="alert" className="rounded-2xl bg-super-red/8 p-4 text-sm font-semibold text-super-red-dark">
+                {totpEnrollError}
+              </div>
+            )}
+            <div>
+              <label htmlFor="totp-enroll-pass" className="adm-label">Parolă</label>
+              <input
+                id="totp-enroll-pass"
+                type="password"
+                className="adm-input"
+                autoComplete="current-password"
+                value={totpEnrollPasswordInput}
+                onChange={e => setTotpEnrollPasswordInput(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="adm-btn adm-btn--main w-full">Încearcă din nou</button>
+          </form>
+        )}
+
+        <button type="button" onClick={handleLogout} className="adm-btn adm-btn--quiet mt-4 w-full">Ieși</button>
+      </div>
+    </div>
+  );
+
   if (!isAuthenticated) return (
     <div className="flex min-h-screen items-center justify-center px-5 font-sans text-graphite">
       <form onSubmit={handleLogin} className="adm adm-card w-full max-w-sm p-7">
@@ -997,6 +1243,7 @@ export const Admin: React.FC = () => {
               id="adm-user"
               className="adm-input"
               autoComplete="username"
+              disabled={needsTotpCode}
               value={usernameInput}
               onChange={e => setUsernameInput(e.target.value)}
             />
@@ -1008,13 +1255,31 @@ export const Admin: React.FC = () => {
               type="password"
               className="adm-input"
               autoComplete="current-password"
+              disabled={needsTotpCode}
               value={passwordInput}
               onChange={e => setPasswordInput(e.target.value)}
             />
           </div>
+          {needsTotpCode && (
+            <div>
+              <label htmlFor="adm-totp" className="adm-label">Cod din aplicația de autentificare</label>
+              <input
+                id="adm-totp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
+                className="adm-input text-center tracking-[0.4em]"
+                value={totpCodeInput}
+                onChange={e => setTotpCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+          )}
         </div>
 
-        <button type="submit" className="adm-btn adm-btn--main mt-6 w-full">Intră</button>
+        <button type="submit" disabled={loginLoading} className="adm-btn adm-btn--main mt-6 w-full">
+          {loginLoading ? 'Se verifică…' : 'Intră'}
+        </button>
       </form>
     </div>
   );
@@ -1150,7 +1415,10 @@ export const Admin: React.FC = () => {
                     <td>{req.hero?.alias || '—'}</td>
                     <td><State map={MISSION_STATE} value={req.status} /></td>
                     <td className="text-right">
-                      {req.status === 'COMPLETED' && (
+                      {/* Nu doar pe misiunile terminate: dacă omul a trimis poze
+                          când a cerut ajutorul, ele se văd de la prima oră, nu
+                          după ce se închide lucrarea. */}
+                      {(req.status === 'COMPLETED' || (req.requestPhotos?.length ?? 0) > 0) && (
                         <button type="button" onClick={() => setViewEvidence(req)} className="adm-btn adm-btn--quiet">
                           <ImageSquare size={15} weight="bold" aria-hidden="true" />
                           Vezi
@@ -2052,10 +2320,15 @@ export const Admin: React.FC = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={handlePrintDossier} className="adm-btn adm-btn--dark">
-                  <Printer size={15} weight="bold" aria-hidden="true" />
-                  Printează dosarul
-                </button>
+                {/* Dosarul printat e un certificat: scrie „misiune completată" pe
+                    el. Pe o cerere încă deschisă ar minți, deci nu se poate
+                    printa până nu e gata cu adevărat. */}
+                {viewEvidence.status === 'COMPLETED' && (
+                  <button type="button" onClick={handlePrintDossier} className="adm-btn adm-btn--dark">
+                    <Printer size={15} weight="bold" aria-hidden="true" />
+                    Printează dosarul
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewEvidence(null)}
@@ -2067,6 +2340,32 @@ export const Admin: React.FC = () => {
               </div>
             </div>
 
+            {/* Ce a trimis clientul stă înaintea dovezilor eroului: asta e ordinea
+                în care s-au întâmplat. */}
+            {viewEvidence.requestPhotos && viewEvidence.requestPhotos.length > 0 && (
+              <div className="border-b border-graphite/10 p-5 sm:p-6">
+                <p className="adm-label">De la client, la cerere</p>
+                <div className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-6">
+                  {viewEvidence.requestPhotos.map(url => (
+                    <a
+                      key={url}
+                      href={full(url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block aspect-square overflow-hidden rounded-xl bg-graphite/10 transition-transform hover:-translate-y-0.5"
+                      title="Deschide poza întreagă"
+                    >
+                      <img src={thumb(url, 260, { square: true })} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Perechea înainte/după e jurnalul eroului. Pe o cerere care încă
+                n-a fost lucrată n-are ce arăta, iar două casete cu „Lipsă" ar
+                sugera că s-a pierdut ceva. */}
+            {(viewEvidence.status === 'COMPLETED' || viewEvidence.photoBefore || viewEvidence.photoAfter) && (
             <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
               {([
                 { label: 'Înainte', url: viewEvidence.photoBefore, file: 'inainte' },
@@ -2094,6 +2393,7 @@ export const Admin: React.FC = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>,
         document.body,
