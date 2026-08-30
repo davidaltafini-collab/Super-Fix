@@ -336,6 +336,7 @@ export function registerIdentityRoutes(
     codeVerifyLimiter: RequestHandler;
     claimLimiter: RequestHandler;
     queueEmail: (prisma: any, dedupeKey: string, payload: any) => Promise<any>;
+    kickEmailOutbox: () => void;
     frontendUrl: (path: string) => string;
   },
 ) {
@@ -437,6 +438,9 @@ export function registerIdentityRoutes(
           message: 'Codul e valabil 10 minute și poate fi folosit o singură dată. Dacă nu l-ai cerut tu, ignoră mesajul.',
         });
       });
+      // Coada durabilă rezolvă retenția (Resend picat etc.), nu viteza — omul
+      // stă cu ochii pe telefon la codul ăsta, nu-l lăsăm să aștepte cronul.
+      deps.kickEmailOutbox();
       return res.status(202).json({ success: true });
     } catch (error) {
       console.error('email code request error:', error);
@@ -607,6 +611,7 @@ export function registerIdentityRoutes(
         ctaLink: deps.frontendUrl(`/app?c=${encodeURIComponent(token)}`),
         ctaText: 'DESCHIDE APLICAȚIA',
       });
+      deps.kickEmailOutbox();
       return res.json({ success: true });
     } catch (error) {
       console.error('mission invite error:', error);
