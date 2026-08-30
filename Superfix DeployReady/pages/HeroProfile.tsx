@@ -845,21 +845,14 @@ export const HeroProfile: React.FC = () => {
         subtitle={phoneQuotaMessage}
         variant="modal"
       >
-        <div className="flex flex-col gap-2.5">
-          <ClientAuthPanel onSuccess={handleAuthSuccess} />
-          <GlassButton
-            type="button"
-            tone="neutral"
-            full
-            onClick={() => {
-              setShowPhoneQuota(false);
-              setFormOrigin(phoneQuotaOrigin);
-              setShowForm(true);
-            }}
-          >
-            Cere ajutor fără cont
-          </GlassButton>
-        </div>
+        <ClientAuthPanel
+          onSuccess={handleAuthSuccess}
+          onSkip={() => {
+            setShowPhoneQuota(false);
+            setFormOrigin(phoneQuotaOrigin);
+            setShowForm(true);
+          }}
+        />
       </Sheet>
 
       {/* Formularul nu mai sta in pagina: creste din butonul de mai sus.

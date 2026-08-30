@@ -17,9 +17,15 @@ import { requestEmailCode, verifyEmailCode, loginWithGoogle, ClientAuthResult } 
    ============================================================ */
 
 type ClientInfo = NonNullable<ClientAuthResult['client']>;
-type Step = 'choose' | 'email' | 'code' | 'phone';
+type Step = 'landing' | 'choose' | 'email' | 'code' | 'phone';
 
-const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || '';
+// Client ID-ul Google NU e secret — e făcut să stea în JS-ul de client (de-aia
+// verificarea reală se face cu tokenul semnat, nu cu ID-ul ăsta). Valoarea de
+// mai jos e cea dată de user pe 30 aug 2026; `VITE_GOOGLE_CLIENT_ID`, dacă e
+// setat la build (ex. în Vercel), o suprascrie.
+const GOOGLE_CLIENT_ID =
+  (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ||
+  '800332298261-eekua42dm73lcbflsf9i69hr4nh2069t.apps.googleusercontent.com';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_RE = /^07\d{8}$/;
 
@@ -35,8 +41,8 @@ const BackLink: React.FC<{ onClick: () => void; children: React.ReactNode }> = (
   </button>
 );
 
-export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void }> = ({ onSuccess }) => {
-  const [step, setStep] = React.useState<Step>('choose');
+export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void; onSkip: () => void }> = ({ onSuccess, onSkip }) => {
+  const [step, setStep] = React.useState<Step>('landing');
   const [email, setEmail] = React.useState('');
   const [code, setCode] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -123,9 +129,23 @@ export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void
     finish(res);
   };
 
+  if (step === 'landing') {
+    return (
+      <div className="flex flex-col gap-2.5">
+        <GlassButton type="button" tone="dark" full onClick={() => setStep('choose')}>
+          Conectează-te
+        </GlassButton>
+        <GlassButton type="button" tone="neutral" full onClick={onSkip}>
+          Cere ajutor fără cont
+        </GlassButton>
+      </div>
+    );
+  }
+
   if (step === 'choose') {
     return (
       <div className="flex flex-col gap-2.5">
+        <BackLink onClick={() => { setStep('landing'); setError(''); }}>Înapoi</BackLink>
         {GOOGLE_CLIENT_ID && (
           <div className="flex flex-col items-center gap-2.5">
             <div ref={googleBtnRef} className="min-h-[44px]" />
