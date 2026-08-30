@@ -25,7 +25,7 @@ type Step = 'landing' | 'choose' | 'email' | 'code' | 'phone';
 // setat la build (ex. în Vercel), o suprascrie.
 const GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ||
-  '800332298261-eekua42dm73lcbflsf9i69hr4nh2069t.apps.googleusercontent.com';
+  '800332298261-u6depd7fb51il1vfkn7gn0p0ui5c02fl.apps.googleusercontent.com';
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_RE = /^07\d{8}$/;
 
