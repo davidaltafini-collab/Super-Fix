@@ -203,9 +203,9 @@ export const HeroProfile: React.FC = () => {
   };
 
   /* HANDLER: „Sună acum" — numărul se cere abia acum, niciodată la încărcarea
-     paginii (CONT-FANTOMA.md §7): un anonim are dreptul la un singur număr, o
-     dată; a doua oară serverul întoarce `PHONE_QUOTA` și arătăm oferta de cont,
-     nu o eroare. */
+     paginii (CONT-FANTOMA.md §7). Anonimii nu mai au barieră (31 aug 2026);
+     doar contul verificat mai poate primi `PHONE_QUOTA` (10/zi), caz în care
+     arătăm oferta de cont, nu o eroare. */
   const handleCallClick = async () => {
     if (!hero || phoneLoading) return;
     setPhoneLoading(true);

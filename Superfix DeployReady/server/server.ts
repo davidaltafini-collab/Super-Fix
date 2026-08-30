@@ -1554,19 +1554,23 @@ app.get('/api/heroes/:id/phone', phoneRevealLimiter, optionalAuthenticateToken, 
                 select: { id: true },
             });
             if (!already) {
-                const used = await prisma.auditLog.count({
-                    where: { ...actorWhere, ...(since ? { createdAt: { gte: since } } : {}) },
-                });
-                if (used >= limit) {
-                    // Copy-ul din §7: întors spre ce câștigă omul, nu spre ce a făcut.
-                    // Titlul și butoanele le pune aplicația; aici e doar motivul.
-                    return res.status(403).json({
-                        error: 'PHONE_QUOTA',
-                        message: clientId
-                            ? 'Ai deschis multe numere azi. Mai încearcă mâine sau scrie-i eroului în aplicație.'
-                            : 'Cu un cont ai numerele salvate, vezi când ajunge omul și îi poți scrie.',
-                        canClaimAccount: !clientId,
+                // Bariera pe anonimi a fost scoasă (31 aug 2026, la cererea userului
+                // — un singur număr pe viață era prea enervant). Contul verificat
+                // păstrează cota de 10/zi; anonimul rămâne doar contabilizat în audit
+                // (pentru `/api/admin/investigate`), fără blocaj. Plasa reală pentru
+                // scraping rămâne limiterul pe IP (`phoneRevealLimiter`, 10/oră).
+                if (clientId) {
+                    const used = await prisma.auditLog.count({
+                        where: { ...actorWhere, ...(since ? { createdAt: { gte: since } } : {}) },
                     });
+                    if (used >= limit) {
+                        // Copy-ul din §7: întors spre ce câștigă omul, nu spre ce a făcut.
+                        return res.status(403).json({
+                            error: 'PHONE_QUOTA',
+                            message: 'Ai deschis multe numere azi. Mai încearcă mâine sau scrie-i eroului în aplicație.',
+                            canClaimAccount: false,
+                        });
+                    }
                 }
                 // Se AȘTEAPTĂ: dacă rândul n-ar fi scris înainte de răspuns, două
                 // cereri una după alta ar citi amândouă același `used` și cota
