@@ -90,6 +90,8 @@ export const loginUser = async (username: string, password: string, totpCode?: s
         if (res.ok) {
             localStorage.setItem('superfix_token', data.token);
             localStorage.setItem('superfix_role', 'ADMIN');
+            if (typeof data.adminRole === 'string') localStorage.setItem('superfix_admin_role', data.adminRole);
+            else localStorage.removeItem('superfix_admin_role');
             cacheClear(); // alt cont, alte date
             return {
                 ok: true,
@@ -112,6 +114,7 @@ export const logoutUser = () => {
     localStorage.removeItem('superfix_token');
     localStorage.removeItem('superfix_role');
     localStorage.removeItem('superfix_hero_id');
+    localStorage.removeItem('superfix_admin_role');
     cacheClear();
     if (token) {
         fetch(`${API_URL}/auth/logout`, {
@@ -140,6 +143,183 @@ export const loginHero = async (username: string, password: string) => {
     } catch (e) { return false; }
 };
 export const logout = logoutUser;
+
+/* === ADMIN: CONTURILE DE ADMIN (trepte SUPER/ADMIN/SUPPORT) ===
+   Contract complet în server/admins.ts — rutele verifică deja SUPER pe server,
+   aici doar le apelăm. `password`/`password_confirm` din funcțiile de mai jos
+   e mereu parola CELUI CARE APASĂ (identitate, nu o repetare a parolei
+   contului țintă) — serverul o cere ca să nu poată oricine, de la un laptop
+   deschis, să creeze/modifice conturi de admin. */
+
+export interface AdminRoleInfo { label: string; description: string; }
+
+export interface AdminAccount {
+    id: string;
+    username: string;
+    role: 'SUPER' | 'ADMIN' | 'SUPPORT';
+    totpEnabled: boolean;
+    disabled: boolean;
+    createdAt: string;
+    lastLoginAt: string | null;
+}
+
+const isSessionFatal = (error: unknown) => error === 'SESSION_INVALID' || error === 'ADMIN_DISABLED';
+
+export interface AdminMeResult {
+    ok: boolean;
+    forceLogout?: boolean;
+    adminId?: string;
+    adminUsername?: string;
+    adminRole?: string;
+    totpEnabled?: boolean;
+    totpRequired?: boolean;
+    roles?: Record<string, AdminRoleInfo>;
+    error?: string;
+    message?: string;
+}
+
+/* Se cheamă la fiecare pornire a panoului cu o sesiune deja în localStorage
+   (unde loginUser nu s-a rulat acum) — panoul altfel nu știe treapta. Pe
+   sesiune moartă sau cont suspendat, `forceLogout` spune apelantului să
+   delogheze, nu doar să arate un ecran stricat. */
+export const getAdminMe = async (): Promise<AdminMeResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/me`, { headers: getAuthHeader() });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) {
+            return {
+                ok: true,
+                adminId: typeof data.id === 'string' ? data.id : undefined,
+                adminUsername: typeof data.username === 'string' ? data.username : undefined,
+                adminRole: typeof data.role === 'string' ? data.role : undefined,
+                totpEnabled: !!data.totpEnabled,
+                totpRequired: !!data.totpRequired,
+                roles: data.roles,
+            };
+        }
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
+
+export interface AdminListResult {
+    ok: boolean;
+    admins?: AdminAccount[];
+    roles?: Record<string, AdminRoleInfo>;
+    forceLogout?: boolean;
+    error?: string;
+    message?: string;
+}
+
+export const listAdmins = async (): Promise<AdminListResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins`, { headers: getAuthHeader() });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true, admins: data.admins, roles: data.roles };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
+
+export interface AdminMutationResult {
+    ok: boolean;
+    admin?: AdminAccount;
+    forceLogout?: boolean;
+    error?: string;
+    message?: string;
+    fields?: Record<string, string[] | undefined>;
+}
+
+export const createAdmin = async (input: {
+    username: string;
+    password: string;
+    role: 'ADMIN' | 'SUPPORT';
+    password_confirm: string; // parola celui care apasă, nu a contului nou
+}): Promise<AdminMutationResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify(input),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true, admin: data as AdminAccount };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+            fields: data?.fields,
+        };
+    } catch { return { ok: false }; }
+};
+
+export const patchAdmin = async (
+    id: string,
+    changes: { role?: 'SUPER' | 'ADMIN' | 'SUPPORT'; disabled?: boolean },
+): Promise<AdminMutationResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify(changes),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true, admin: data as AdminAccount };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
+
+export interface AdminSimpleResult { ok: boolean; forceLogout?: boolean; error?: string; message?: string; }
+
+export const resetAdminTotp = async (id: string, password: string): Promise<AdminSimpleResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins/${encodeURIComponent(id)}/reset-totp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
+
+export const setAdminPassword = async (id: string, password: string, newPassword: string): Promise<AdminSimpleResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins/${encodeURIComponent(id)}/password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ password, newPassword }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
 
 // === ADMIN: APPLICATIONS ===
 export const getApplications = async () => {

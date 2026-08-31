@@ -6,10 +6,12 @@ import {
   Pulse, Broom, Warning,
 } from '@phosphor-icons/react';
 import { JobCategory, Hero, ServiceRequest } from '../types';
-import { 
-    createHero, getAllRequests, loginUser, logoutUser, 
-    getApplications, deleteApplication, getHeroes, 
-    updateHero, deleteHero 
+import {
+    createHero, getAllRequests, loginUser, logoutUser,
+    getApplications, deleteApplication, getHeroes,
+    updateHero, deleteHero,
+    getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword,
+    AdminAccount, AdminRoleInfo,
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { API_URL } from '../config/api';
@@ -72,7 +74,36 @@ export const Admin: React.FC = () => {
   // golit imediat); dacă /setup pică din orice motiv, o cerem din nou aici.
   const [totpEnrollPasswordInput, setTotpEnrollPasswordInput] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS'>('HEROES');
+  // Treapta contului conectat (SUPER/ADMIN/SUPPORT) — panoul n-o știa deloc
+  // înainte; fila „Administratori" există doar pentru SUPER, exact ca pe server.
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+  const [adminId, setAdminId] = useState<string | null>(null);
+  const [adminRoleInfo, setAdminRoleInfo] = useState<Record<string, AdminRoleInfo> | null>(null);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+  const [adminAccountsLoading, setAdminAccountsLoading] = useState(false);
+  const [adminAccountsError, setAdminAccountsError] = useState('');
+  const [adminAccountAction, setAdminAccountAction] = useState<string | null>(null);
+  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [newAdminUsername, setNewAdminUsername] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'ADMIN' | 'SUPPORT'>('ADMIN');
+  const [newAdminOwnPassword, setNewAdminOwnPassword] = useState('');
+  const [createAdminError, setCreateAdminError] = useState('');
+  const [createAdminSubmitting, setCreateAdminSubmitting] = useState(false);
+  // Prompt reutilizat pentru „parola proprie" cerută la suspendare/reactivare,
+  // resetare TOTP și parolă nouă — un singur dialog, nu trei scrise separat.
+  const [ownPasswordPrompt, setOwnPasswordPrompt] = useState<{
+    title: string;
+    submitLabel: string;
+    needsNewPassword?: boolean;
+    onConfirm: (password: string, newPassword: string) => Promise<void>;
+  } | null>(null);
+  const [ownPasswordInput, setOwnPasswordInput] = useState('');
+  const [ownPasswordError, setOwnPasswordError] = useState('');
+  const [ownPasswordSubmitting, setOwnPasswordSubmitting] = useState(false);
+  const [newTargetPassword, setNewTargetPassword] = useState('');
+
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS'>('HEROES');
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
   const [funnelCounts, setFunnelCounts] = useState<Record<string, number> | null>(null);
   const [funnelStage, setFunnelStage] = useState<string | null>(null);
@@ -136,7 +167,12 @@ export const Admin: React.FC = () => {
     useEffect(() => {
         const token = localStorage.getItem('superfix_token');
         const role = localStorage.getItem('superfix_role');
-        if (token && role === 'ADMIN') setIsAuthenticated(true);
+        if (token && role === 'ADMIN') {
+            setIsAuthenticated(true);
+            // treapta din localStorage (pusă la login) e doar un prim afișaj rapid —
+            // getAdminMe() de mai jos o confirmă/înlocuiește și prinde sesiunea moartă.
+            setAdminRole(localStorage.getItem('superfix_admin_role'));
+        }
         else { setIsAuthenticated(false); if (token) logoutUser(); }
 
         const savedCats = localStorage.getItem('superfix_full_categories');
@@ -147,6 +183,28 @@ export const Admin: React.FC = () => {
         if (!isAuthenticated) return;
         refreshAllData();
     }, [isAuthenticated, activeTab]);
+
+    /* Confirmă treapta reală la fiecare pornire cu sesiune veche în localStorage
+       (loginUser n-a rulat acum, deci n-avem de unde ști treapta altfel) și
+       prinde sesiunea moartă / contul suspendat — nu doar cereri care pică tăcut. */
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        let cancelled = false;
+        (async () => {
+            const result = await getAdminMe();
+            if (cancelled) return;
+            if (result.ok) {
+                setAdminRole(result.adminRole ?? null);
+                setAdminId(result.adminId ?? null);
+                if (result.adminRole) localStorage.setItem('superfix_admin_role', result.adminRole);
+                if (result.roles) setAdminRoleInfo(result.roles);
+            } else if (result.forceLogout) {
+                toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.');
+                handleLogout();
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isAuthenticated]);
 
     /* Coada de aprobare a profilurilor a fost retrasă de pe server: `/api/hero/basics`
        salvează direct. Tabul „Modificări", funcțiile de aprobare și alerta din fișa
@@ -445,6 +503,7 @@ export const Admin: React.FC = () => {
         if (activeTab === 'PAYOUTS') fetchPayouts();
         if (activeTab === 'RECRUITERS') fetchRecruiters();
         if (activeTab === 'FUNNEL') fetchFunnelCounts();
+        if (activeTab === 'ADMINS') fetchAdminAccounts();
     };
 
   // === HANDLERS ===
@@ -543,6 +602,7 @@ export const Admin: React.FC = () => {
             void startTotpEnrollment(password);
         } else {
             setIsAuthenticated(true);
+            setAdminRole(result.adminRole ?? null);
             setUsernameInput('');
             setPasswordInput('');
             setTotpCodeInput('');
@@ -573,6 +633,151 @@ export const Admin: React.FC = () => {
     setTotpSecret('');
     setTotpQrDataUrl('');
     setTotpEnrollCode('');
+    setAdminRole(null);
+    setAdminRoleInfo(null);
+    setAdminId(null);
+    setAdminAccounts([]);
+    if (activeTab === 'ADMINS') setActiveTab('HEROES');
+  };
+
+  /* === ADMINISTRATORI (doar SUPER) === */
+
+  const fetchAdminAccounts = async () => {
+    setAdminAccountsLoading(true);
+    setAdminAccountsError('');
+    const result = await listAdmins();
+    setAdminAccountsLoading(false);
+    if (result.ok) {
+        setAdminAccounts(result.admins || []);
+        if (result.roles) setAdminRoleInfo(result.roles);
+    } else if (result.forceLogout) {
+        toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.');
+        handleLogout();
+    } else {
+        setAdminAccountsError(result.message || 'Lista de administratori nu a putut fi încărcată.');
+    }
+  };
+
+  const handleCreateAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (createAdminSubmitting) return;
+    setCreateAdminError('');
+    setCreateAdminSubmitting(true);
+    const result = await createAdmin({
+        username: newAdminUsername,
+        password: newAdminPassword,
+        role: newAdminRole,
+        password_confirm: newAdminOwnPassword,
+    });
+    setCreateAdminSubmitting(false);
+    if (result.ok) {
+        toast.success(`Contul „${newAdminUsername}" a fost creat.`);
+        setShowCreateAdmin(false);
+        setNewAdminUsername('');
+        setNewAdminPassword('');
+        setNewAdminOwnPassword('');
+        setNewAdminRole('ADMIN');
+        await fetchAdminAccounts();
+    } else if (result.forceLogout) {
+        toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.');
+        handleLogout();
+    } else {
+        const fieldMsg = result.fields ? Object.values(result.fields).flat().join(' ') : '';
+        setCreateAdminError(fieldMsg || result.message || 'Contul nu a putut fi creat.');
+    }
+  };
+
+  const runAdminAccountAction = async (actionKey: string, fn: () => Promise<{ ok: boolean; forceLogout?: boolean; message?: string }>, successMsg?: string) => {
+    setAdminAccountAction(actionKey);
+    const result = await fn();
+    setAdminAccountAction(null);
+    if (result.ok) {
+        if (successMsg) toast.success(successMsg);
+        await fetchAdminAccounts();
+        return true;
+    }
+    if (result.forceLogout) {
+        toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.');
+        handleLogout();
+        return false;
+    }
+    toast.error(result.message || 'Acțiunea nu a putut fi executată.');
+    return false;
+  };
+
+  const handleRoleChange = (account: AdminAccount, role: 'SUPER' | 'ADMIN' | 'SUPPORT') => {
+    void runAdminAccountAction(`role:${account.id}`, () => patchAdmin(account.id, { role }), `Treapta lui ${account.username} a fost schimbată.`);
+  };
+
+  const handleSuspendToggle = async (account: AdminAccount) => {
+    const toSuspend = !account.disabled;
+    const label = toSuspend ? `Suspenzi contul „${account.username}"? Sesiunile lui vor fi invalidate imediat.` : `Reactivezi contul „${account.username}"?`;
+    if (!(await toast.confirm(label, { confirmLabel: toSuspend ? 'Suspend' : 'Reactivez', danger: toSuspend }))) return;
+    void runAdminAccountAction(`disable:${account.id}`, () => patchAdmin(account.id, { disabled: toSuspend }), toSuspend ? `Contul „${account.username}" a fost suspendat.` : `Contul „${account.username}" a fost reactivat.`);
+  };
+
+  const openOwnPasswordPrompt = (title: string, submitLabel: string, onConfirm: (password: string, newPassword: string) => Promise<void>, needsNewPassword?: boolean) => {
+    setOwnPasswordInput('');
+    setOwnPasswordError('');
+    setNewTargetPassword('');
+    setOwnPasswordPrompt({ title, submitLabel, onConfirm, needsNewPassword });
+  };
+
+  const handleResetTotpClick = (account: AdminAccount) => {
+    openOwnPasswordPrompt(
+        `Resetezi codul TOTP pentru „${account.username}"? Va trebui să-l configureze din nou la următoarea conectare. Confirmă cu propria ta parolă.`,
+        'Resetează codul',
+        async (password) => {
+            setAdminAccountAction(`reset-totp:${account.id}`);
+            const result = await resetAdminTotp(account.id, password);
+            setAdminAccountAction(null);
+            if (result.ok) {
+                toast.success(`Codul TOTP pentru „${account.username}" a fost resetat.`);
+                await fetchAdminAccounts();
+                return;
+            }
+            if (result.forceLogout) { toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.'); handleLogout(); }
+            throw new Error(result.message || 'Codul TOTP nu a putut fi resetat.');
+        },
+    );
+  };
+
+  const handleSetPasswordClick = (account: AdminAccount) => {
+    openOwnPasswordPrompt(
+        `Parolă nouă pentru „${account.username}". Confirmă cu propria ta parolă și scrie mai jos parola nouă a contului.`,
+        'Salvează parola',
+        async (password, newPassword) => {
+            if (newPassword.length < 12 || !/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+                throw new Error('Parola nouă trebuie să aibă minimum 12 caractere, o literă mică, o literă mare și o cifră.');
+            }
+            setAdminAccountAction(`set-password:${account.id}`);
+            const result = await setAdminPassword(account.id, password, newPassword);
+            setAdminAccountAction(null);
+            if (result.ok) {
+                toast.success(`Parola pentru „${account.username}" a fost schimbată.`);
+                await fetchAdminAccounts();
+                return;
+            }
+            if (result.forceLogout) { toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.'); handleLogout(); }
+            throw new Error(result.message || 'Parola nu a putut fi schimbată.');
+        },
+        true,
+    );
+  };
+
+  const handleOwnPasswordConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownPasswordPrompt || ownPasswordSubmitting) return;
+    setOwnPasswordError('');
+    setOwnPasswordSubmitting(true);
+    try {
+        await ownPasswordPrompt.onConfirm(ownPasswordInput, newTargetPassword);
+        setOwnPasswordSubmitting(false);
+        setOwnPasswordPrompt(null);
+    } catch (error) {
+        setOwnPasswordSubmitting(false);
+        setOwnPasswordError(error instanceof Error ? error.message : 'Acțiunea nu a putut fi executată.');
+    }
   };
 
   const addCategory = () => {
@@ -1125,6 +1330,17 @@ export const Admin: React.FC = () => {
     CANCELLED: { word: 'Anulat', tone: 'off' },
   };
 
+  // culoarea treptei — eticheta vine din server (adminRoleInfo), nu de aici
+  const ADMIN_ROLE_TONE: Record<string, string> = { SUPER: 'live', ADMIN: 'info', SUPPORT: 'wait' };
+  const ADMIN_TOTP_STATE: Record<string, { word: string; tone: string }> = {
+    YES: { word: 'Activ', tone: 'live' },
+    NO: { word: 'Neactivat', tone: 'wait' },
+  };
+  const ADMIN_DISABLED_STATE: Record<string, { word: string; tone: string }> = {
+    YES: { word: 'Suspendat', tone: 'stop' },
+    NO: { word: 'Activ', tone: 'live' },
+  };
+
   const State: React.FC<{ map: Record<string, { word: string; tone: string }>; value?: string }> = ({ map, value }) => {
     const found = map[value || ''] ?? { word: value || '—', tone: 'off' };
     return <span className="adm-state" data-tone={found.tone}>{found.word}</span>;
@@ -1132,7 +1348,7 @@ export const Admin: React.FC = () => {
 
   const pendingRecruiters = recruiters.filter(r => r.status === 'PENDING').length;
 
-  const TABS = [
+  const TABS: { key: string; label: string; count: number }[] = [
     { key: 'HEROES', label: 'Eroi', count: 0 },
     { key: 'REQUESTS', label: 'Misiuni', count: 0 },
     { key: 'APPLICATIONS', label: 'Recrutare', count: applications.length },
@@ -1141,7 +1357,10 @@ export const Admin: React.FC = () => {
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
     { key: 'SETTINGS', label: 'Setări', count: 0 },
     { key: 'LOGS', label: 'Jurnal', count: 0 },
-  ] as const;
+  ];
+  if (adminRole === 'SUPER') {
+    TABS.push({ key: 'ADMINS', label: 'Administratori', count: 0 });
+  }
 
   /* ---------------- poarta ---------------- */
   if (needsTotpSetup) return (
@@ -1974,6 +2193,114 @@ export const Admin: React.FC = () => {
             </div>
           </section>
         )}
+
+        {/* ---------------- ADMINISTRATORI ---------------- */}
+        {activeTab === 'ADMINS' && (
+          <section className="mt-5 space-y-4" aria-labelledby="admins-title">
+            <div className="adm-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 id="admins-title" className="font-heading text-lg text-graphite">Administratori</h2>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+                  Conturile care pot intra în panoul ăsta. Doar administratorul principal vede fila asta.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={fetchAdminAccounts} disabled={adminAccountsLoading || Boolean(adminAccountAction)} className="adm-btn adm-btn--quiet">
+                  <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+                  {adminAccountsLoading ? 'Se încarcă…' : 'Reîmprospătează'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCreateAdminError(''); setNewAdminUsername(''); setNewAdminPassword(''); setNewAdminOwnPassword(''); setNewAdminRole('ADMIN'); setShowCreateAdmin(true); }}
+                  className="adm-btn adm-btn--main"
+                >
+                  <Plus size={15} weight="bold" aria-hidden="true" />
+                  Administrator nou
+                </button>
+              </div>
+            </div>
+
+            {adminAccountsError && (
+              <div role="alert" className="flex items-start justify-between gap-4 rounded-2xl bg-super-red/8 p-4 text-sm font-semibold text-super-red-dark">
+                <span>{adminAccountsError}</span>
+                <button type="button" onClick={() => setAdminAccountsError('')} aria-label="Închide" className="shrink-0">
+                  <X size={16} weight="bold" />
+                </button>
+              </div>
+            )}
+
+            {adminAccountsLoading && adminAccounts.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">Se încarcă…</p>
+            ) : adminAccounts.length === 0 ? (
+              <p className="adm-card p-8 text-center text-sm text-graphite-soft">Niciun cont încă.</p>
+            ) : (
+              <section className="adm-card adm-scroll">
+                <table className="adm-table">
+                  <thead>
+                    <tr>
+                      <th>Utilizator</th>
+                      <th>Treaptă</th>
+                      <th>Cod TOTP</th>
+                      <th>Stare</th>
+                      <th>Creat</th>
+                      <th>Ultima conectare</th>
+                      <th className="text-right">Acțiuni</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminAccounts.map(acc => {
+                      const isSelf = adminId !== null && acc.id === adminId;
+                      const busy = adminAccountAction === `role:${acc.id}` || adminAccountAction === `disable:${acc.id}` || adminAccountAction === `reset-totp:${acc.id}` || adminAccountAction === `set-password:${acc.id}`;
+                      return (
+                        <tr key={acc.id}>
+                          <td>
+                            {acc.username}
+                            {isSelf && <span className="ml-1.5 text-xs font-semibold text-graphite-soft">(tu)</span>}
+                          </td>
+                          <td>
+                            <select
+                              className="adm-input"
+                              aria-label={`Treapta lui ${acc.username}`}
+                              value={acc.role}
+                              disabled={busy || isSelf || acc.role === 'SUPER'}
+                              onChange={e => handleRoleChange(acc, e.target.value as 'SUPER' | 'ADMIN' | 'SUPPORT')}
+                            >
+                              {acc.role === 'SUPER' && <option value="SUPER">{adminRoleInfo?.SUPER?.label || 'Administrator principal'}</option>}
+                              <option value="ADMIN">{adminRoleInfo?.ADMIN?.label || 'Administrator'}</option>
+                              <option value="SUPPORT">{adminRoleInfo?.SUPPORT?.label || 'Suport'}</option>
+                            </select>
+                          </td>
+                          <td><State map={ADMIN_TOTP_STATE} value={acc.totpEnabled ? 'YES' : 'NO'} /></td>
+                          <td><State map={ADMIN_DISABLED_STATE} value={acc.disabled ? 'YES' : 'NO'} /></td>
+                          <td className="adm-num whitespace-nowrap">{formatDateTime(acc.createdAt)}</td>
+                          <td className="adm-num whitespace-nowrap">{acc.lastLoginAt ? formatDateTime(acc.lastLoginAt) : '—'}</td>
+                          <td className="text-right">
+                            <div className="flex flex-wrap justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSuspendToggle(acc)}
+                                disabled={busy || isSelf}
+                                className={acc.disabled ? 'adm-btn adm-btn--dark' : 'adm-btn adm-btn--danger'}
+                              >
+                                {adminAccountAction === `disable:${acc.id}` ? '…' : acc.disabled ? 'Reactivează' : 'Suspendă'}
+                              </button>
+                              <button type="button" onClick={() => handleResetTotpClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
+                                {adminAccountAction === `reset-totp:${acc.id}` ? '…' : 'Resetează TOTP'}
+                              </button>
+                              <button type="button" onClick={() => handleSetPasswordClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
+                                {adminAccountAction === `set-password:${acc.id}` ? '…' : 'Parolă nouă'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </section>
+            )}
+          </section>
+        )}
       </div>
 
       {/* ---------------- FIȘA EROULUI ---------------- */}
@@ -2394,6 +2721,95 @@ export const Admin: React.FC = () => {
               ))}
             </div>
             )}
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* ---------------- ADMINISTRATOR NOU ---------------- */}
+      {showCreateAdmin && createPortal(
+        <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label="Administrator nou" onClick={e => { if (e.target === e.currentTarget && !createAdminSubmitting) setShowCreateAdmin(false); }}>
+          <div className="adm-sheet !max-w-md">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-graphite/10 bg-[#f4f7fb]/95 px-5 py-3.5 backdrop-blur">
+              <h2 className="font-heading text-lg text-graphite">Administrator nou</h2>
+              <button
+                type="button"
+                onClick={() => setShowCreateAdmin(false)}
+                aria-label="Închide"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-graphite/8 hover:text-graphite"
+              >
+                <X size={17} weight="bold" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateAdminSubmit} className="space-y-4 p-5 sm:p-6">
+              {createAdminError && (
+                <div role="alert" className="rounded-2xl bg-super-red/8 p-3 text-sm font-semibold text-super-red-dark">{createAdminError}</div>
+              )}
+              <div>
+                <label htmlFor="new-admin-username" className="adm-label">Utilizator</label>
+                <input id="new-admin-username" className="adm-input" autoComplete="off" value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="new-admin-role" className="adm-label">Treaptă</label>
+                <select id="new-admin-role" className="adm-input" value={newAdminRole} onChange={e => setNewAdminRole(e.target.value as 'ADMIN' | 'SUPPORT')}>
+                  <option value="ADMIN">{adminRoleInfo?.ADMIN?.label || 'Administrator'}</option>
+                  <option value="SUPPORT">{adminRoleInfo?.SUPPORT?.label || 'Suport'}</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="new-admin-password" className="adm-label">Parola noului cont</label>
+                <input id="new-admin-password" type="password" className="adm-input" autoComplete="new-password" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)} required />
+                <p className="mt-1.5 text-xs text-graphite-soft">Minimum 12 caractere, o literă mică, o literă mare și o cifră.</p>
+              </div>
+              <div className="border-t border-graphite/10 pt-4">
+                <label htmlFor="new-admin-own-password" className="adm-label">Propria ta parolă (de conectare)</label>
+                <input id="new-admin-own-password" type="password" className="adm-input" autoComplete="current-password" value={newAdminOwnPassword} onChange={e => setNewAdminOwnPassword(e.target.value)} required />
+                <p className="mt-1.5 text-xs text-graphite-soft">Nu parola noului cont — parola cu care ești conectat tu acum, ca să confirmi că tu faci asta.</p>
+              </div>
+              <button type="submit" disabled={createAdminSubmitting} className="adm-btn adm-btn--main w-full">
+                {createAdminSubmitting ? 'Se creează…' : 'Creează contul'}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* ---------------- PAROLA PROPRIE (confirmare) ---------------- */}
+      {ownPasswordPrompt && createPortal(
+        <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label="Confirmă cu parola ta" onClick={e => { if (e.target === e.currentTarget && !ownPasswordSubmitting) setOwnPasswordPrompt(null); }}>
+          <div className="adm-sheet !max-w-md">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-graphite/10 bg-[#f4f7fb]/95 px-5 py-3.5 backdrop-blur">
+              <h2 className="font-heading text-lg text-graphite">Confirmă cu parola ta</h2>
+              <button
+                type="button"
+                onClick={() => setOwnPasswordPrompt(null)}
+                aria-label="Închide"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-graphite/8 hover:text-graphite"
+              >
+                <X size={17} weight="bold" />
+              </button>
+            </div>
+            <form onSubmit={handleOwnPasswordConfirm} className="space-y-4 p-5 sm:p-6">
+              <p className="text-sm leading-relaxed text-graphite-soft">{ownPasswordPrompt.title}</p>
+              {ownPasswordError && (
+                <div role="alert" className="rounded-2xl bg-super-red/8 p-3 text-sm font-semibold text-super-red-dark">{ownPasswordError}</div>
+              )}
+              {ownPasswordPrompt.needsNewPassword && (
+                <div>
+                  <label htmlFor="own-pass-new" className="adm-label">Parola nouă a contului</label>
+                  <input id="own-pass-new" type="password" className="adm-input" autoComplete="new-password" value={newTargetPassword} onChange={e => setNewTargetPassword(e.target.value)} required />
+                  <p className="mt-1.5 text-xs text-graphite-soft">Minimum 12 caractere, o literă mică, o literă mare și o cifră.</p>
+                </div>
+              )}
+              <div>
+                <label htmlFor="own-pass-confirm" className="adm-label">Propria ta parolă</label>
+                <input id="own-pass-confirm" type="password" className="adm-input" autoComplete="current-password" value={ownPasswordInput} onChange={e => setOwnPasswordInput(e.target.value)} required autoFocus />
+              </div>
+              <button type="submit" disabled={ownPasswordSubmitting} className="adm-btn adm-btn--main w-full">
+                {ownPasswordSubmitting ? 'Se confirmă…' : ownPasswordPrompt.submitLabel}
+              </button>
+            </form>
           </div>
         </div>,
         document.body,
