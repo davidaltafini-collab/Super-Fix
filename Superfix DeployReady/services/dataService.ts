@@ -321,6 +321,76 @@ export const setAdminPassword = async (id: string, password: string, newPassword
     } catch { return { ok: false }; }
 };
 
+// === ADMIN: CĂUTARE / ECRANUL DE OM ===
+
+export interface InvestigateParams {
+    phone?: string;
+    clientId?: string;
+    deviceToken?: string;
+    ip?: string;
+    heroId?: string;
+    action?: string;
+    from?: string;
+    to?: string;
+}
+
+export interface InvestigateClient {
+    id: string; name: string; phone: string; email: string | null;
+    verified: boolean; createdAt: string; deletedAt: string | null;
+}
+export interface InvestigateDevice {
+    id: string; platform: string | null; clientId: string; createdAt: string; lastSeenAt: string;
+}
+export interface InvestigateRequest {
+    id: string; heroId: string; clientId: string | null; clientName: string; clientPhone: string;
+    status: string; date: string; description: string;
+}
+export interface InvestigateAuditEntry {
+    id: string; actorType: string; actorId: string; action: string; entityType: string;
+    entityId: string | null; metadata: Record<string, unknown> | null; createdAt: string;
+}
+export interface InvestigateIp {
+    ip: string; userAgent: string | null; lastAt: string; count: number;
+}
+export interface InvestigateResult {
+    ok: boolean;
+    forceLogout?: boolean;
+    message?: string;
+    clients?: InvestigateClient[];
+    devices?: InvestigateDevice[];
+    requests?: InvestigateRequest[];
+    messagesSent?: number;
+    audit?: InvestigateAuditEntry[];
+    ips?: InvestigateIp[];
+}
+
+export const investigate = async (params: InvestigateParams): Promise<InvestigateResult> => {
+    const qs = Object.entries(params)
+        .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&');
+    try {
+        const res = await fetch(`${API_URL}/admin/investigate?${qs}`, { headers: getAuthHeader() });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) {
+            return {
+                ok: true,
+                clients: data.clients || [],
+                devices: data.devices || [],
+                requests: data.requests || [],
+                messagesSent: typeof data.messagesSent === 'number' ? data.messagesSent : 0,
+                audit: data.audit || [],
+                ips: data.ips || [],
+            };
+        }
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            message: typeof data?.message === 'string' ? data.message : (typeof data?.error === 'string' ? data.error : 'Căutarea a eșuat.'),
+        };
+    } catch { return { ok: false, message: 'Eroare de rețea.' }; }
+};
+
 // === ADMIN: APPLICATIONS ===
 export const getApplications = async () => {
     try {

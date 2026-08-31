@@ -2308,8 +2308,20 @@ app.get('/api/admin/investigate', authenticateToken, async (req: any, res) => {
         const clientId = typeof req.query.clientId === 'string' ? req.query.clientId.slice(0, 64) : '';
         const deviceToken = typeof req.query.deviceToken === 'string' ? req.query.deviceToken.slice(0, 200) : '';
         const ip = typeof req.query.ip === 'string' ? req.query.ip.slice(0, 45) : '';
-        if (!phone && !clientId && !deviceToken && !ip) {
-            return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Dă un telefon, un cont, un token de dispozitiv sau un IP.' });
+        // Eroul e a doua parte a firului (§10 zice "cont", dar plângerile vin des
+        // pe "eroul X mi-a cerut numărul de două ori") — cheie separată, nu se
+        // amestecă în `clientIds`, fiindcă un erou nu e niciodată un client.
+        const heroId = typeof req.query.heroId === 'string' ? req.query.heroId.slice(0, 64) : '';
+        const action = typeof req.query.action === 'string' ? req.query.action.slice(0, 64) : '';
+        const parseDate = (v: unknown): Date | null => {
+            if (typeof v !== 'string' || !v) return null;
+            const d = new Date(v);
+            return isNaN(d.getTime()) ? null : d;
+        };
+        const fromDate = parseDate(req.query.from);
+        const toDate = parseDate(req.query.to);
+        if (!phone && !clientId && !deviceToken && !ip && !heroId) {
+            return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Dă un telefon, un cont, un erou, un token de dispozitiv sau un IP.' });
         }
 
         // Pasul 1: de la orice cheie, ajungem la un set de clienți.
@@ -2347,6 +2359,7 @@ app.get('/api/admin/investigate', authenticateToken, async (req: any, res) => {
         const requestWhere: any = { OR: [] as any[] };
         if (ids.length) requestWhere.OR.push({ clientId: { in: ids } });
         if (phone) requestWhere.OR.push({ clientPhone: phone });
+        if (heroId) requestWhere.OR.push({ heroId });
         const requests = requestWhere.OR.length
             ? await prisma.serviceRequest.findMany({
                 where: requestWhere,
@@ -2368,11 +2381,20 @@ app.get('/api/admin/investigate', authenticateToken, async (req: any, res) => {
             : [];
 
         // Faptele: după actor (clienți sau dispozitive) — DEVICE_CREATED e scris pe
-        // id-ul dispozitivului, înainte să existe vreun client de legat.
+        // id-ul dispozitivului, înainte să existe vreun client de legat. Eroul
+        // intră separat: e propriul lui actor, nu se pierde în `ids`.
         const auditActors = [...ids, ...devices.map((d: any) => d.id)];
+        if (heroId) auditActors.push(heroId);
+        const auditWhere: any = { actorId: { in: auditActors } };
+        if (action) auditWhere.action = action;
+        if (fromDate || toDate) {
+            auditWhere.createdAt = {};
+            if (fromDate) auditWhere.createdAt.gte = fromDate;
+            if (toDate) auditWhere.createdAt.lte = toDate;
+        }
         const audit = auditActors.length
             ? await prisma.auditLog.findMany({
-                where: { actorId: { in: auditActors } },
+                where: auditWhere,
                 orderBy: { createdAt: 'desc' }, take: 200,
             })
             : [];
@@ -2383,9 +2405,17 @@ app.get('/api/admin/investigate', authenticateToken, async (req: any, res) => {
 
         // IP-urile de pe care a intrat, cu ultima dată văzut. Din `ApiLog`, unde
         // sunt deja stocate — fără colectare nouă.
-        const ipRows = ids.length
+        const ipWhere: any = { ip: { not: null }, OR: [] as any[] };
+        if (ids.length) ipWhere.OR.push({ actorType: 'CLIENT', actorId: { in: ids } });
+        if (heroId) ipWhere.OR.push({ actorType: 'HERO', actorId: heroId });
+        if (fromDate || toDate) {
+            ipWhere.createdAt = {};
+            if (fromDate) ipWhere.createdAt.gte = fromDate;
+            if (toDate) ipWhere.createdAt.lte = toDate;
+        }
+        const ipRows = ipWhere.OR.length
             ? await prisma.apiLog.findMany({
-                where: { actorType: 'CLIENT', actorId: { in: ids }, ip: { not: null } },
+                where: ipWhere,
                 orderBy: { createdAt: 'desc' }, take: 300,
                 select: { ip: true, userAgent: true, createdAt: true },
             })
@@ -2398,7 +2428,11 @@ app.get('/api/admin/investigate', authenticateToken, async (req: any, res) => {
         }
 
         res.json({
-            query: { phone: phone || null, clientId: clientId || null, deviceToken: deviceToken ? 'dat' : null, ip: ip || null },
+            query: {
+                phone: phone || null, clientId: clientId || null, deviceToken: deviceToken ? 'dat' : null,
+                ip: ip || null, heroId: heroId || null, action: action || null,
+                from: fromDate ? fromDate.toISOString() : null, to: toDate ? toDate.toISOString() : null,
+            },
             clients: clients.map((c: any) => ({
                 id: c.id, name: c.name, phone: c.phone, email: c.email,
                 // Starea contului E `passwordHash` (§5, fără câmp separat de stare).

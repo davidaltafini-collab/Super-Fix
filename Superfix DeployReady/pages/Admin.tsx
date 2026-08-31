@@ -12,6 +12,7 @@ import {
     updateHero, deleteHero,
     getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword,
     AdminAccount, AdminRoleInfo,
+    investigate, InvestigateResult,
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { API_URL } from '../config/api';
@@ -103,7 +104,22 @@ export const Admin: React.FC = () => {
   const [ownPasswordSubmitting, setOwnPasswordSubmitting] = useState(false);
   const [newTargetPassword, setNewTargetPassword] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS'>('HEROES');
+  // Căutare / „ecranul de om" (§10): un fir pornit de la orice cheie —
+  // telefon, cont, erou, token de dispozitiv sau IP.
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchClientId, setSearchClientId] = useState('');
+  const [searchDeviceToken, setSearchDeviceToken] = useState('');
+  const [searchIp, setSearchIp] = useState('');
+  const [searchHeroId, setSearchHeroId] = useState('');
+  const [searchAction, setSearchAction] = useState('');
+  const [searchFrom, setSearchFrom] = useState('');
+  const [searchTo, setSearchTo] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [searchResult, setSearchResult] = useState<InvestigateResult | null>(null);
+  const [searchRan, setSearchRan] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
   const [funnelCounts, setFunnelCounts] = useState<Record<string, number> | null>(null);
   const [funnelStage, setFunnelStage] = useState<string | null>(null);
@@ -637,7 +653,10 @@ export const Admin: React.FC = () => {
     setAdminRoleInfo(null);
     setAdminId(null);
     setAdminAccounts([]);
-    if (activeTab === 'ADMINS') setActiveTab('HEROES');
+    setSearchResult(null);
+    setSearchRan(false);
+    setSearchError('');
+    if (activeTab === 'ADMINS' || activeTab === 'CAUTARE') setActiveTab('HEROES');
   };
 
   /* === ADMINISTRATORI (doar SUPER) === */
@@ -777,6 +796,34 @@ export const Admin: React.FC = () => {
     } catch (error) {
         setOwnPasswordSubmitting(false);
         setOwnPasswordError(error instanceof Error ? error.message : 'Acțiunea nu a putut fi executată.');
+    }
+  };
+
+  /* === CĂUTARE / ECRANUL DE OM (§10) === */
+
+  const handleInvestigateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchLoading) return;
+    if (!searchPhone && !searchClientId && !searchDeviceToken && !searchIp && !searchHeroId) {
+        setSearchError('Dă cel puțin un telefon, un cont, un erou, un token de dispozitiv sau un IP.');
+        return;
+    }
+    setSearchError('');
+    setSearchLoading(true);
+    const result = await investigate({
+        phone: searchPhone, clientId: searchClientId, deviceToken: searchDeviceToken,
+        ip: searchIp, heroId: searchHeroId, action: searchAction, from: searchFrom, to: searchTo,
+    });
+    setSearchLoading(false);
+    setSearchRan(true);
+    if (result.ok) {
+        setSearchResult(result);
+    } else if (result.forceLogout) {
+        toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.');
+        handleLogout();
+    } else {
+        setSearchResult(null);
+        setSearchError(result.message || 'Căutarea nu a putut fi executată.');
     }
   };
 
@@ -1341,6 +1388,29 @@ export const Admin: React.FC = () => {
     NO: { word: 'Activ', tone: 'live' },
   };
 
+  // etichete pentru filtrul de acțiune din „Căutare" — lista exactă din server/audit.ts (AUDIT)
+  const AUDIT_ACTION_LABELS: Record<string, string> = {
+    DEVICE_CREATED: 'Dispozitiv creat',
+    REQUEST_CREATED: 'Cerere creată',
+    PHONE_REVEAL: 'Telefon dezvăluit',
+    REPORT_FILED: 'Sesizare depusă',
+    ACCOUNT_CLAIMED: 'Cont revendicat',
+    PHONE_BLOCKED: 'Telefon blocat',
+    PHONE_UNBLOCKED: 'Telefon deblocat',
+    ACCOUNT_DELETED: 'Cont șters',
+    ADMIN_TOTP_ENABLED: 'TOTP admin activat',
+    ADMIN_TOTP_DISABLED: 'TOTP admin dezactivat',
+    ADMIN_TOTP_RESET: 'TOTP admin resetat',
+    ADMIN_CREATED: 'Admin creat',
+    ADMIN_ROLE_CHANGED: 'Treaptă admin schimbată',
+    ADMIN_DISABLED: 'Admin suspendat',
+    ADMIN_ENABLED: 'Admin reactivat',
+    ADMIN_PASSWORD_RESET: 'Parolă admin resetată',
+    PHONE_WARNED: 'Telefon avertizat',
+    DEVICE_BLOCKED: 'Dispozitiv blocat',
+    DEVICE_UNBLOCKED: 'Dispozitiv deblocat',
+  };
+
   const State: React.FC<{ map: Record<string, { word: string; tone: string }>; value?: string }> = ({ map, value }) => {
     const found = map[value || ''] ?? { word: value || '—', tone: 'off' };
     return <span className="adm-state" data-tone={found.tone}>{found.word}</span>;
@@ -1357,6 +1427,7 @@ export const Admin: React.FC = () => {
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
     { key: 'SETTINGS', label: 'Setări', count: 0 },
     { key: 'LOGS', label: 'Jurnal', count: 0 },
+    { key: 'CAUTARE', label: 'Căutare', count: 0 },
   ];
   if (adminRole === 'SUPER') {
     TABS.push({ key: 'ADMINS', label: 'Administratori', count: 0 });
@@ -2299,6 +2370,211 @@ export const Admin: React.FC = () => {
                 </table>
               </section>
             )}
+          </section>
+        )}
+
+        {/* ---------------- CĂUTARE / ECRANUL DE OM (§10) ---------------- */}
+        {activeTab === 'CAUTARE' && (
+          <section className="mt-5 space-y-4" aria-labelledby="cautare-title">
+            <div className="adm-card p-5">
+              <h2 id="cautare-title" className="font-heading text-lg text-graphite">Căutare</h2>
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+                Dă orice fir — telefon, cont, erou, token de dispozitiv sau IP — și primești tot ce știm despre el:
+                cererile lui, dispozitivele, jurnalul de acțiuni și IP-urile văzute. Niciun identificator nu e
+                dovadă singură, dar firul complet arată tiparul.
+              </p>
+              <form onSubmit={handleInvestigateSubmit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <label htmlFor="search-phone" className="adm-label">Telefon</label>
+                  <input id="search-phone" className="adm-input" value={searchPhone} onChange={e => setSearchPhone(e.target.value)} placeholder="07xxxxxxxx" />
+                </div>
+                <div>
+                  <label htmlFor="search-clientid" className="adm-label">ID cont client</label>
+                  <input id="search-clientid" className="adm-input" value={searchClientId} onChange={e => setSearchClientId(e.target.value)} placeholder="ID din bază" />
+                </div>
+                <div>
+                  <label htmlFor="search-hero" className="adm-label">Erou</label>
+                  <select id="search-hero" className="adm-input" value={searchHeroId} onChange={e => setSearchHeroId(e.target.value)}>
+                    <option value="">— alege eroul —</option>
+                    {[...heroes].sort((a, b) => a.alias.localeCompare(b.alias)).map(h => (
+                      <option key={h.id} value={h.id}>{h.alias}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="search-device" className="adm-label">Token dispozitiv</label>
+                  <input id="search-device" className="adm-input" value={searchDeviceToken} onChange={e => setSearchDeviceToken(e.target.value)} placeholder="token de dispozitiv" />
+                </div>
+                <div>
+                  <label htmlFor="search-ip" className="adm-label">IP</label>
+                  <input id="search-ip" className="adm-input" value={searchIp} onChange={e => setSearchIp(e.target.value)} placeholder="xxx.xxx.xxx.xxx" />
+                </div>
+                <div>
+                  <label htmlFor="search-action" className="adm-label">Tip acțiune</label>
+                  <select id="search-action" className="adm-input" value={searchAction} onChange={e => setSearchAction(e.target.value)}>
+                    <option value="">— orice acțiune —</option>
+                    {Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="search-from" className="adm-label">De la data</label>
+                  <input id="search-from" type="date" className="adm-input" value={searchFrom} onChange={e => setSearchFrom(e.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="search-to" className="adm-label">Până la data</label>
+                  <input id="search-to" type="date" className="adm-input" value={searchTo} onChange={e => setSearchTo(e.target.value)} />
+                </div>
+                <div className="flex items-end sm:col-span-2 lg:col-span-4">
+                  <button type="submit" disabled={searchLoading} className="adm-btn adm-btn--main">
+                    <MagnifyingGlass size={15} weight="bold" aria-hidden="true" />
+                    {searchLoading ? 'Caut…' : 'Caută'}
+                  </button>
+                </div>
+              </form>
+              {searchError && (
+                <div role="alert" className="mt-3 flex items-start justify-between gap-4 rounded-2xl bg-super-red/8 p-4 text-sm font-semibold text-super-red-dark">
+                  <span>{searchError}</span>
+                  <button type="button" onClick={() => setSearchError('')} aria-label="Închide" className="shrink-0">
+                    <X size={16} weight="bold" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {searchRan && !searchError && searchResult && (
+              <>
+                <section className="adm-card p-5">
+                  <h3 className="font-heading text-base text-graphite">Conturi ({searchResult.clients?.length || 0})</h3>
+                  {!searchResult.clients?.length ? (
+                    <p className="mt-2 text-sm text-graphite-soft">Niciun cont găsit.</p>
+                  ) : (
+                    <section className="adm-scroll mt-3">
+                      <table className="adm-table">
+                        <thead>
+                          <tr><th>Nume</th><th>Telefon</th><th>Email</th><th>Cont activat</th><th>Creat</th><th>Șters</th></tr>
+                        </thead>
+                        <tbody>
+                          {searchResult.clients.map(c => (
+                            <tr key={c.id}>
+                              <td>{c.name}</td>
+                              <td className="adm-num">{c.phone}</td>
+                              <td>{c.email || '—'}</td>
+                              <td><State map={ADMIN_TOTP_STATE} value={c.verified ? 'YES' : 'NO'} /></td>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(c.createdAt)}</td>
+                              <td className="adm-num whitespace-nowrap">{c.deletedAt ? formatDateTime(c.deletedAt) : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+                </section>
+
+                <section className="adm-card p-5">
+                  <h3 className="font-heading text-base text-graphite">Dispozitive ({searchResult.devices?.length || 0})</h3>
+                  {!searchResult.devices?.length ? (
+                    <p className="mt-2 text-sm text-graphite-soft">Niciun dispozitiv găsit.</p>
+                  ) : (
+                    <section className="adm-scroll mt-3">
+                      <table className="adm-table">
+                        <thead><tr><th>Platformă</th><th>Cont</th><th>Creat</th><th>Ultima activitate</th></tr></thead>
+                        <tbody>
+                          {searchResult.devices.map(d => (
+                            <tr key={d.id}>
+                              <td>{d.platform || '—'}</td>
+                              <td className="adm-num">{d.clientId}</td>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(d.createdAt)}</td>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(d.lastSeenAt)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+                </section>
+
+                <section className="adm-card p-5">
+                  <h3 className="font-heading text-base text-graphite">
+                    Cereri ({searchResult.requests?.length || 0}) · Mesaje trimise: {searchResult.messagesSent || 0}
+                  </h3>
+                  {!searchResult.requests?.length ? (
+                    <p className="mt-2 text-sm text-graphite-soft">Nicio cerere găsită.</p>
+                  ) : (
+                    <section className="adm-scroll mt-3">
+                      <table className="adm-table">
+                        <thead><tr><th>Client</th><th>Telefon</th><th>Stare</th><th>Data</th><th>Descriere</th></tr></thead>
+                        <tbody>
+                          {searchResult.requests.map(r => (
+                            <tr key={r.id}>
+                              <td>{r.clientName}</td>
+                              <td className="adm-num">{r.clientPhone}</td>
+                              <td>{r.status}</td>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(r.date)}</td>
+                              <td className="max-w-xs truncate">{r.description}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+                </section>
+
+                <section className="adm-card p-5">
+                  <h3 className="font-heading text-base text-graphite">Jurnal de acțiuni ({searchResult.audit?.length || 0})</h3>
+                  {!searchResult.audit?.length ? (
+                    <p className="mt-2 text-sm text-graphite-soft">Nicio înregistrare în jurnal pentru firul ăsta.</p>
+                  ) : (
+                    <section className="adm-scroll mt-3">
+                      <table className="adm-table">
+                        <thead><tr><th>Data</th><th>Tip actor</th><th>Actor</th><th>Acțiune</th><th>Entitate</th></tr></thead>
+                        <tbody>
+                          {searchResult.audit.map(a => (
+                            <tr key={a.id}>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(a.createdAt)}</td>
+                              <td>{a.actorType}</td>
+                              <td className="adm-num">{a.actorId}</td>
+                              <td>{AUDIT_ACTION_LABELS[a.action] || a.action}</td>
+                              <td className="adm-num">{a.entityId || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+                </section>
+
+                <section className="adm-card p-5">
+                  <h3 className="font-heading text-base text-graphite">IP-uri văzute ({searchResult.ips?.length || 0})</h3>
+                  {!searchResult.ips?.length ? (
+                    <p className="mt-2 text-sm text-graphite-soft">Niciun IP înregistrat pentru firul ăsta.</p>
+                  ) : (
+                    <section className="adm-scroll mt-3">
+                      <table className="adm-table">
+                        <thead><tr><th>IP</th><th>Ultima dată</th><th>Apariții</th><th>Aparat</th></tr></thead>
+                        <tbody>
+                          {searchResult.ips.map((ip, i) => (
+                            <tr key={`${ip.ip}-${i}`}>
+                              <td className="adm-num">{ip.ip}</td>
+                              <td className="adm-num whitespace-nowrap">{formatDateTime(ip.lastAt)}</td>
+                              <td className="adm-num">{ip.count}</td>
+                              <td className="max-w-xs truncate">{ip.userAgent || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+                </section>
+              </>
+            )}
+
+            {searchRan && !searchError && searchResult &&
+              !searchResult.clients?.length && !searchResult.devices?.length && !searchResult.requests?.length &&
+              !searchResult.audit?.length && !searchResult.ips?.length && (
+                <p className="adm-card p-8 text-center text-sm text-graphite-soft">Nimic găsit pentru firul ăsta.</p>
+              )}
           </section>
         )}
       </div>
