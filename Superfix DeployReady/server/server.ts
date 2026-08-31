@@ -115,7 +115,7 @@ app.use(cors({
         return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     // X-Device-Token: fără el aici, preflight-ul de pe site pică și NICIO cerere
     // din browser nu mai ajunge la server (CONT-FANTOMA.md §4).
     allowedHeaders: ["Content-Type", "Authorization", "Verification-token", "Idempotency-Key", "X-Device-Token"],
