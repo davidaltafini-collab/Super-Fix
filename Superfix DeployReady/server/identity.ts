@@ -148,10 +148,9 @@ export async function verifyProviderToken(cfg: ProviderConfig, token: string): P
 
 const PHONE_RE = /^07\d{8}$/;
 
-/* Formă plată, nu uniune discriminată: proiectul rulează cu `strictNullChecks`
-   oprit, unde TS nu restrânge fiabil `ok:true`/`ok:false` la două forme
-   diferite (vezi `LoginResult` din dataService.ts). */
-type LinkOutcome = { ok: boolean; client?: any; claimedGhost?: boolean; status?: number; body?: Record<string, unknown> };
+type LinkOutcome =
+  | { ok: true; client: any; claimedGhost: boolean }
+  | { ok: false; status: number; body: Record<string, unknown> };
 
 /**
  * Găsește (sau, în ultimă instanță, creează) rândul `Client` pe care se pune

@@ -109,10 +109,9 @@ export const otpauthUrl = (username: string, secret: string, issuer = 'Superfix'
 // Verificarea la login, folosită din `/api/auth/login`
 // ─────────────────────────────────────────────────────────────────────────────
 
-/* Formă plată, nu uniune discriminată: proiectul rulează cu `strictNullChecks`
-   oprit, unde TS nu restrânge fiabil `ok:true`/`ok:false` la două forme
-   diferite (vezi `LoginResult` din dataService.ts). */
-export type TotpGate = { ok: boolean; status?: number; body?: Record<string, unknown> };
+export type TotpGate =
+  | { ok: true }
+  | { ok: false; status: number; body: Record<string, unknown> };
 
 /**
  * Poarta de la login. Se cheamă DUPĂ parolă, niciodată înainte: altfel ruta ar

@@ -67,10 +67,9 @@ const CORRELATION_DAYS = 30;
  */
 export const PHONE_REQUESTS_PER_HOUR = 10;
 
-/* Formă plată, nu uniune discriminată: proiectul rulează cu `strictNullChecks`
-   oprit, unde TS nu restrânge fiabil `ok:true`/`ok:false` la două forme
-   diferite (vezi `LoginResult` din dataService.ts). */
-export type PhoneGate = { ok: boolean; status?: number; body?: Record<string, unknown>; warning?: PhoneWarning };
+export type PhoneGate =
+  | { ok: true; warning?: PhoneWarning }
+  | { ok: false; status: number; body: Record<string, unknown> };
 
 /**
  * Avertismentul care se întoarce ODATĂ cu cererea reușită. Nu e o eroare:
