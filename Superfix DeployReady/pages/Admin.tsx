@@ -10,7 +10,7 @@ import {
     createHero, getAllRequests, loginUser, logoutUser,
     getApplications, deleteApplication, getHeroes,
     updateHero, deleteHero,
-    getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword,
+    getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword, deleteAdmin,
     AdminAccount, AdminRoleInfo,
     investigate, InvestigateResult,
 } from '../services/dataService';
@@ -784,6 +784,25 @@ export const Admin: React.FC = () => {
     );
   };
 
+  const handleDeleteClick = (account: AdminAccount) => {
+    openOwnPasswordPrompt(
+        `Ștergi definitiv contul „${account.username}"? Nu se mai poate reface — numele de utilizator, parola și codul TOTP dispar de tot. Confirmă cu propria ta parolă.`,
+        'Șterge definitiv',
+        async (password) => {
+            setAdminAccountAction(`delete:${account.id}`);
+            const result = await deleteAdmin(account.id, password);
+            setAdminAccountAction(null);
+            if (result.ok) {
+                toast.success(`Contul „${account.username}" a fost șters.`);
+                await fetchAdminAccounts();
+                return;
+            }
+            if (result.forceLogout) { toast.error(result.message || 'Sesiunea ta de administrator nu mai e validă.'); handleLogout(); }
+            throw new Error(result.message || 'Contul nu a putut fi șters.');
+        },
+    );
+  };
+
   const handleOwnPasswordConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ownPasswordPrompt || ownPasswordSubmitting) return;
@@ -1406,6 +1425,7 @@ export const Admin: React.FC = () => {
     ADMIN_DISABLED: 'Admin suspendat',
     ADMIN_ENABLED: 'Admin reactivat',
     ADMIN_PASSWORD_RESET: 'Parolă admin resetată',
+    ADMIN_DELETED: 'Admin șters',
     PHONE_WARNED: 'Telefon avertizat',
     DEVICE_BLOCKED: 'Dispozitiv blocat',
     DEVICE_UNBLOCKED: 'Dispozitiv deblocat',
@@ -2321,11 +2341,12 @@ export const Admin: React.FC = () => {
                   <tbody>
                     {adminAccounts.map(acc => {
                       const isSelf = adminId !== null && acc.id === adminId;
-                      const busy = adminAccountAction === `role:${acc.id}` || adminAccountAction === `disable:${acc.id}` || adminAccountAction === `reset-totp:${acc.id}` || adminAccountAction === `set-password:${acc.id}`;
+                      const isDeleted = acc.username.startsWith('sters:');
+                      const busy = adminAccountAction === `role:${acc.id}` || adminAccountAction === `disable:${acc.id}` || adminAccountAction === `reset-totp:${acc.id}` || adminAccountAction === `set-password:${acc.id}` || adminAccountAction === `delete:${acc.id}`;
                       return (
                         <tr key={acc.id}>
                           <td>
-                            {acc.username}
+                            {isDeleted ? <span className="italic text-graphite-soft">Cont șters</span> : acc.username}
                             {isSelf && <span className="ml-1.5 text-xs font-semibold text-graphite-soft">(tu)</span>}
                           </td>
                           <td>
@@ -2333,7 +2354,7 @@ export const Admin: React.FC = () => {
                               className="adm-input"
                               aria-label={`Treapta lui ${acc.username}`}
                               value={acc.role}
-                              disabled={busy || isSelf || acc.role === 'SUPER'}
+                              disabled={busy || isSelf || isDeleted || acc.role === 'SUPER'}
                               onChange={e => handleRoleChange(acc, e.target.value as 'SUPER' | 'ADMIN' | 'SUPPORT')}
                             >
                               {acc.role === 'SUPER' && <option value="SUPER">{adminRoleInfo?.SUPER?.label || 'Administrator principal'}</option>}
@@ -2346,22 +2367,31 @@ export const Admin: React.FC = () => {
                           <td className="adm-num whitespace-nowrap">{formatDateTime(acc.createdAt)}</td>
                           <td className="adm-num whitespace-nowrap">{acc.lastLoginAt ? formatDateTime(acc.lastLoginAt) : '—'}</td>
                           <td className="text-right">
-                            <div className="flex flex-wrap justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleSuspendToggle(acc)}
-                                disabled={busy || isSelf}
-                                className={acc.disabled ? 'adm-btn adm-btn--dark' : 'adm-btn adm-btn--danger'}
-                              >
-                                {adminAccountAction === `disable:${acc.id}` ? '…' : acc.disabled ? 'Reactivează' : 'Suspendă'}
-                              </button>
-                              <button type="button" onClick={() => handleResetTotpClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
-                                {adminAccountAction === `reset-totp:${acc.id}` ? '…' : 'Resetează TOTP'}
-                              </button>
-                              <button type="button" onClick={() => handleSetPasswordClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
-                                {adminAccountAction === `set-password:${acc.id}` ? '…' : 'Parolă nouă'}
-                              </button>
-                            </div>
+                            {isDeleted ? (
+                              <span className="text-xs text-graphite-soft">— șters —</span>
+                            ) : (
+                              <div className="flex flex-wrap justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSuspendToggle(acc)}
+                                  disabled={busy || isSelf}
+                                  className={acc.disabled ? 'adm-btn adm-btn--dark' : 'adm-btn adm-btn--danger'}
+                                >
+                                  {adminAccountAction === `disable:${acc.id}` ? '…' : acc.disabled ? 'Reactivează' : 'Suspendă'}
+                                </button>
+                                <button type="button" onClick={() => handleResetTotpClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
+                                  {adminAccountAction === `reset-totp:${acc.id}` ? '…' : 'Resetează TOTP'}
+                                </button>
+                                <button type="button" onClick={() => handleSetPasswordClick(acc)} disabled={busy} className="adm-btn adm-btn--quiet">
+                                  {adminAccountAction === `set-password:${acc.id}` ? '…' : 'Parolă nouă'}
+                                </button>
+                                {!isSelf && acc.role !== 'SUPER' && (
+                                  <button type="button" onClick={() => handleDeleteClick(acc)} disabled={busy} className="adm-btn adm-btn--danger">
+                                    {adminAccountAction === `delete:${acc.id}` ? '…' : 'Șterge'}
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

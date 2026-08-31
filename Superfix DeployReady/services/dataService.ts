@@ -303,6 +303,24 @@ export const resetAdminTotp = async (id: string, password: string): Promise<Admi
     } catch { return { ok: false }; }
 };
 
+export const deleteAdmin = async (id: string, password: string): Promise<AdminSimpleResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/admins/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (res.ok) return { ok: true };
+        return {
+            ok: false,
+            forceLogout: isSessionFatal(data?.error),
+            error: typeof data?.error === 'string' ? data.error : undefined,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+        };
+    } catch { return { ok: false }; }
+};
+
 export const setAdminPassword = async (id: string, password: string, newPassword: string): Promise<AdminSimpleResult> => {
     try {
         const res = await fetch(`${API_URL}/admin/admins/${encodeURIComponent(id)}/password`, {
