@@ -88,33 +88,33 @@ export const Footer: React.FC = () => {
             </a>
           </div>
 
-          {/* 4. SOLUȚIONARE LITIGII */}
+          {/* 4. PLĂȚI ȘI SOLUȚIONARE LITIGII */}
           <div>
-            <h3 className={colHeading}>SOLUȚIONARE LITIGII</h3>
-            <a
-              href="https://reclamatiisal.anpc.ro/"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Depune o cerere SAL la ANPC (se deschide într-o filă nouă)"
-              className="inline-flex rounded-[18px] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.98]"
-            >
-              <img
-                src="/uploads/sal-anpc-hd.png"
-                width="201"
-                height="50"
-                alt="Soluționarea Alternativă a Litigiilor — ANPC"
-                className="h-[50px] w-[201px] max-w-full object-contain"
-              />
-            </a>
-            <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
-              <Scales size={15} aria-hidden="true" />
-              Cererile SAL se depun pe platforma oficială ANPC
+            <h3 className={colHeading}>PLĂȚI SECURIZATE</h3>
+            <div className="h-14 w-[220px] max-w-full sm:w-[250px]">
+              <NTPLogo color="#9c9c9c" version="orizontal" secret="168597" />
             </div>
 
-            <div className="mt-7">
-              <h3 className="font-heading text-xs tracking-wide text-white/50 mb-3">PLĂȚI SECURIZATE</h3>
-              <div className="h-12 w-full max-w-[250px]">
-                <NTPLogo color="#9c9c9c" version="orizontal" secret="168597" />
+            <div className="mt-7 border-t border-white/10 pt-6">
+              <h3 className="mb-3 font-heading text-xs tracking-wide text-white/50">SOLUȚIONARE LITIGII</h3>
+              <a
+                href="https://reclamatiisal.anpc.ro/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Depune o cerere SAL la ANPC (se deschide într-o filă nouă)"
+                className="inline-flex rounded-[18px] transition-transform duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spark focus-visible:ring-offset-4 focus-visible:ring-offset-[#2E333B]"
+              >
+                <img
+                  src="/uploads/anpc-sal.svg"
+                  width="165"
+                  height="41"
+                  alt="Soluționarea Alternativă a Litigiilor — ANPC"
+                  className="h-auto w-[165px] sm:w-[190px]"
+                />
+              </a>
+              <div className="mt-3 flex max-w-[220px] items-start gap-2 text-xs leading-relaxed text-white/40">
+                <Scales size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                Cererile SAL se depun pe platforma oficială ANPC
               </div>
             </div>
           </div>
