@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import NTPLogo from 'ntp-logo-react';
-import { LEGAL, legalIdentityParts } from '../config/legal';
+import { LEGAL } from '../config/legal';
 import {
   House, MagnifyingGlass, UserPlus, Handshake, IdentificationBadge,
   FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Heart,
@@ -16,6 +16,7 @@ const navLinks = [
 ];
 
 const legalLinks = [
+  { to: '/terms/date-contact', label: 'Datele companiei', Icon: IdentificationBadge },
   { to: '/terms', label: 'Termeni și condiții', Icon: FileText },
   { to: '/terms#livrarea-serviciului', label: 'Livrarea serviciului', Icon: FileText },
   { to: '/terms#anularea-abonamentului', label: 'Anularea abonamentului', Icon: FileText },
@@ -45,10 +46,6 @@ export const Footer: React.FC = () => {
             <p className="text-white/65 leading-relaxed">
               Conectăm eroi locali cu probleme casnice urgente. Simplu, rapid și de încredere.
             </p>
-            <div className="text-xs text-white/45 bg-white/5 rounded-2xl p-4 space-y-1">
-              <p className="font-heading text-white/70 tracking-wide">{LEGAL.name}</p>
-              {legalIdentityParts.map((part) => <p key={part}>{part}</p>)}
-            </div>
           </div>
 
           {/* 2. NAVIGARE */}
@@ -122,7 +119,7 @@ export const Footer: React.FC = () => {
 
         {/* COPYRIGHT */}
         <div className="border-t border-white/10 pt-7 flex flex-col md:flex-row justify-between items-center gap-3 text-sm text-white/45">
-          <p>© {currentYear} <span className="text-white/70">{LEGAL.name}</span>. Toate drepturile rezervate.</p>
+          <p>© {currentYear} <span className="text-white/70">Superfix</span>. Toate drepturile rezervate.</p>
           <span className="inline-flex items-center gap-1.5">
             Făcut cu <Heart size={14} weight="fill" className="text-super-red" aria-hidden="true" /> în București
           </span>
