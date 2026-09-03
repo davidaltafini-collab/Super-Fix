@@ -99,7 +99,7 @@ export const Footer: React.FC = () => {
               className="inline-flex rounded-[18px] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.98]"
             >
               <img
-                src="/uploads/sal-anpc.png"
+                src="/uploads/sal-anpc-hd.png"
                 width="201"
                 height="50"
                 alt="Soluționarea Alternativă a Litigiilor — ANPC"
