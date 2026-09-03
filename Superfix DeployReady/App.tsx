@@ -43,6 +43,7 @@ const Privacy = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.
 const Cookies = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Cookies })));
 const GDPR = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.GDPR })));
 const Withdrawal = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Withdrawal })));
+const CompanyContact = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.CompanyContact })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })));
 const SubscriptionResult = lazy(() => import('./pages/SubscriptionResult').then(m => ({ default: m.SubscriptionResult })));
@@ -176,6 +177,7 @@ const App: React.FC = () => {
                 {/* === MODIFICARE AICI: Rutele legale specifice === */}
                 {/* Acestea rezolvă erorile "No routes matched" */}
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/terms/date-contact" element={<CompanyContact />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/cookies" element={<Cookies />} />
                 <Route path="/gdpr" element={<GDPR />} />

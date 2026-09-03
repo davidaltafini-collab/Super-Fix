@@ -93,11 +93,26 @@ const OperatorIdentity: React.FC = () => (
   </>
 );
 
+export const CompanyContact: React.FC = () => (
+  <LegalLayout title="Date de contact și identificare" lastUpdated={UPDATED_AT}>
+    <h3>Operatorul platformei Superfix</h3>
+    <p><strong>Denumire juridică:</strong> {LEGAL.name}</p>
+    <p><strong>CUI/CIF:</strong> {LEGAL.cui}</p>
+    <p><strong>Nr. Registrul Comerțului:</strong> {LEGAL.registration}</p>
+    <p><strong>Sediu social:</strong> {[LEGAL.city, LEGAL.address].filter(Boolean).join(', ')}</p>
+    <p><strong>Email:</strong> <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a></p>
+    {LEGAL.phone ? (
+      <p><strong>Telefon:</strong> <a href={`tel:${LEGAL.phone.replace(/\s/g, '')}`}>{LEGAL.phone}</a></p>
+    ) : null}
+    <p><Link to="/terms">Înapoi la Termeni și condiții</Link>.</p>
+  </LegalLayout>
+);
+
 export const Terms: React.FC = () => (
   <LegalLayout title="Termeni și Condiții de Utilizare" lastUpdated={UPDATED_AT}>
     <h3>1. Introducere</h3>
     <p>Bun venit pe <strong>SUPERFIX</strong>. Acești termeni reglementează utilizarea platformei care conectează Clienții cu prestatori de servicii independenți („Eroi”).</p>
-    <p>Platforma este operată de <OperatorIdentity />, cu activitate principală CAEN 7311 — activități ale agențiilor de publicitate. Contact contractual și pentru reclamații: <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>{LEGAL.phone ? <> și <a href={`tel:${LEGAL.phone.replace(/\s/g, '')}`}>{LEGAL.phone}</a></> : null}.</p>
+    <p>Platforma este operată de <OperatorIdentity />, cu activitate principală CAEN 7311 — activități ale agențiilor de publicitate. <Link to="/terms/date-contact">Datele complete de identificare și contact ale operatorului</Link> sunt disponibile în pagina dedicată.</p>
 
     <h3>2. Natura serviciului</h3>
     <p>Superfix este un intermediar tehnologic. Nu este angajatorul Eroilor și nu prestează direct lucrările solicitate prin platformă.</p>
