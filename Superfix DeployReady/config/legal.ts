@@ -6,7 +6,7 @@ export const LEGAL = {
   registration: env.VITE_COMPANY_REGISTRATION || 'J2025100368001',
   address: env.VITE_COMPANY_ADDRESS || 'Intrarea LEORDENI, Nr. 28-30, 077025',
   city: env.VITE_COMPANY_CITY || 'JUD. Ilfov, Oras Bragadiru',
-  phone: env.VITE_COMPANY_PHONE || '',
+  phone: env.VITE_COMPANY_PHONE || '0756 929 352',
   supportEmail: env.VITE_SUPPORT_EMAIL || 'contact@super-fix.ro',
 };
 
