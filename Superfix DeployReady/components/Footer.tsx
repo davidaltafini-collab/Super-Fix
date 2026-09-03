@@ -4,7 +4,7 @@ import NTPLogo from 'ntp-logo-react';
 import { LEGAL, legalIdentityParts } from '../config/legal';
 import {
   House, MagnifyingGlass, UserPlus, Handshake, IdentificationBadge,
-  FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Lightning,
+  FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Heart,
 } from '@phosphor-icons/react';
 
 const navLinks = [
@@ -96,14 +96,14 @@ export const Footer: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Depune o cerere SAL la ANPC (se deschide într-o filă nouă)"
-              className="flex min-h-16 items-center justify-center rounded-2xl bg-white/95 p-2 transition-colors duration-200 hover:bg-white"
+              className="inline-flex rounded-[18px] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.98]"
             >
               <img
                 src="/uploads/sal-anpc.png"
-                width="250"
+                width="201"
                 height="50"
                 alt="Soluționarea Alternativă a Litigiilor — ANPC"
-                className="h-auto w-full max-w-[250px] object-contain"
+                className="h-[50px] w-[201px] max-w-full object-contain"
               />
             </a>
             <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
@@ -124,7 +124,7 @@ export const Footer: React.FC = () => {
         <div className="border-t border-white/10 pt-7 flex flex-col md:flex-row justify-between items-center gap-3 text-sm text-white/45">
           <p>© {currentYear} <span className="text-white/70">{LEGAL.name}</span>. Toate drepturile rezervate.</p>
           <span className="inline-flex items-center gap-1.5">
-            Făcut cu <Lightning size={14} weight="fill" className="text-comic-yellow" aria-hidden="true" /> în București
+            Făcut cu <Heart size={14} weight="fill" className="text-super-red" aria-hidden="true" /> în București
           </span>
         </div>
       </div>
