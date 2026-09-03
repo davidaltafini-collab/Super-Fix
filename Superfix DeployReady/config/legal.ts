@@ -16,5 +16,4 @@ export const legalIdentityParts = [
   LEGAL.address || LEGAL.city
     ? `Sediu social: ${[LEGAL.city, LEGAL.address].filter(Boolean).join(', ')}`
     : '',
-  LEGAL.phone ? `Telefon: ${LEGAL.phone}` : '',
 ].filter(Boolean);
