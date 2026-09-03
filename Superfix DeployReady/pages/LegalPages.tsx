@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { FormEvent, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft } from '@phosphor-icons/react';
+import { ArrowLeft, CheckCircle } from '@phosphor-icons/react';
 import { LEGAL, legalIdentityParts } from '../config/legal';
+import { Field } from '../components/Field';
 
 import './legal.css';
+import '../components/form.css';
 
-const UPDATED_AT = '13.07.2026';
+const UPDATED_AT = '03.09.2026';
 
 /* Cele patru documente se citesc unul dintr-altul: din politica de cookies
    vrei de obicei confidențialitatea, din termeni vrei drepturile. Linkurile din
@@ -16,6 +18,7 @@ const DOCS = [
   { to: '/privacy', short: 'Confidențialitate' },
   { to: '/cookies', short: 'Cookies' },
   { to: '/gdpr', short: 'Drepturile tale' },
+  { to: '/withdrawal', short: 'Retragere' },
 ];
 
 const LegalLayout: React.FC<{ title: string; lastUpdated: string; children: React.ReactNode }> = ({
@@ -94,7 +97,7 @@ export const Terms: React.FC = () => (
   <LegalLayout title="Termeni și Condiții de Utilizare" lastUpdated={UPDATED_AT}>
     <h3>1. Introducere</h3>
     <p>Bun venit pe <strong>SUPERFIX</strong>. Acești termeni reglementează utilizarea platformei care conectează Clienții cu prestatori de servicii independenți („Eroi”).</p>
-    <p>Platforma este operată de <OperatorIdentity />. Contact: <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</p>
+    <p>Platforma este operată de <OperatorIdentity />, cu activitate principală CAEN 7311 — activități ale agențiilor de publicitate. Contact contractual și pentru reclamații: <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>{LEGAL.phone ? <> și <a href={`tel:${LEGAL.phone.replace(/\s/g, '')}`}>{LEGAL.phone}</a></> : null}.</p>
 
     <h3>2. Natura serviciului</h3>
     <p>Superfix este un intermediar tehnologic. Nu este angajatorul Eroilor și nu prestează direct lucrările solicitate prin platformă.</p>
@@ -103,17 +106,40 @@ export const Terms: React.FC = () => (
       <li>Eroul răspunde pentru autorizațiile necesare, calitatea lucrării, garanții și obligațiile fiscale proprii.</li>
       <li>Superfix poate modera profiluri și poate oferi instrumente de comunicare, dar nu devine parte în contractul lucrării.</li>
     </ul>
+    <p>Serviciul comercializat de <OperatorIdentity /> este publicarea și administrarea profilului profesional al Eroului în platformă, împreună cu accesul la instrumentele digitale aferente. Superfix nu vinde și nu facturează lucrarea executată de Erou.</p>
 
     <h3>3. Plăți și abonamentul Eroului</h3>
     <ul>
-      <li>Utilizarea platformei pentru Clienți este gratuită, cu excepția unui cost comunicat distinct înainte de confirmarea sa.</li>
-      <li>Plata lucrării se face direct către Erou și este separată de abonamentul de listare Superfix.</li>
-      <li>Prețul abonamentului, perioada gratuită și următoarea dată de plată sunt afișate înainte de activare și în contul Eroului.</li>
+      <li>Utilizarea platformei de către Clienți este gratuită. Superfix nu încasează prețul lucrărilor și nu procesează plățile dintre Client și Erou.</li>
+      <li>Contractul și plata lucrării se realizează direct între Client și Erou, în afara platformei Superfix.</li>
+      <li><OperatorIdentity /> comercializează și facturează exclusiv serviciul digital de listare oferit Eroului, sub forma abonamentului Superfix.</li>
+      <li>Tariful curent al listării este <strong>25,00 RON/lună</strong>, preț total. Moneda tranzacției este RON. Perioada gratuită aplicabilă și următoarea dată de plată sunt afișate înainte de activare și în contul Eroului.</li>
+      <li>Abonamentul se reînnoiește lunar până când Eroul oprește reînnoirea. Orice tarif viitor diferit va fi afișat clar înainte de acceptare și nu se aplică retroactiv perioadelor deja plătite.</li>
       <li>Datele complete ale cardului sunt introduse numai în pagina securizată NETOPIA Payments. Superfix păstrează doar tokenul tehnic primit și date mascate, nu numărul complet al cardului sau codul CVV.</li>
       <li>Oprirea reînnoirii produce efecte la finalul perioadei deja plătite ori acordate gratuit, conform datei afișate în cont.</li>
     </ul>
 
-    <h3>4. Gratuitate, invitații și recruiteri</h3>
+    <h3 id="livrarea-serviciului" className="scroll-mt-28">4. Livrarea și activarea serviciului digital</h3>
+    <ul>
+      <li>Nu se livrează bunuri fizice și nu există costuri de transport.</li>
+      <li>Listarea se activează electronic după aprobarea profilului și confirmarea plății sau a gratuității aplicabile. Confirmarea este afișată în cont și transmisă pe email.</li>
+      <li>După activare, profilul devine eligibil pentru afișare în căutări, iar serviciul este furnizat pe durata indicată în cont. Disponibilitatea efectivă poate fi afectată de moderare, mentenanță ori incidente tehnice.</li>
+      <li>Dacă activarea nu se confirmă, Eroul nu este taxat ca pentru un abonament activ și poate contacta <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</li>
+    </ul>
+
+    <h3 id="anularea-abonamentului" className="scroll-mt-28">5. Anularea abonamentului și oprirea reînnoirii</h3>
+    <ul>
+      <li>Eroul poate opri oricând reînnoirea din pagina „Abonament” a contului, prin butonul „Oprește reînnoirea”, fără taxă de anulare.</li>
+      <li>Dacă nu poate accesa contul, poate cere oprirea în scris la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>, de pe adresa asociată contului.</li>
+      <li>Profilul rămâne listat până la sfârșitul perioadei deja plătite sau gratuite, apoi este arhivat și nu se mai efectuează debitări recurente.</li>
+      <li>Anularea reînnoirii nu este același lucru cu retragerea legală din contract. Pentru aceasta există <Link to="/withdrawal">pagina dedicată retragerii</Link>.</li>
+    </ul>
+
+    <h3>6. Dreptul de retragere</h3>
+    <p>Dacă persoana care contractează abonamentul are, potrivit legii, calitatea de consumator, aceasta se poate retrage din contractul la distanță în termen de 14 zile de la încheiere, fără să indice un motiv. Dreptul legal nu se aplică unei persoane care contractează exclusiv în scopul activității sale profesionale; posibilitatea contractuală de oprire a reînnoirii rămâne însă disponibilă tuturor Eroilor.</p>
+    <p>Retragerea poate fi transmisă prin <Link to="/withdrawal">pagina dedicată</Link>, care pregătește declarația pentru trimitere prin email, sau prin orice altă declarație neechivocă trimisă la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Dacă, la cererea expresă a consumatorului, serviciul a început în perioada de retragere, poate fi datorată suma proporțională cu serviciul furnizat până la comunicarea retragerii. Rambursarea sumelor datorate se face, de regulă, prin aceeași metodă de plată, în termenul legal.</p>
+
+    <h3>7. Gratuitate, invitații și recruiteri</h3>
     <ul>
       <li>Invitația este calificată numai după aprobarea contului invitat și validarea metodei sale de plată. Conturile duplicate, proprii, frauduloase sau anulate nu sunt eligibile.</li>
       <li>În configurația curentă, invitatul eligibil primește 12 luni gratuite, iar Eroul care invită primește o lună gratuită pentru fiecare prag de 5 invitați calificați.</li>
@@ -124,14 +150,20 @@ export const Terms: React.FC = () => (
       <li>Valorile afișate în cont la data calificării se aplică acelui beneficiu. Superfix poate modifica programul pentru înscrieri viitoare, cu actualizarea acestor termeni.</li>
     </ul>
 
-    <h3>5. Trust Factor și clasament</h3>
-    <p>Superfix poate folosi indicatori precum misiuni finalizate, recenzii și respectarea regulilor pentru ordonarea profilurilor. Manipularea recenziilor sau a activității poate duce la suspendare ori delistare.</p>
+    <h3>8. Trust Factor și clasament</h3>
+    <p>Rezultatele pot fi ordonate în principal după potrivirea specializării și zonei cu cererea Clientului, disponibilitate, Trust Factor, misiuni finalizate, recenzii și respectarea regulilor. Relevanța pentru cerere și proximitatea au o pondere mai mare decât popularitatea generală. Manipularea recenziilor sau a activității poate duce la suspendare ori delistare.</p>
 
-    <h3>6. Conținut foto/video</h3>
+    <h3>9. Conținut foto/video</h3>
     <p>Prin încărcarea materialelor, utilizatorul declară că are dreptul să le folosească și că nu încalcă drepturile ori viața privată a altor persoane. Materialele sunt folosite pentru executarea cererii, suport, prevenirea fraudei și, numai când există un temei legal adecvat, promovare.</p>
 
-    <h3>7. Moderare, fraudă și închiderea contului</h3>
+    <h3>10. Moderare, fraudă și închiderea contului</h3>
     <p>Superfix poate limita sau suspenda conturi, recompense, recenzii și conținut atunci când există indicii rezonabile de fraudă, abuz, încălcarea legii ori a acestor termeni. Datele care trebuie păstrate pentru obligații legale, plăți, securitate sau apărarea unui drept nu sunt eliminate odată cu închiderea contului.</p>
+
+    <h3>11. Reclamații și soluționarea litigiilor</h3>
+    <p>Reclamațiile privind abonamentul de listare furnizat de <OperatorIdentity /> pot fi trimise la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Consumatorii eligibili pot folosi și procedura de Soluționare Alternativă a Litigiilor prin <a href="https://reclamatiisal.anpc.ro/" target="_blank" rel="noopener noreferrer">platforma oficială ANPC</a>. Litigiile privind prețul sau executarea unei lucrări contractate direct cu un Erou se soluționează cu acel prestator, deoarece Superfix nu încasează și nu facturează lucrarea.</p>
+
+    <h3>12. Legea aplicabilă</h3>
+    <p>Acești termeni sunt guvernați de legea română. Nicio prevedere nu restrânge drepturile imperative acordate consumatorilor de legislația aplicabilă.</p>
   </LegalLayout>
 );
 
@@ -148,6 +180,7 @@ export const Privacy: React.FC = () => (
       <li><strong>Securitate și dispozitiv:</strong> sesiuni, jurnale de audit și tokenuri push, pentru autentificare, notificări și prevenirea fraudei.</li>
       <li><strong>Facturare:</strong> starea plăților, identificatori de tranzacție, token tehnic și date mascate ale cardului. NETOPIA Payments colectează direct datele complete ale cardului; Superfix nu le stochează.</li>
       <li><strong>Recruiteri:</strong> codul, atribuirile, comisioanele și IBAN-ul necesar plății. IBAN-ul este criptat în baza de date și este disponibil numai persoanelor autorizate pentru operațiuni.</li>
+      <li><strong>Retrageri și reclamații:</strong> nume, email, identificatorul și data contractului, conținutul declarației, data și ora transmiterii, pentru înregistrarea cererii, confirmare și soluționare.</li>
     </ul>
 
     <h3>3. Temei, furnizori și păstrare</h3>
@@ -188,3 +221,114 @@ export const GDPR: React.FC = () => (
     <p>Pentru exercitarea drepturilor, scrie la <strong>{LEGAL.supportEmail}</strong>. Pentru protecția contului, putem cere verificarea identității.</p>
   </LegalLayout>
 );
+
+const WITHDRAWAL_DECLARATION = 'Vă informez că doresc retragerea din contractul pentru abonamentul digital de listare Superfix identificat mai jos.';
+
+export const Withdrawal: React.FC = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [contractId, setContractId] = useState('');
+  const [contractDate, setContractDate] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [preparedAt, setPreparedAt] = useState('');
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const nextErrors: Record<string, string> = {};
+    if (name.trim().length < 2) nextErrors.name = 'Introdu numele complet.';
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) nextErrors.email = 'Introdu o adresă de email validă.';
+    if (contractId.trim().length < 2) nextErrors.contractId = 'Introdu identificatorul abonamentului, plății sau contului.';
+    if (!confirmed) nextErrors.confirmed = 'Confirmarea este necesară pentru transmiterea retragerii.';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+
+    const submittedAt = new Date();
+    const subject = 'Declarație de retragere din contractul Superfix';
+    const body = [
+      WITHDRAWAL_DECLARATION,
+      '',
+      `Nume: ${name.trim()}`,
+      `Email: ${email.trim()}`,
+      `Identificator abonament / plată / cont: ${contractId.trim()}`,
+      `Data încheierii contractului: ${contractDate || 'necunoscută'}`,
+      `Data pregătirii declarației: ${submittedAt.toLocaleString('ro-RO')}`,
+    ].join('\n');
+    setPreparedAt(submittedAt.toISOString());
+    window.location.href = `mailto:${LEGAL.supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <LegalLayout title="Retragere din contract" lastUpdated={UPDATED_AT}>
+      <>
+        <h3>Retrageți-vă din contract aici</h3>
+        <p>Dacă ai calitatea legală de consumator, poți transmite online declarația de retragere din contractul pentru abonamentul Superfix. Termenul obișnuit este de 14 zile de la încheierea contractului. Formularul nu este destinat anulării lucrărilor contractate direct cu un Erou.</p>
+        <p>Poți transmite aceeași declarație direct la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Folosirea acestei pagini nu limitează celelalte modalități permise de lege.</p>
+
+        {preparedAt && (
+          <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900">
+            <CheckCircle size={26} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <strong>Emailul este pregătit</strong>
+              <p className="mt-1 text-sm">Apasă „Trimite” în aplicația de email ca declarația să ajungă la Superfix. Pregătit la {new Date(preparedAt).toLocaleString('ro-RO')}.</p>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={submit} noValidate className="mt-7 space-y-5">
+            <Field
+              id="withdrawal-name"
+              label="Nume complet"
+              autoComplete="name"
+              value={name}
+              error={errors.name}
+              onChange={event => { setName(event.target.value); setErrors(current => ({ ...current, name: '' })); }}
+            />
+            <Field
+              id="withdrawal-email"
+              type="email"
+              label="Email pentru confirmare"
+              autoComplete="email"
+              value={email}
+              error={errors.email}
+              hint="Folosește adresa asociată contului, ca să putem identifica solicitarea."
+              onChange={event => { setEmail(event.target.value); setErrors(current => ({ ...current, email: '' })); }}
+            />
+            <Field
+              id="withdrawal-contract"
+              label="Identificator abonament, plată sau cont"
+              value={contractId}
+              error={errors.contractId}
+              hint="De exemplu: ID-ul plății NETOPIA, ID-ul abonamentului sau emailul contului."
+              onChange={event => { setContractId(event.target.value); setErrors(current => ({ ...current, contractId: '' })); }}
+            />
+            <Field
+              id="withdrawal-date"
+              type="date"
+              label="Data încheierii contractului (dacă o cunoști)"
+              value={contractDate}
+              onChange={event => setContractDate(event.target.value)}
+            />
+
+            <label className="sf-consent" data-invalid={errors.confirmed ? 'true' : undefined}>
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 shrink-0 accent-[#e42e3f]"
+                checked={confirmed}
+                onChange={event => { setConfirmed(event.target.checked); setErrors(current => ({ ...current, confirmed: '' })); }}
+              />
+              <span className="text-sm leading-relaxed text-graphite-soft">{WITHDRAWAL_DECLARATION}</span>
+            </label>
+            {errors.confirmed && <p className="sf-field__error" role="status">{errors.confirmed}</p>}
+
+            <button
+              type="submit"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-graphite px-6 font-heading text-white transition-transform active:scale-[0.98]"
+            >
+              Deschide emailul și confirmă retragerea
+            </button>
+        </form>
+      </>
+    </LegalLayout>
+  );
+};

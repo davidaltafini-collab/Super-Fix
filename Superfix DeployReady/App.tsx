@@ -42,6 +42,7 @@ const Terms = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Te
 const Privacy = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Privacy })));
 const Cookies = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Cookies })));
 const GDPR = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.GDPR })));
+const Withdrawal = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Withdrawal })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })));
 const SubscriptionResult = lazy(() => import('./pages/SubscriptionResult').then(m => ({ default: m.SubscriptionResult })));
@@ -178,6 +179,7 @@ const App: React.FC = () => {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/cookies" element={<Cookies />} />
                 <Route path="/gdpr" element={<GDPR />} />
+                <Route path="/withdrawal" element={<Withdrawal />} />
 
                 {/* Fără ruta asta, o adresă greșită nu potrivea nimic: navigația și
                     subsolul rămâneau pe ecran, cu gol între ele. */}

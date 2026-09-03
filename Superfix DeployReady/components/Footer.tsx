@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import NTPLogo from 'ntp-logo-react';
 import { LEGAL, legalIdentityParts } from '../config/legal';
 import {
   House, MagnifyingGlass, UserPlus, Handshake, IdentificationBadge,
@@ -16,6 +17,9 @@ const navLinks = [
 
 const legalLinks = [
   { to: '/terms', label: 'Termeni și condiții', Icon: FileText },
+  { to: '/terms#livrarea-serviciului', label: 'Livrarea serviciului', Icon: FileText },
+  { to: '/terms#anularea-abonamentului', label: 'Anularea abonamentului', Icon: FileText },
+  { to: '/withdrawal', label: 'Retragere din contract', Icon: Scales },
   { to: '/privacy', label: 'Confidențialitate', Icon: ShieldCheck },
   { to: '/cookies', label: 'Politica de cookies', Icon: Cookie },
   { to: '/gdpr', label: 'GDPR, drepturile tale', Icon: ShieldCheck },
@@ -29,7 +33,7 @@ export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer style={{ backgroundColor: '#2E333B' }} className="relative overflow-hidden text-white mt-auto pt-16 pb-8">
+    <footer id="site-footer" style={{ backgroundColor: '#2E333B' }} className="relative scroll-mt-6 overflow-hidden text-white mt-auto pt-16 pb-8">
       <div className="absolute -top-24 -left-16 w-72 h-72 rounded-full bg-spark/10 blur-3xl pointer-events-none" aria-hidden="true" />
 
       <div className="relative max-w-6xl mx-auto px-5 sm:px-6">
@@ -87,27 +91,31 @@ export const Footer: React.FC = () => {
           {/* 4. SOLUȚIONARE LITIGII */}
           <div>
             <h3 className={colHeading}>SOLUȚIONARE LITIGII</h3>
-            <div className="flex flex-col gap-3">
-              <a
-                href="https://anpc.ro/ce-este-sal/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white/95 hover:bg-white rounded-2xl p-3 h-16 flex items-center justify-center transition-colors duration-200"
-              >
-                <img src="/uploads/sal.svg" alt="ANPC SAL, Soluționarea Alternativă a Litigiilor" className="h-full w-auto object-contain" />
-              </a>
-              <a
-                href="https://ec.europa.eu/consumers/odr"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white/95 hover:bg-white rounded-2xl p-3 h-16 flex items-center justify-center transition-colors duration-200"
-              >
-                <img src="/uploads/sol.svg" alt="Platforma SOL, Soluționarea Online a Litigiilor" className="h-full w-auto object-contain" />
-              </a>
-            </div>
+            <a
+              href="https://reclamatiisal.anpc.ro/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Depune o cerere SAL la ANPC (se deschide într-o filă nouă)"
+              className="flex min-h-16 items-center justify-center rounded-2xl bg-white/95 p-2 transition-colors duration-200 hover:bg-white"
+            >
+              <img
+                src="/uploads/sal-anpc.png"
+                width="250"
+                height="50"
+                alt="Soluționarea Alternativă a Litigiilor — ANPC"
+                className="h-auto w-full max-w-[250px] object-contain"
+              />
+            </a>
             <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
               <Scales size={15} aria-hidden="true" />
-              Conform legislației UE privind protecția consumatorului
+              Cererile SAL se depun pe platforma oficială ANPC
+            </div>
+
+            <div className="mt-7">
+              <h3 className="font-heading text-xs tracking-wide text-white/50 mb-3">PLĂȚI SECURIZATE</h3>
+              <div className="h-12 w-full max-w-[250px]">
+                <NTPLogo color="#9c9c9c" version="orizontal" secret="168597" />
+              </div>
             </div>
           </div>
         </div>

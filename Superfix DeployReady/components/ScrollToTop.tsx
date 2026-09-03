@@ -17,11 +17,33 @@ import { useLocation } from "react-router-dom";
  * ancorele din pagină, unde chiar o vrei.
  */
 export const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-  }, [pathname]);
+    if (!hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      return;
+    }
+
+    let attempts = 0;
+    let timer: number | undefined;
+    const scrollToAnchor = () => {
+      const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (target) {
+        target.scrollIntoView({ block: "start", behavior: "instant" });
+        return;
+      }
+      // Rutele încărcate lazy pot monta conținutul după schimbarea adresei.
+      // Reîncercăm scurt, fără animație și fără să ținem vreun proces deschis.
+      attempts += 1;
+      if (attempts < 20) timer = window.setTimeout(scrollToAnchor, 50);
+    };
+
+    scrollToAnchor();
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [pathname, hash]);
 
   return null;
 };
