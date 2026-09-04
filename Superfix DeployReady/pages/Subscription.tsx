@@ -12,7 +12,6 @@ import {
 } from '../services/subscription';
 import { hasHeroSession } from '../services/dataService';
 import { GlassButton } from '../components/Button';
-import { Field } from '../components/Field';
 import { useToast } from '../components/Toast';
 import { Skel, SkeletonPage } from '../components/Loader';
 
@@ -151,7 +150,6 @@ export const Subscription: React.FC = () => {
 
   const s = state!;
   const price = money(s.priceBani, s.currency || 'RON');
-  const yearWas = money((s.priceBani ?? 2500) * 12, s.currency || 'RON');
   const renewalStopped = s.cancelAtPeriodEnd && (s.status === 'ACTIVE' || s.status === 'FREE');
   const flag = renewalStopped
     ? { word: 'Reînnoire oprită', tone: 'wait' }
@@ -187,7 +185,7 @@ export const Subscription: React.FC = () => {
         <meta name="robots" content="noindex" />
       </Helmet>
 
-      <header className="mx-auto max-w-2xl px-5 pt-28 sm:px-6">
+      <header className="mx-auto max-w-3xl px-5 pt-28 sm:px-6">
         <Link
           to="/portal"
           className="inline-flex items-center gap-2 text-sm font-semibold text-graphite-soft transition-colors hover:text-graphite"
@@ -197,7 +195,7 @@ export const Subscription: React.FC = () => {
         </Link>
 
         <h1 className="mt-7 font-heading text-[2.2rem] font-bold uppercase leading-[1.04] text-graphite sm:text-5xl">
-          Listarea ta
+          {needsCard ? 'Activează listarea' : 'Abonamentul tău'}
         </h1>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -209,123 +207,123 @@ export const Subscription: React.FC = () => {
         <p className="mt-3 max-w-xl leading-relaxed text-graphite-soft">{line}</p>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-5 px-5 py-9 sm:px-6">
-        {/* ---------------- planurile ---------------- */}
+      <main className="mx-auto max-w-3xl space-y-5 px-5 py-9 sm:px-6">
+        {/* Un singur flux de checkout: perioadă, preț, plată, apoi cod.
+            Anualul rămâne vizibil, dar indisponibil până există și pe server. */}
         {needsCard && (
-          <section className="sf-glass rounded-[28px] p-6 sm:p-7">
-            <h2 className="font-heading text-xl text-graphite">Cât costă</h2>
+          <section className="sub-checkout sf-glass rounded-[28px] p-5 sm:p-8">
+            <div className="sub-checkout__head">
+              <h2 className="font-heading text-xl text-graphite sm:text-2xl">Plan de listare</h2>
+              <span className="sub-secure">
+                <ShieldCheck size={17} weight="fill" aria-hidden="true" />
+                Plată securizată
+              </span>
+            </div>
 
-            <div className="sub-plans mt-5">
-              <button type="button" className="sub-plan" aria-pressed="true">
-                <span className="sub-plan__name">Lunar</span>
-                <p className="sub-plan__price">
-                  {price}<span className="sub-plan__per"> / lună</span>
-                </p>
-                <p className="sub-plan__note">Se reînnoiește singur. Îl oprești oricând, fără explicații.</p>
+            <div className="sub-period" role="group" aria-label="Perioada de facturare">
+              <button type="button" className="sub-period__option" aria-pressed="true">
+                <span>Lunar</span>
+                <Check size={17} weight="bold" aria-hidden="true" />
               </button>
-
-              {/* Anualul nu există încă pe server: un singur preț și un singur
-                  interval. Îl arătăm stins, cu motivul scris — un card gri fără
-                  explicație e mai enervant decât lipsa lui. */}
-              <button type="button" className="sub-plan" disabled aria-disabled="true">
-                <span className="sub-plan__tag">În curând</span>
-                <span className="sub-plan__name">Pe un an</span>
-                <p className="sub-plan__price">
-                  —<span className="sub-plan__was">{yearWas}</span>
-                </p>
-                <p className="sub-plan__note">Plătești o dată pe an, mai ieftin. Îl pregătim.</p>
+              <button type="button" className="sub-period__option" disabled aria-disabled="true">
+                <span>Anual</span>
+                <span className="sub-period__soon">În curând</span>
               </button>
             </div>
 
-            <ul className="mt-6 space-y-2.5">
-              {PERKS.map(perk => (
-                <li key={perk} className="sub-perk">
-                  <Check size={17} weight="bold" className="sub-perk__tick" aria-hidden="true" />
-                  {perk}
-                </li>
-              ))}
-            </ul>
-
-            {/* Anul gratuit și planurile plătite nu se adună: gratuitatea se
-                aplică la prima activare, iar planul se alege abia după ce se
-                termină. Scris aici, unde se decide, nu îngropat în termeni. */}
-            <p className="mt-5 rounded-2xl bg-white/60 p-3.5 text-[0.8125rem] leading-relaxed text-graphite-soft">
-              Dacă ai cod de invitație, primul an e gratuit și nu plătești nimic acum —
-              planul îl alegi când se termină.
+            <p className="sub-scope">
+              Plătești doar listarea profilului tău de meseriaș. Lucrările contractate cu clienții nu se plătesc prin Superfix.
             </p>
-          </section>
-        )}
 
-        {/* ---------------- acțiunea ---------------- */}
-        <section className="sf-glass rounded-[28px] p-6 sm:p-7">
-          {needsCard ? (
-            <>
-              {notReady ? (
-                /* Nu e nimic de reparat de mâna lui, deci nu-i explicăm nici POS,
-                   nici bridge. Îi spunem doar că nu e din vina lui. */
-                <div className="rounded-2xl bg-white/60 p-4">
-                  <p className="font-heading text-base text-graphite">Plățile nu sunt încă deschise</p>
-                  <p className="mt-2 text-sm leading-relaxed text-graphite-soft">
-                    Mai punem la punct partea de plată. Nu e nimic de făcut din partea ta —
-                    îți scriem pe email în clipa în care se poate activa.
-                  </p>
-                </div>
-              ) : (
-                <GlassButton type="button" tone="red" full disabled={busy} onClick={goToCheckout} className="min-h-14 text-lg">
-                  <CreditCard size={20} weight="fill" aria-hidden="true" />
-                  {busy ? 'Se deschide…' : actionWord}
-                </GlassButton>
-              )}
+            <div className="sub-price" aria-label={`${price} pe lună`}>
+              <p className="sub-price__label">Listare Superfix</p>
+              <p className="sub-price__amount">{price}</p>
+              <p className="sub-price__interval">pe lună, cu reînnoire automată</p>
+              <p className="sub-price__note">Oprești oricând. Profilul rămâne activ până la finalul perioadei plătite.</p>
+            </div>
 
-              <p className="mt-4 flex items-start justify-center gap-2 text-center text-[0.8125rem] leading-relaxed text-graphite-soft">
-                <Lock size={14} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" />
-                <span>
-                  Cardul se introduce numai în pagina securizată NETOPIA. Noi nu vedem
-                  numărul cardului și nu-l păstrăm nicăieri.
-                </span>
+            {notReady ? (
+              <div className="sub-unavailable" role="status">
+                <p className="font-heading text-base text-graphite">Plățile nu sunt încă deschise</p>
+                <p className="mt-2 text-sm leading-relaxed text-graphite-soft">
+                  Mai punem la punct partea de plată. Nu e nimic de făcut din partea ta.
+                  Îți scriem pe email în clipa în care se poate activa.
+                </p>
+              </div>
+            ) : (
+              <GlassButton type="button" tone="red" full disabled={busy} onClick={goToCheckout} className="sub-pay min-h-14 text-lg">
+                <CreditCard size={21} weight="fill" aria-hidden="true" />
+                {busy ? 'Se deschide…' : actionWord}
+              </GlassButton>
+            )}
+
+            <div className="sub-trust">
+              <Lock size={17} weight="fill" aria-hidden="true" />
+              <p>
+                Cardul se introduce doar în pagina securizată NETOPIA. Superfix nu vede
+                și nu păstrează numărul cardului.
               </p>
+            </div>
 
-              <p className="mt-3 text-center text-[0.8125rem] leading-relaxed text-graphite-soft">
+            {!notReady && (
+              <p className="sub-terms">
                 Continuând, ești de acord cu{' '}
                 <Link to="/terms" className="font-semibold underline decoration-super-red/40 underline-offset-2 hover:text-graphite">
                   termenii
                 </Link>
                 {s.termsVersion ? `, versiunea ${s.termsVersion}` : ''}.
               </p>
+            )}
 
-              {/* Codul, numai cât timp contul n-a fost activat. Ăsta e ultimul
-                  moment în care se mai poate lega: după activare, atribuirea nu
-                  se mai face (vezi termenii, secțiunea 4). */}
-              {s.status === 'NONE' && !notReady && (
-                <div className="mt-7 border-t border-graphite/10 pt-6">
-                  <div className="flex items-end gap-2">
-                    <Field
-                      id="sub-promo"
-                      label="Ai un cod de invitație sau promoțional?"
-                      placeholder="ERO-… / REC-… / SUPERFIX2026"
-                      autoCapitalize="characters"
-                      spellCheck={false}
-                      className="flex-1 [&_input]:font-mono [&_input]:uppercase"
-                      hint="Un singur cod pe cont, și numai acum — după activare nu se mai poate lega. Dacă l-ai pus la înscriere, e deja aplicat."
-                      value={promo}
-                      error={promoError}
-                      onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoError(''); }}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendPromo(); } }}
-                    />
-                    <button
-                      type="button"
-                      onClick={sendPromo}
-                      disabled={busy}
-                      className="mb-[1.9rem] inline-flex min-h-12 items-center gap-2 rounded-full bg-graphite px-5 font-heading text-sm text-white transition-transform active:scale-[0.97] disabled:opacity-50"
-                    >
-                      <Ticket size={16} weight="fill" aria-hidden="true" />
-                      Aplică
-                    </button>
-                  </div>
+            {s.status === 'NONE' && !notReady && (
+              <div className="sub-promo">
+                <label htmlFor="sub-promo" className="sub-promo__label">
+                  <Ticket size={18} weight="fill" aria-hidden="true" />
+                  Cod de invitație sau reducere
+                </label>
+                <div className="sub-promo__controls">
+                  <input
+                    id="sub-promo"
+                    className="sf-field__input font-mono uppercase"
+                    placeholder="ERO-... / REC-..."
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={promo}
+                    aria-invalid={promoError ? true : undefined}
+                    aria-describedby={promoError ? 'sub-promo-hint sub-promo-error' : 'sub-promo-hint'}
+                    onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoError(''); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendPromo(); } }}
+                  />
+                  <button type="button" onClick={sendPromo} disabled={busy} className="sub-promo__apply">
+                    Aplică
+                  </button>
                 </div>
-              )}
-            </>
-          ) : renewalStopped ? (
+                <p id="sub-promo-hint" className="sub-promo__hint">
+                  Dacă ai un cod eligibil, primul an poate fi gratuit. Codul se aplică o singură dată, înainte de activare.
+                </p>
+                {promoError && <p id="sub-promo-error" className="sf-field__error" role="status">{promoError}</p>}
+              </div>
+            )}
+
+            <div className="sub-included">
+              <h3 className="font-heading text-lg text-graphite">Ce primești</h3>
+              <ul className="mt-4 space-y-2.5">
+                {PERKS.map(perk => (
+                  <li key={perk} className="sub-perk">
+                    <Check size={17} weight="bold" className="sub-perk__tick" aria-hidden="true" />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* Gestionarea unui abonament deja pornit rămâne separată de checkout. */}
+        {!needsCard && (
+        <section className="sf-glass rounded-[28px] p-6 sm:p-7">
+          {renewalStopped ? (
             <GlassButton type="button" tone="red" full disabled={busy} onClick={resume} className="min-h-14 text-lg">
               <ShieldCheck size={20} weight="fill" aria-hidden="true" />
               {busy ? 'Se pornește…' : 'Repornește reînnoirea'}
@@ -363,6 +361,7 @@ export const Subscription: React.FC = () => {
             </p>
           )}
         </section>
+        )}
       </main>
     </div>
   );
