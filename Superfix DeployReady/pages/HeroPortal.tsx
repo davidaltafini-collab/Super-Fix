@@ -526,9 +526,7 @@ export const HeroPortal: React.FC = () => {
             to="/abonament"
             className="group mt-4 flex items-center gap-3 rounded-[24px] border-2 border-super-red/30 bg-gradient-to-br from-white via-white to-super-red/10 p-4 shadow-[0_18px_38px_-24px_rgba(214,51,63,0.95)] transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-super-red/20 active:scale-[0.99] sm:gap-4 sm:p-5"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-super-red text-white shadow-clay-red sm:h-14 sm:w-14">
-              <EyeSlash size={26} weight="bold" aria-hidden="true" />
-            </span>
+            <EyeSlash size={22} weight="duotone" className="shrink-0 text-super-red-dark" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="block font-heading text-lg leading-tight text-super-red-dark sm:text-xl">
                 Nu apari încă în căutări
