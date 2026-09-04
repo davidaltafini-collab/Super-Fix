@@ -169,6 +169,56 @@
   line-height: 1.5;
 }
 
+/* Bifa de reînnoire automată. Debifată, plata e o singură lună. */
+.sub-renew {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin: 0 auto 1.1rem;
+  padding: 0.85rem 0.95rem;
+  max-width: 32rem;
+  border: 1px solid rgba(46, 51, 59, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.sub-renew:hover { border-color: rgba(46, 51, 59, 0.2); }
+
+.sub-renew:focus-within {
+  border-color: rgba(46, 51, 59, 0.3);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.sub-renew__box {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.1rem;
+  accent-color: #2e333b;
+  cursor: pointer;
+}
+
+.sub-renew__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sub-renew__title {
+  color: #2e333b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.sub-renew__hint {
+  color: #6b7280;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 .sub-pay { transition-property: transform, opacity !important; }
 
 .sub-unavailable {

@@ -61,6 +61,10 @@ export const Subscription: React.FC = () => {
   const [promo, setPromo] = useState('');
   const [promoError, setPromoError] = useState('');
   const [notReady, setNotReady] = useState(false);
+  /* Bifat = cardul se salvează și listarea se reînnoiește lunar singură.
+     Debifat = plătește o lună acum și atât: fără card salvat, fără nicio
+     taxare viitoare. Implicit bifat, fiindcă ăsta e abonamentul. */
+  const [autoRenew, setAutoRenew] = useState(true);
 
   useEffect(() => {
     if (!hasHeroSession()) { navigate('/portal'); return; }
@@ -80,7 +84,7 @@ export const Subscription: React.FC = () => {
     if (!state) return;
     setBusy(true);
     setNotReady(false);
-    const result = await startCheckout(state.termsVersion);
+    const result = await startCheckout(state.termsVersion, autoRenew);
     setBusy(false);
 
     if (result.url) {
@@ -174,9 +178,11 @@ export const Subscription: React.FC = () => {
                 : 'Profilul tău e gata, dar încă nu-l vede niciun client. Activează listarea.';
 
   const needsCard = s.status === 'NONE' || s.status === 'PAST_DUE' || s.status === 'ACTION_REQUIRED';
-  const actionWord = s.status === 'PAST_DUE'
-    ? 'Reia plata'
-    : s.status === 'ACTION_REQUIRED' ? 'Revalidează cardul' : 'Adaugă cardul și activează';
+  const actionWord = !autoRenew
+    ? `Plătește ${price}`
+    : s.status === 'PAST_DUE'
+      ? 'Reia plata'
+      : s.status === 'ACTION_REQUIRED' ? 'Revalidează cardul' : 'Adaugă cardul și activează';
 
   return (
     <div className="sub pb-16 font-sans text-graphite">
@@ -235,12 +241,38 @@ export const Subscription: React.FC = () => {
               Plătești doar listarea profilului tău de meseriaș. Lucrările contractate cu clienții nu se plătesc prin Superfix.
             </p>
 
-            <div className="sub-price" aria-label={`${price} pe lună`}>
+            <div className="sub-price" aria-label={autoRenew ? `${price} pe lună` : `${price} pentru o lună`}>
               <p className="sub-price__label">Listare Superfix</p>
               <p className="sub-price__amount">{price}</p>
-              <p className="sub-price__interval">pe lună, cu reînnoire automată</p>
-              <p className="sub-price__note">Oprești oricând. Profilul rămâne activ până la finalul perioadei plătite.</p>
+              <p className="sub-price__interval">
+                {autoRenew ? 'pe lună, cu reînnoire automată' : 'pentru o lună, plată unică'}
+              </p>
+              <p className="sub-price__note">
+                {autoRenew
+                  ? 'Oprești oricând. Profilul rămâne activ până la finalul perioadei plătite.'
+                  : 'Nu-ți salvăm cardul și nu-ți luăm nimic după luna asta. Când se termină, plătești din nou dacă vrei.'}
+              </p>
             </div>
+
+            {/* Bifa care alege fluxul. Debifat = plată standard, o lună, cardul
+                nu se salvează nicăieri. E și singurul mod în care o încasare
+                reală se poate proba: înrolarea recurentă e obligatoriu de 0 lei. */}
+            <label className="sub-renew">
+              <input
+                type="checkbox"
+                className="sub-renew__box"
+                checked={autoRenew}
+                onChange={e => setAutoRenew(e.target.checked)}
+              />
+              <span className="sub-renew__text">
+                <span className="sub-renew__title">Reînnoire automată în fiecare lună</span>
+                <span className="sub-renew__hint">
+                  {autoRenew
+                    ? `Cardul rămâne salvat la NETOPIA și listarea se reînnoiește cu ${price} pe lună. Oprești oricând, tot de aici.`
+                    : 'Plătești o singură lună, acum. Cardul nu se salvează, deci nu se reînnoiește nimic singur.'}
+                </span>
+              </span>
+            </label>
 
             {notReady ? (
               <div className="sub-unavailable" role="status">

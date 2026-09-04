@@ -101,13 +101,20 @@ export interface CheckoutOutcome {
 }
 
 /**
- * Pornește validarea cardului.
+ * Pornește plata.
  *
  * `termsVersion` vine din `/status` și se trimite înapoi ca dovadă de
  * consimțământ. Serverul refuză cu `409 TERMS_CHANGED` dacă între timp s-a
  * schimbat — pagina trebuie reîncărcată, nu insistat.
+ *
+ * `autoRenew` alege fluxul: `true` (implicit) validează cardul și-l salvează
+ * pentru reînnoirea lunară; `false` ia o singură lună acum, fără card salvat și
+ * fără nicio taxare viitoare.
  */
-export async function startCheckout(termsVersion: string | null | undefined): Promise<CheckoutOutcome> {
+export async function startCheckout(
+  termsVersion: string | null | undefined,
+  autoRenew = true,
+): Promise<CheckoutOutcome> {
   const version = (termsVersion || '').trim();
   if (!version) {
     return { message: 'Condițiile comerciale nu s-au încărcat. Reîncarcă pagina și încearcă din nou.' };
@@ -117,7 +124,7 @@ export async function startCheckout(termsVersion: string | null | undefined): Pr
     const response = await call('/subscription/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ termsAccepted: true, termsVersion: version }),
+      body: JSON.stringify({ termsAccepted: true, termsVersion: version, autoRenew }),
     });
     const data = await response.json().catch(() => ({} as any));
 
