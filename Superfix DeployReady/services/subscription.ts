@@ -89,6 +89,57 @@ export async function getSubscriptionStatus(): Promise<SubscriptionState> {
   }
 }
 
+/**
+ * Ce s-a întâmplat cu o plată anume.
+ *
+ * `/status` descrie contul, nu plata: o înrolare de card respinsă lasă contul
+ * pe `NONE`, deci pagina de rezultat n-are din ce să afle că a picat. Asta e
+ * întrebarea pe care trebuie s-o pună ea.
+ */
+export type PaymentOutcome =
+  /** încă nu s-a așezat — se mai așteaptă IPN-ul */
+  | 'PENDING'
+  /** plătit / card înrolat cu succes */
+  | 'PAID'
+  /** banca a refuzat */
+  | 'DECLINED'
+  /** anulată înainte de finalizare */
+  | 'CANCELLED'
+  /** banca mai cere un pas 3-D Secure */
+  | 'ACTION_REQUIRED'
+  /** răspuns incert; se verifică manual, nu se retrimite automat */
+  | 'REVIEW'
+  /** stornată după ce trecuse */
+  | 'REVERSED';
+
+export interface PaymentAttemptResult {
+  found: boolean;
+  outcome?: PaymentOutcome;
+  type?: 'CARD_SETUP' | 'ONE_OFF' | 'SUBSCRIPTION';
+  amountBani?: number;
+  orderId?: string;
+}
+
+/**
+ * Rezultatul plății identificate prin `orderId` (cel din adresa pe care o
+ * compune NETOPIA la redirect). Serverul îl folosește doar ca să găsească
+ * rândul — verdictul vine din IPN-ul verificat de el, nu din adresă.
+ *
+ * La orice eroare de rețea întoarce `{ found: false }`: apelantul trebuie să
+ * mai aștepte, nu să conchidă ceva.
+ */
+export async function getPaymentAttempt(orderId?: string | null): Promise<PaymentAttemptResult> {
+  try {
+    const query = orderId ? `?orderId=${encodeURIComponent(orderId)}` : '';
+    const response = await call(`/subscription/attempt${query}`);
+    if (!response.ok) return { found: false };
+    const data = await response.json();
+    return data?.found ? data : { found: false };
+  } catch {
+    return { found: false };
+  }
+}
+
 export interface CheckoutOutcome {
   /** adresa checkout-ului găzduit; acolo se duce omul */
   url?: string;
