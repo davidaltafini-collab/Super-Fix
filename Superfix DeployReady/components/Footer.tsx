@@ -4,7 +4,7 @@ import NTPLogo from 'ntp-logo-react';
 import { LEGAL } from '../config/legal';
 import {
   House, MagnifyingGlass, UserPlus, Handshake, IdentificationBadge,
-  FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Heart,
+  FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Heart, CreditCard,
 } from '@phosphor-icons/react';
 
 const navLinks = [
@@ -17,6 +17,7 @@ const navLinks = [
 
 const legalLinks = [
   { to: '/terms/date-contact', label: 'Datele companiei', Icon: IdentificationBadge },
+  { to: '/preturi', label: 'Serviciu și prețuri', Icon: CreditCard },
   { to: '/terms', label: 'Termeni și condiții', Icon: FileText },
   { to: '/terms#livrarea-serviciului', label: 'Livrarea serviciului', Icon: FileText },
   { to: '/terms#anularea-abonamentului', label: 'Anularea abonamentului', Icon: FileText },

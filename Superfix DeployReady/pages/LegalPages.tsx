@@ -14,6 +14,7 @@ const UPDATED_AT = '03.09.2026';
    vrei de obicei confidențialitatea, din termeni vrei drepturile. Linkurile din
    subsol te scot din pagină ca să te întorci; rândul ăsta te lasă înăuntru. */
 const DOCS = [
+  { to: '/preturi', short: 'Serviciu și prețuri' },
   { to: '/terms', short: 'Termeni' },
   { to: '/privacy', short: 'Confidențialitate' },
   { to: '/cookies', short: 'Cookies' },
@@ -105,6 +106,59 @@ export const CompanyContact: React.FC = () => (
       <p><strong>Telefon:</strong> <a href={`tel:${LEGAL.phone.replace(/\s/g, '')}`}>{LEGAL.phone}</a></p>
     ) : null}
     <p><Link to="/terms">Înapoi la Termeni și condiții</Link>.</p>
+  </LegalLayout>
+);
+
+export const Pricing: React.FC = () => (
+  <LegalLayout title="Serviciul Superfix și prețurile" lastUpdated="04.09.2026">
+    <h3>Serviciul comercializat</h3>
+    <p>
+      <OperatorIdentity /> comercializează către meseriași serviciul digital de
+      publicare și administrare a unui profil profesional în platforma Superfix.
+      Serviciul este denumit <strong>abonament de listare Superfix</strong>.
+    </p>
+    <p>Abonamentul de listare include:</p>
+    <ul>
+      <li>publicarea profilului profesional cu nume de prezentare, meserie, descriere, fotografii, videoclip și zone de lucru;</li>
+      <li>afișarea profilului în căutările clienților din zonele selectate;</li>
+      <li>primirea și administrarea solicitărilor de servicii transmise prin platformă;</li>
+      <li>profil public cu recenzii verificate și indicatorul de reputație Fix-o-metru;</li>
+      <li>acces la portalul de administrare a profilului și a misiunilor.</li>
+    </ul>
+
+    <h3>Preț și monedă</h3>
+    <p>
+      Prețul abonamentului de listare este de <strong>25,00 RON pentru o lună</strong>,
+      preț total. Moneda tranzacției este RON.
+    </p>
+    <ul>
+      <li>La reînnoirea automată, tariful este de 25,00 RON în fiecare lună, până la oprirea reînnoirii.</li>
+      <li>Dacă se alege plata unică, suma de 25,00 RON acoperă o singură lună de listare și nu se efectuează automat o plată viitoare.</li>
+      <li>Un cod de invitație, recruiter sau promoțional eligibil poate acorda o perioadă gratuită. Condițiile aplicabile sunt afișate în cont înainte de activare.</li>
+    </ul>
+
+    <h3>Ce nu se plătește prin Superfix</h3>
+    <p>
+      Accesul Clienților la platformă este gratuit. Superfix nu încasează și nu
+      procesează prețul lucrărilor. Prețul, executarea și plata fiecărei lucrări
+      se stabilesc direct între Client și Erou, în afara platformei Superfix.
+    </p>
+
+    <h3>Activarea și livrarea serviciului</h3>
+    <p>
+      Serviciul este furnizat exclusiv digital. Listarea se activează după
+      confirmarea plății sau a perioadei gratuite aplicabile. Nu se livrează
+      bunuri fizice și nu există taxe de transport.
+    </p>
+
+    <h3>Plată, anulare și suport</h3>
+    <p>
+      Plata cu cardul se realizează în pagina securizată NETOPIA Payments.
+      Reînnoirea poate fi oprită din cont, iar profilul rămâne activ până la
+      sfârșitul perioadei deja plătite. Detaliile complete sunt disponibile în{' '}
+      <Link to="/terms">Termeni și condiții</Link>. Pentru ajutor, scrie la{' '}
+      <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.
+    </p>
   </LegalLayout>
 );
 
