@@ -458,27 +458,6 @@ export const HeroPortal: React.FC = () => {
   return (
     <div className="pb-8 font-sans text-graphite md:pb-20">
       <header className="mx-auto max-w-4xl px-5 pt-28 sm:px-6">
-        {/* Cât timp `archived` e adevărat, profilul nu apare în nicio căutare —
-            iar până acum nimic din sit nu i-o spunea. E primul lucru din portal,
-            dinaintea oricărei misiuni, pentru că fără el nu vine nicio misiune. */}
-        {hidden && (
-          <Link
-            to="/abonament"
-            className="mb-4 flex items-center gap-3 rounded-[22px] border border-super-red/20 bg-super-red/8 p-4 transition-colors hover:bg-super-red/12"
-          >
-            <EyeSlash size={22} weight="duotone" className="shrink-0 text-super-red-dark" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-heading text-base leading-tight text-super-red-dark">
-                Nu apari încă în căutări
-              </span>
-              <span className="mt-0.5 block text-sm leading-snug text-graphite-soft">
-                Profilul e gata, dar listarea nu e activă. Apasă ca s-o pornești.
-              </span>
-            </span>
-            <CaretRight size={18} weight="bold" className="shrink-0 text-super-red-dark" aria-hidden="true" />
-          </Link>
-        )}
-
         <div className="sf-glass rounded-[28px] p-6 sm:p-7">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -539,6 +518,31 @@ export const HeroPortal: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Listarea oprită este următorul lucru pe care trebuie să-l vadă eroul
+            după salut: înaintea mesajelor și a misiunilor care depind de ea. */}
+        {hidden && (
+          <Link
+            to="/abonament"
+            className="group mt-4 flex items-center gap-3 rounded-[24px] border-2 border-super-red/30 bg-gradient-to-br from-white via-white to-super-red/10 p-4 shadow-[0_18px_38px_-24px_rgba(214,51,63,0.95)] transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-super-red/20 active:scale-[0.99] sm:gap-4 sm:p-5"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-super-red text-white shadow-clay-red sm:h-14 sm:w-14">
+              <EyeSlash size={26} weight="bold" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-heading text-lg leading-tight text-super-red-dark sm:text-xl">
+                Nu apari încă în căutări
+              </span>
+              <span className="mt-1 block text-sm font-semibold leading-snug text-graphite-soft">
+                Profilul e gata, dar clienții nu-l pot vedea încă.
+              </span>
+              <span className="mt-2 inline-flex items-center gap-1 font-heading text-xs uppercase tracking-[0.12em] text-super-red-dark sm:text-sm">
+                Activează listarea
+                <CaretRight size={16} weight="bold" aria-hidden="true" />
+              </span>
+            </span>
+          </Link>
+        )}
 
         {/* mesajul de la cartierul general: se schimbă după cum e ziua */}
         <div className="mt-5 flex items-start gap-3 rounded-[22px] bg-white/55 p-5 backdrop-blur-md">
