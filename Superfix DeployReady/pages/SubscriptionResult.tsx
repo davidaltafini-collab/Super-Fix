@@ -6,6 +6,8 @@ import { CheckCircle, Clock, WarningCircle, XCircle } from '@phosphor-icons/reac
 import {
   getPaymentAttempt,
   getSubscriptionStatus,
+  isCardChange,
+  markCardChange,
   onDate,
   PaymentOutcome,
   SubscriptionState,
@@ -53,12 +55,19 @@ export const SubscriptionResult: React.FC = () => {
   const [phase, setPhase] = useState<Phase>('waiting');
   const [state, setState] = useState<SubscriptionState | null>(null);
   const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
+  /* Omul a plecat de pe „Schimbă cardul", nu de pe activare. */
+  const [cardChange] = useState(isCardChange);
   const startedAt = useRef(Date.now());
   const { search } = useLocation();
 
   useEffect(() => {
+    if (phase !== 'waiting') markCardChange(false);
+  }, [phase]);
+
+  useEffect(() => {
     let alive = true;
     let timer = 0;
+    const changing = isCardChange();
 
     /* NETOPIA compune adresa de întoarcere, deci nu-i garantăm forma. Acceptăm
        ambele scrieri; dacă lipsește, serverul ia ultima plată a omului. */
@@ -75,26 +84,30 @@ export const SubscriptionResult: React.FC = () => {
       const result = attempt.found ? (attempt.outcome ?? null) : null;
       setOutcome(result);
 
-      /* `archived: false` pe cont e semnul cel mai tare că s-a așezat totul:
-         serverul a primit IPN-ul, l-a verificat, iar profilul e în căutări. */
-      if (!data.archived && (data.status === 'ACTIVE' || data.status === 'FREE')) {
-        setPhase('done');
-        return;
+      /* `archived: false` pe cont e semnul cel mai tare că profilul e în căutări. */
+      const listed = !data.archived && (data.status === 'ACTIVE' || data.status === 'FREE');
+
+      /* Verdictul vine din plata asta, nu din cont. Un cont deja activ (schimbare
+         de card) sau deja restant (reluarea plății) își păstrează starea de
+         dinainte până sosește IPN-ul, deci nu spune nimic despre plata de acum. */
+      if (attempt.found) {
+        if (result === 'DECLINED' || result === 'CANCELLED' || result === 'REVERSED') { setPhase('failed'); return; }
+        if (result === 'ACTION_REQUIRED') { setPhase('action'); return; }
+        if (result === 'REVIEW') { setPhase('review'); return; }
+        if (result === 'PAID') {
+          /* Cardul a trecut. Fără gratuitate urmează imediat prima taxare, deci
+             „ești listat" îl spunem abia când contul chiar e listat. */
+          if (listed || attempt.type !== 'CARD_SETUP') { setPhase('done'); return; }
+          if (data.status === 'ACTION_REQUIRED') { setPhase('action'); return; }
+          if (data.status === 'PAYMENT_REVIEW') { setPhase('review'); return; }
+        }
+      } else {
+        /* Nicio plată găsită (sau a căzut rețeaua): rămâne doar starea contului,
+           care la o schimbare de card nu dovedește nimic. */
+        if (listed && !changing) { setPhase('done'); return; }
+        if (data.status === 'ACTION_REQUIRED') { setPhase('action'); return; }
+        if (data.status === 'PAYMENT_REVIEW') { setPhase('review'); return; }
       }
-      if (result === 'PAID') { setPhase('done'); return; }
-      if (result === 'DECLINED' || result === 'CANCELLED' || result === 'REVERSED') {
-        setPhase('failed');
-        return;
-      }
-      if (result === 'ACTION_REQUIRED' || data.status === 'ACTION_REQUIRED') {
-        setPhase('action');
-        return;
-      }
-      if (result === 'REVIEW' || data.status === 'PAYMENT_REVIEW') {
-        setPhase('review');
-        return;
-      }
-      if (data.status === 'PAST_DUE') { setPhase('failed'); return; }
       if (Date.now() - startedAt.current > GIVE_UP_AFTER_MS) {
         setPhase('slow');
         return;
@@ -130,18 +143,34 @@ export const SubscriptionResult: React.FC = () => {
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-super-red/12 text-super-red">
               <CheckCircle size={30} weight="fill" aria-hidden="true" />
             </span>
-            <h1 className="mt-5 font-heading text-2xl font-bold text-graphite">Gata, ești listat</h1>
-            <p className="mt-3 leading-relaxed text-graphite-soft">
-              Profilul tău apare de acum în căutările clienților.
-              {state?.status === 'FREE'
-                ? ` Ești gratuit până la ${onDate(state.subscriptionEndsAt)}.`
-                : state?.nextChargeAt
-                  ? ` Următoarea plată: ${onDate(state.nextChargeAt)}.`
-                  : ''}
-            </p>
+            <h1 className="mt-5 font-heading text-2xl font-bold text-graphite">
+              {cardChange ? 'Cardul nou e salvat' : 'Gata, ești listat'}
+            </h1>
+            {cardChange ? (
+              <p className="mt-3 leading-relaxed text-graphite-soft">
+                Plățile următoare se iau de pe {state?.cardMask || 'cardul nou'}
+                {state?.nextChargeAt ? `, începând cu ${onDate(state.nextChargeAt)}` : ''}.
+                Cardul vechi e scos din cont.
+              </p>
+            ) : (
+              <p className="mt-3 leading-relaxed text-graphite-soft">
+                Profilul tău apare de acum în căutările clienților.
+                {state?.status === 'FREE'
+                  ? ` Ești gratuit până la ${onDate(state.subscriptionEndsAt)}.`
+                  : state?.nextChargeAt
+                    ? ` Următoarea plată: ${onDate(state.nextChargeAt)}.`
+                    : ''}
+              </p>
+            )}
             <div className="mt-7 flex flex-col gap-3">
-              <GlassLink to="/portal" tone="red" full>Mergi în portal</GlassLink>
-              <GlassLink to="/heroes" tone="neutral" full>Vezi cum arăți în căutări</GlassLink>
+              {cardChange ? (
+                <GlassLink to="/abonament" tone="red" full>Înapoi la abonament</GlassLink>
+              ) : (
+                <>
+                  <GlassLink to="/portal" tone="red" full>Mergi în portal</GlassLink>
+                  <GlassLink to="/heroes" tone="neutral" full>Vezi cum arăți în căutări</GlassLink>
+                </>
+              )}
             </div>
           </>
         )}
@@ -172,16 +201,20 @@ export const SubscriptionResult: React.FC = () => {
               <XCircle size={30} weight="duotone" aria-hidden="true" />
             </span>
             <h1 className="mt-5 font-heading text-2xl font-bold text-graphite">
-              {outcome === 'CANCELLED' ? 'Plata a fost anulată'
-                : outcome === 'REVERSED' ? 'Plata a fost stornată'
-                  : 'Plata n-a trecut'}
+              {cardChange
+                ? (outcome === 'CANCELLED' ? 'Cardul nu s-a schimbat' : 'Cardul nou n-a fost acceptat')
+                : outcome === 'CANCELLED' ? 'Plata a fost anulată'
+                  : outcome === 'REVERSED' ? 'Plata a fost stornată'
+                    : 'Plata n-a trecut'}
             </h1>
             <p className="mt-3 leading-relaxed text-graphite-soft">
-              {outcome === 'CANCELLED'
-                ? 'Nu s-a luat niciun ban și nu s-a salvat niciun card. Poți relua oricând.'
-                : outcome === 'REVERSED'
-                  ? 'Banii s-au întors la tine, iar listarea nu s-a activat. Poți încerca din nou.'
-                  : 'Banca n-a acceptat cardul, deci nu s-a luat niciun ban. Încearcă din nou, cu același card sau cu altul.'}
+              {cardChange
+                ? 'Nu s-a schimbat nimic: plățile se iau în continuare de pe cardul vechi. Poți încerca din nou, cu alt card.'
+                : outcome === 'CANCELLED'
+                  ? 'Nu s-a luat niciun ban și nu s-a salvat niciun card. Poți relua oricând.'
+                  : outcome === 'REVERSED'
+                    ? 'Banii s-au întors la tine, iar listarea nu s-a activat. Poți încerca din nou.'
+                    : 'Banca n-a acceptat cardul, deci nu s-a luat niciun ban. Încearcă din nou, cu același card sau cu altul.'}
             </p>
             <div className="mt-7">
               <GlassLink to="/abonament" tone="red" full>Încearcă din nou</GlassLink>

@@ -7,7 +7,7 @@ import {
 
 import {
   getSubscriptionStatus, startCheckout, applyPromoCode, cancelSubscription,
-  reactivateSubscription, money, onDate,
+  reactivateSubscription, markCardChange, money, onDate,
   SubscriptionState, SubscriptionStatus,
 } from '../services/subscription';
 import { hasHeroSession } from '../services/dataService';
@@ -68,6 +68,8 @@ export const Subscription: React.FC = () => {
 
   useEffect(() => {
     if (!hasHeroSession()) { navigate('/portal'); return; }
+    /* Întors aici fără să termine o schimbare de card: nu mai e în curs. */
+    markCardChange(false);
     let alive = true;
     (async () => {
       const data = await getSubscriptionStatus();
@@ -134,6 +136,19 @@ export const Subscription: React.FC = () => {
     if (result.url) { window.location.href = result.url; return; }
     if (result.ok) { toast.success('Reînnoirea e pornită la loc.'); await refresh(); }
     else toast.error('N-am putut reactiva acum. Mai încearcă o dată.');
+  };
+
+  /* Cardul nou trece prin aceeași validare de 0 lei ca la înrolare. Serverul
+     scoate cardul vechi abia când NETOPIA confirmă tokenul celui nou, deci o
+     schimbare lăsată la jumătate nu strică nimic. */
+  const changeCard = async () => {
+    if (!state) return;
+    setBusy(true);
+    const result = await startCheckout(state.termsVersion, true);
+    setBusy(false);
+    if (result.url) { markCardChange(true); window.location.href = result.url; return; }
+    if (result.termsChanged) { toast.error(result.message || ''); await refresh(); return; }
+    toast.error(result.message || 'N-am putut deschide validarea cardului acum.');
   };
 
   if (loading) {
@@ -371,14 +386,28 @@ export const Subscription: React.FC = () => {
                   {price}<span className="text-sm font-normal text-graphite-soft"> / lună</span>
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={stopRenewal}
-                disabled={busy}
-                className="mt-6 w-full rounded-full border border-graphite/12 bg-white/70 py-3 text-sm font-semibold text-graphite-soft transition-colors hover:bg-white hover:text-graphite disabled:opacity-50"
-              >
-                Oprește reînnoirea
-              </button>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={changeCard}
+                  disabled={busy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-graphite/12 bg-white/70 py-3 text-sm font-semibold text-graphite transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  <CreditCard size={17} weight="bold" aria-hidden="true" />
+                  {s.cardMask ? 'Schimbă cardul' : 'Adaugă un card'}
+                </button>
+                <button
+                  type="button"
+                  onClick={stopRenewal}
+                  disabled={busy}
+                  className="w-full rounded-full border border-graphite/12 bg-white/70 py-3 text-sm font-semibold text-graphite-soft transition-colors hover:bg-white hover:text-graphite disabled:opacity-50"
+                >
+                  Oprește reînnoirea
+                </button>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-graphite-soft">
+                La schimbarea cardului nu se ia niciun ban: banca doar validează cardul nou, iar cel vechi rămâne până atunci.
+              </p>
             </>
           ) : s.status === 'CANCELLED' ? (
             <GlassButton type="button" tone="red" full disabled={busy} onClick={resume} className="min-h-14 text-lg">

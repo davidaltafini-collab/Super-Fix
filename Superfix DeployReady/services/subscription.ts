@@ -140,6 +140,23 @@ export async function getPaymentAttempt(orderId?: string | null): Promise<Paymen
   }
 }
 
+/**
+ * Semn că plecarea spre NETOPIA a fost o schimbare de card, nu o activare.
+ * Adresa de întoarcere o fixează serverul, deci semnul stă în sesiunea filei.
+ */
+const CARD_CHANGE_FLAG = 'superfix:card-change';
+
+export function markCardChange(on: boolean) {
+  try {
+    if (on) sessionStorage.setItem(CARD_CHANGE_FLAG, '1');
+    else sessionStorage.removeItem(CARD_CHANGE_FLAG);
+  } catch { /* fără stocare, pagina de rezultat arată textul general */ }
+}
+
+export function isCardChange() {
+  try { return sessionStorage.getItem(CARD_CHANGE_FLAG) === '1'; } catch { return false; }
+}
+
 export interface CheckoutOutcome {
   /** adresa checkout-ului găzduit; acolo se duce omul */
   url?: string;
