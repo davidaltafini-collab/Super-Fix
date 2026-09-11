@@ -192,7 +192,11 @@ export const Subscription: React.FC = () => {
                 ? 'Abonamentul e anulat, iar profilul nu apare în căutări. Reactivează-l ca să revii.'
                 : 'Profilul tău e gata, dar încă nu-l vede niciun client. Activează listarea.';
 
-  const needsCard = s.status === 'NONE' || s.status === 'PAST_DUE' || s.status === 'ACTION_REQUIRED';
+  /* CANCELLED fără card salvat (tipic: cine a plătit o singură lună și i-a
+     expirat) primește formularul de plată. „Reactivează profilul" cere un card,
+     deci fără formular omul rămânea blocat. Cu card salvat, butonul merge. */
+  const needsCard = s.status === 'NONE' || s.status === 'PAST_DUE' || s.status === 'ACTION_REQUIRED'
+    || (s.status === 'CANCELLED' && !s.hasCard);
   const actionWord = !autoRenew
     ? `Plătește ${price}`
     : s.status === 'PAST_DUE'
@@ -322,7 +326,9 @@ export const Subscription: React.FC = () => {
               </p>
             )}
 
-            {s.status === 'NONE' && !notReady && (
+            {/* Doar la prima activare: cine a mai avut o perioadă (revine după
+                anulare) nu mai poate lega un cod, serverul l-ar refuza oricum. */}
+            {s.status === 'NONE' && !s.subscriptionEndsAt && !notReady && (
               <div className="sub-promo">
                 <label htmlFor="sub-promo" className="sub-promo__label">
                   <Ticket size={18} weight="fill" aria-hidden="true" />
