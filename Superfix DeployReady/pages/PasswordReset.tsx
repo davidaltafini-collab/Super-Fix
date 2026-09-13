@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, CheckCircle, Key, PaperPlaneTilt } from '@phosphor-icons/react';
 
 import { API_URL } from '../config/api';
+import { apiFailure, failureMessage } from '../lib/apiError';
 import { Field, FieldPassword, FieldSelect } from '../components/Field';
 import { GlassButton } from '../components/Button';
 import {
@@ -71,7 +72,10 @@ export const PasswordReset: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email.trim(), role }),
       });
-      if (!response.ok) throw new Error('Cererea n-a ajuns la server.');
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(failureMessage(apiFailure(response, payload), 'Cererea n-a ajuns la server. Mai încearcă o dată.'));
+      }
       setDone('sent');
     } catch (reason) {
       setServerError(reason instanceof Error ? reason.message : 'Eroare de conexiune.');
@@ -108,7 +112,7 @@ export const PasswordReset: React.FC = () => {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.message || 'Linkul nu mai e bun. Cere altul, durează un minut.');
+        throw new Error(failureMessage(apiFailure(response, payload), payload.message || 'Linkul nu mai e bun. Cere altul, durează un minut.'));
       }
       setForm({ email: '', password: '', confirm: '' });
       setDone('changed');
@@ -143,7 +147,7 @@ export const PasswordReset: React.FC = () => {
         <p className="mt-4 leading-relaxed text-graphite-soft">
           {token
             ? 'Alege una pe care o ții minte. Când o salvezi, toate sesiunile vechi se închid — și pe telefon, și pe calculator.'
-            : 'Se întâmplă. Îți trimitem un link, e bun o oră și o singură dată.'}
+            : 'Se întâmplă. Îți trimitem un link, e bun 30 de minute și o singură dată.'}
         </p>
 
         {/* ---------------- REUȘIT ---------------- */}

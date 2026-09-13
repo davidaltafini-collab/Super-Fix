@@ -20,6 +20,7 @@ import { thumb } from '../lib/img';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { Helmet } from 'react-helmet-async';
 import { API_URL } from '../config/api';
+import { failureMessage } from '../lib/apiError';
 import { GlassButton } from '../components/Button';
 import { AnimatedFolder } from '../components/ui/3d-folder';
 import { useNearViewport } from '../hooks/useNearViewport';
@@ -202,8 +203,8 @@ export const HeroProfile: React.FC = () => {
 
     const requestCreated = await createServiceRequest(request);
     setIsSubmitting(false);
-    if (!requestCreated) {
-      toast.error('Semnalul s-a pierdut pe drum. Mai încearcă o dată.');
+    if (!requestCreated.ok) {
+      toast.error(failureMessage(requestCreated.failure, 'Semnalul s-a pierdut pe drum. Mai încearcă o dată.'));
       return;
     }
     setSubmitSuccess(true);
@@ -296,13 +297,13 @@ export const HeroProfile: React.FC = () => {
     }
     setReviewErrors({});
 
-    const success = await addReview(hero.id, {
+    const saved = await addReview(hero.id, {
       clientName: reviewData.clientName,
       rating: reviewData.rating,
       comment: reviewData.comment
     });
 
-    if (success) {
+    if (saved.ok) {
       setReviewData({ clientName: '', rating: 5, comment: '' });
       setShowReviewForm(false);
       setHasReviewed(true);
@@ -310,7 +311,7 @@ export const HeroProfile: React.FC = () => {
       localStorage.setItem(`superfix_review_${slug}`, 'true');
       await fetchData();
     } else {
-      toast.error('Recenzia nu a putut fi salvată. Poate ai lăsat deja una recent.');
+      toast.error(failureMessage(saved.failure, 'Recenzia nu a putut fi salvată. Poate ai lăsat deja una recent.'));
     }
   };
 

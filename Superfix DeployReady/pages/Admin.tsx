@@ -16,6 +16,7 @@ import {
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { API_URL } from '../config/api';
+import { failureMessage } from '../lib/apiError';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
 import { SuperfixMark } from '../components/SuperfixMark';
@@ -637,7 +638,12 @@ export const Admin: React.FC = () => {
         toast.error(result.message || 'Contul tău a fost suspendat. Vorbește cu administratorul principal.');
         return;
     }
-    toast.error(result.message || 'Date incorecte.');
+    if (result.error === 'ACCOUNT_LOCKED') {
+        // Adminii n-au pagină de resetare: parola lor o schimbă administratorul principal.
+        toast.error(`${failureMessage(result.failure, result.message || 'Contul e blocat temporar.')} Dacă nu-ți mai amintești parola, cere administratorului principal să ți-o schimbe.`);
+        return;
+    }
+    toast.error(failureMessage(result.failure, result.message || 'Date incorecte.'));
   };
 
   const handleLogout = () => {

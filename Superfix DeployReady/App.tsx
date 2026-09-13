@@ -11,6 +11,7 @@ import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
 import { LoadingVeilProvider, VeilHold } from './components/Loader';
 import { ensureDeviceToken } from './services/dataService';
+import { ErrorBoundary, installStaleChunkReload } from './components/ErrorBoundary';
 
 /* Drumul principal ramane in pachetul de start: pe astea intra lumea de pe
    Google, si n-au voie sa astepte inca un fisier ca sa apara. */
@@ -89,7 +90,17 @@ const SiteNav = () => {
   );
 };
 
+/* Plasa de siguranță se reface la fiecare schimbare de pagină: o eroare pe un
+   profil nu trebuie să blocheze și lista. */
+const RouteErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { pathname } = useLocation();
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
+};
+
 const App: React.FC = () => {
+  // Tab deschis înainte de o publicare nouă: bucățile vechi de cod nu mai există.
+  useEffect(() => installStaleChunkReload(), []);
+
   useEffect(() => {
     // O singură dată la deschiderea sitului, în fundal — nu ține loc de gate
     // (CONT-FANTOMA.md, Pasul 2): site-ul merge normal chiar dacă asta pică.
@@ -155,6 +166,7 @@ const App: React.FC = () => {
                 isi asteapta datele era prea scurta si footerul urca in ecran.
                 Cu podeaua asta, footerul e mereu sub linia de plutire. */}
             <main className="flex-grow min-h-screen">
+              <RouteErrorBoundary>
               <Suspense fallback={<VeilHold />}>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -192,6 +204,7 @@ const App: React.FC = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </Suspense>
+              </RouteErrorBoundary>
             </main>
 
             <Footer />

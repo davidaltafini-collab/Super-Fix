@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { API_URL } from '../config/api';
+import { apiFailure, failureMessage } from '../lib/apiError';
 import { Reveal } from '../components/motion';
 import { GlassButton } from '../components/Button';
 import { Mascot } from '../components/Mascot';
@@ -97,7 +98,9 @@ async function requestJson<T>(url: string, options: RequestInit, fallbackMessage
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.message || payload.error || fallbackMessage) as ApiError;
+    // 429 (cont blocat, prea multe încercări) și 5xx: textul comun, cu minutele și codul pentru suport
+    const message = failureMessage(apiFailure(response, payload), payload.message || payload.error || fallbackMessage);
+    const error = new Error(message) as ApiError;
     error.status = response.status;
     throw error;
   }

@@ -96,8 +96,8 @@ export async function uploadSignedMedia(
   options: { onboardingToken?: string; originToken?: string; maxEdge?: number; purpose?: 'request' } = {},
 ): Promise<UploadResult> {
   /* Pozele se micșorează aici, nu în fiecare pagină: e singurul loc prin care
-     trec toate șase. Un iPhone dă 4–6MB, din care pe sit se folosesc cel mult
-     1600 de pixeli pe latura mare. Vezi `lib/shrink.ts`.
+     trec toate șase. Un iPhone dă 4–6MB; urcăm cel mult 1280 de pixeli pe
+     latura mare, sub 200 KB. Vezi `lib/shrink.ts`.
 
      Verificarea de mărime vine DUPĂ, ca o poză de 14MB care se micșorează la
      300KB să treacă — până acum era refuzată degeaba. */

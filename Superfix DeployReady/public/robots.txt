@@ -1,6 +1,9 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /portal
 
-Sitemap: https://api.super-fix.ro/sitemap.xml
+# /admin și /portal nu sunt blocate aici intenționat: au antetul
+# „X-Robots-Tag: noindex" (vercel.json), iar Google îl vede doar dacă
+# are voie să citească pagina. Blocate aici, ar putea apărea în rezultate
+# ca adresă goală, fără conținut.
+
+Sitemap: https://super-fix.ro/sitemap.xml

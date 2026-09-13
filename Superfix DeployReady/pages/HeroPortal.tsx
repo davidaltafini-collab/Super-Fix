@@ -12,6 +12,7 @@ import { CameraCapture } from '../components/CameraCapture';
 import { thumb } from '../lib/img';
 import { uploadSignedMedia, uploadErrorText } from '../services/mediaUpload';
 import { useToast } from '../components/Toast';
+import { failureMessage, isAccountLocked } from '../lib/apiError';
 import { getSubscriptionStatus } from '../services/subscription';
 import { Sheet } from '../components/Sheet';
 import {
@@ -200,16 +201,23 @@ export const HeroPortal: React.FC = () => {
       setLoading(false);
   };
 
+  /* Contul blocat temporar se arată pe formular, lângă „Ai uitat parola?", nu
+     într-un toast care dispare: omul are nevoie de minute și de o ieșire. */
+  const [loginNotice, setLoginNotice] = React.useState('');
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await loginHero(usernameInput, passwordInput);
+    setLoginNotice('');
+    const result = await loginHero(usernameInput, passwordInput);
 
-    if (success) {
+    if (result.ok) {
         await checkAuth();
         setUsernameInput('');
         setPasswordInput('');
+    } else if (isAccountLocked(result.failure)) {
+        setLoginNotice(failureMessage(result.failure, 'Contul e blocat temporar.'));
     } else {
-        toast.error('Date incorecte. Verifică numele de cod și parola.');
+        toast.error(failureMessage(result.failure, 'Date incorecte. Verifică numele de cod și parola.'));
     }
   };
 
@@ -432,6 +440,15 @@ export const HeroPortal: React.FC = () => {
             Intră în bază
           </button>
         </form>
+
+        {loginNotice && (
+          <div className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-800 ring-1 ring-red-200" role="alert">
+            {loginNotice}{' '}
+            <Link to="/reset-password?role=HERO" className="underline underline-offset-4">
+              Poți reseta parola acum.
+            </Link>
+          </div>
+        )}
 
         <Link
           to="/reset-password?role=HERO"

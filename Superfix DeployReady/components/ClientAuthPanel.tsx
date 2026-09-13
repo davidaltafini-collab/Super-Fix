@@ -2,6 +2,7 @@ import React from 'react';
 import { GlassButton } from './Button';
 import { Field } from './Field';
 import { requestEmailCode, verifyEmailCode, loginWithGoogle, ClientAuthResult } from '../services/dataService';
+import { failureMessage } from '../lib/apiError';
 
 /* ============================================================
    Login client: Google sau cod pe email (CONT-FANTOMA.md §6).
@@ -61,7 +62,7 @@ export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void
       setError('');
       return false;
     }
-    setError(result.message || 'Nu am reușit. Încearcă din nou.');
+    setError(failureMessage(result.failure, result.message || 'Nu am reușit. Încearcă din nou.'));
     return false;
   };
 
@@ -106,7 +107,7 @@ export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void
     setBusy(true); setError('');
     const res = await requestEmailCode(email);
     setBusy(false);
-    if (!res.ok) { setError(res.message || 'Nu am putut trimite codul. Încearcă din nou.'); return; }
+    if (!res.ok) { setError(failureMessage(res.failure, res.message || 'Nu am putut trimite codul. Încearcă din nou.')); return; }
     setCode('');
     setStep('code');
   };

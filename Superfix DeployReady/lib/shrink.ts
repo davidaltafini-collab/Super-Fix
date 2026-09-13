@@ -5,13 +5,13 @@
    deci vizitatorul primește WebP sau AVIF, la lățimea de care are nevoie. Ce nu
    era rezolvat e capătul celălalt — ce urcă meseriașul.
 
-   Un iPhone dă o poză de 12 megapixeli, 4–6MB. Din ea, pe sit, se folosesc în
-   cel mai bun caz 1600 de pixeli pe latura mare. Restul se urcă degeaba: pe
-   datele lui, în stocarea noastră, în fiecare copie de siguranță. La 80.000 de
-   meseriași diferența nu se mai măsoară în megaocteți.
+   Un iPhone dă o poză de 12 megapixeli, 4–6MB. Serverul o reduce oricum la
+   primire, deci tot ce trece de 1280 de pixeli și 200 KB se urcă degeaba, pe
+   datele omului. La 80.000 de meseriași diferența nu se mai măsoară în
+   megaocteți.
 
-   Aici o aducem la ce se folosește, în WebP, în browser, înainte de urcare. Un
-   procesor de telefon face treaba asta în sub o secundă.
+   Aici o aducem la atât, în WebP, în browser, înainte de urcare. Un procesor
+   de telefon face treaba asta în sub o secundă.
 
    Două reguli pe care codul le respectă strict:
 
@@ -27,9 +27,17 @@ export interface ShrinkOptions {
   maxEdge?: number;
   /** 0–1; 0.82 e pragul de la care ochiul nu mai vede diferența pe fotografii */
   quality?: number;
+  /** ținta în octeți; calitatea coboară în pași până intră sub ea */
+  maxBytes?: number;
 }
 
-const DEFAULTS = { maxEdge: 1600, quality: 0.82 };
+/* 1280 px și sub 200 KB (FRONTEND-HANDOFF A7). Serverul recomprimă oricum la
+   primire, deci stocarea e rezolvată; aici câștigăm timpul de urcare și datele
+   mobile ale omului. */
+const DEFAULTS = { maxEdge: 1280, quality: 0.82, maxBytes: 200 * 1024 };
+
+/** 0.82 → 0.72 → 0.62 → 0.52: sub asta pozele încep să arate stricat. */
+const qualitySteps = (start: number) => [start, start - 0.1, start - 0.2, start - 0.3].filter(q => q >= 0.5);
 
 /** WebP la codare nu e universal (Safari vechi). Se întreabă o singură dată. */
 let webpSupport: boolean | null = null;
@@ -80,15 +88,26 @@ async function openImage(file: File): Promise<{ source: CanvasImageSource; w: nu
 
 const kb = (bytes: number) => Math.round(bytes / 1024);
 
+/** Codează cu calitatea coborâtă în pași; se oprește la primul rezultat sub `maxBytes` (sau la ultimul pas). */
+async function encodeUnder(canvas: HTMLCanvasElement, type: string, start: number, maxBytes: number): Promise<Blob | null> {
+  let blob: Blob | null = null;
+  for (const step of qualitySteps(start)) {
+    blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, step));
+    if (!blob || blob.size <= maxBytes) break;
+  }
+  return blob;
+}
+
 export async function shrinkImage(file: File, options: ShrinkOptions = {}): Promise<File> {
   const maxEdge = options.maxEdge ?? DEFAULTS.maxEdge;
   const quality = options.quality ?? DEFAULTS.quality;
+  const maxBytes = options.maxBytes ?? DEFAULTS.maxBytes;
 
   if (!file.type.startsWith('image/')) return file;
 
   /* Deja mică și deja în formatul bun — de pildă ce iese din decupaj. A doua
      reîncodare n-ar câștiga nimic și ar mai lua o dată din calitate. */
-  if (file.type === 'image/webp' && file.size < 400 * 1024) return file;
+  if (file.type === 'image/webp' && file.size <= maxBytes) return file;
 
   try {
     const { source, w, h } = await openImage(file);
@@ -116,7 +135,23 @@ export async function shrinkImage(file: File, options: ShrinkOptions = {}): Prom
     }
 
     const type = canWriteWebp() ? 'image/webp' : 'image/jpeg';
-    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, quality));
+    let blob = await encodeUnder(canvas, type, quality, maxBytes);
+
+    /* Detaliu foarte fin (frunziș, texturi, text mărunt) nu intră sub prag nici
+       la calitatea minimă. Atunci micșorăm și latura, cu 20% pe pas, de cel mult
+       două ori (1280 → 1024 → 819 px). */
+    let current = canvas;
+    for (let i = 0; i < 2 && blob && blob.size > maxBytes; i++) {
+      const smaller = document.createElement('canvas');
+      smaller.width = Math.round(current.width * 0.8);
+      smaller.height = Math.round(current.height * 0.8);
+      const smallerCtx = smaller.getContext('2d');
+      if (!smallerCtx) break;
+      smallerCtx.imageSmoothingQuality = 'high';
+      smallerCtx.drawImage(current, 0, 0, smaller.width, smaller.height);
+      current = smaller;
+      blob = await encodeUnder(current, type, quality, maxBytes);
+    }
     if (!blob) return file;
 
     // regula 2: nu urcăm ceva mai greu decât ce ne-a dat

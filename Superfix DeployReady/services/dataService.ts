@@ -1,6 +1,7 @@
 import { Hero, ServiceRequest, Review } from '../types';
 import { API_URL } from '../config/api';
 import { CacheKey, cacheClear, cacheDrop, cacheGet, cacheSet, dedupe } from './cache';
+import { apiFailure, type ApiFailure } from '../lib/apiError';
 
 // === AICI E SCHIMBAREA CRITICĂ ===
 // Acum va citi link-ul din .env (https://super-fix.ro/api) când ești pe server,
@@ -73,6 +74,7 @@ export type LoginResult = {
     status?: number;
     error?: string;
     message?: string;
+    failure?: ApiFailure;
 };
 
 /* Al doilea factor (CONT-FANTOMA.md §10): `totpCode` lipsă la prima încercare,
@@ -105,6 +107,7 @@ export const loginUser = async (username: string, password: string, totpCode?: s
             status: res.status,
             error: typeof data?.error === 'string' ? data.error : undefined,
             message: typeof data?.message === 'string' ? data.message : undefined,
+            failure: apiFailure(res, data),
         };
     } catch (e) { return { ok: false }; }
 };
@@ -125,7 +128,9 @@ export const logoutUser = () => {
     }
 };
 
-export const loginHero = async (username: string, password: string) => {
+/* Până acum întorcea doar da/nu, deci un cont blocat temporar (429
+   ACCOUNT_LOCKED, FRONTEND-HANDOFF A4) arăta la fel ca o parolă greșită. */
+export const loginHero = async (username: string, password: string): Promise<{ ok: boolean; failure?: ApiFailure }> => {
     try {
         const res = await fetch(`${API_URL}/auth/hero-login`, {
             method: 'POST',
@@ -137,10 +142,10 @@ export const loginHero = async (username: string, password: string) => {
             localStorage.setItem('superfix_token', data.token);
             localStorage.setItem('superfix_role', 'HERO');
             cacheClear(); // alt cont, alte date
-            return true;
+            return { ok: true };
         }
-        return false;
-    } catch (e) { return false; }
+        return { ok: false, failure: apiFailure(res, await res.json().catch(() => ({}))) };
+    } catch (e) { return { ok: false }; }
 };
 export const logout = logoutUser;
 
@@ -591,7 +596,10 @@ export const getHeroById = (id: string): Promise<Hero | undefined> =>
 export const peekHeroById = (id: string | null): Hero | undefined =>
     id ? cacheGet(CacheKey.heroById(id)) : undefined;
 
-export const createServiceRequest = async (request: ServiceRequest): Promise<boolean> => {
+/** Trimiteri din formulare: `failure` doar când serverul a răspuns cu eroare (vezi `lib/apiError`). */
+export type SubmitResult = { ok: boolean; failure?: ApiFailure };
+
+export const createServiceRequest = async (request: ServiceRequest): Promise<SubmitResult> => {
     try {
         const res = await fetch(`${API_URL}/request`, {
             method: 'POST',
@@ -602,8 +610,9 @@ export const createServiceRequest = async (request: ServiceRequest): Promise<boo
             },
             body: JSON.stringify(request)
         });
-        return res.ok;
-    } catch { return false; }
+        if (res.ok) return { ok: true };
+        return { ok: false, failure: apiFailure(res, await res.json().catch(() => ({}))) };
+    } catch { return { ok: false }; }
 };
 
 /* Numărul se cere abia la apăsarea butonului „Sună acum" (CONT-FANTOMA.md §7),
@@ -639,6 +648,7 @@ export type ClientAuthResult = {
     error?: string;
     message?: string;
     client?: { id: string; name: string; email: string | null; phone: string | null };
+    failure?: ApiFailure;
 };
 
 const applyClientSession = (data: any) => {
@@ -658,10 +668,11 @@ const readClientAuthResponse = async (res: Response): Promise<ClientAuthResult> 
         status: res.status,
         error: typeof data?.error === 'string' ? data.error : undefined,
         message: typeof data?.message === 'string' ? data.message : undefined,
+        failure: apiFailure(res, data),
     };
 };
 
-export const requestEmailCode = async (email: string): Promise<{ ok: boolean; message?: string }> => {
+export const requestEmailCode = async (email: string): Promise<{ ok: boolean; message?: string; failure?: ApiFailure }> => {
     try {
         const res = await fetch(`${API_URL}/auth/email-code/request`, {
             method: 'POST',
@@ -670,7 +681,11 @@ export const requestEmailCode = async (email: string): Promise<{ ok: boolean; me
         });
         if (res.ok) return { ok: true };
         const data = await res.json().catch(() => ({} as any));
-        return { ok: false, message: typeof data?.message === 'string' ? data.message : undefined };
+        return {
+            ok: false,
+            message: typeof data?.message === 'string' ? data.message : undefined,
+            failure: apiFailure(res, data),
+        };
     } catch { return { ok: false }; }
 };
 
@@ -749,14 +764,15 @@ export const updateMissionStatus = async (
     } catch { return false; }
 };
 
-export const addReview = async (heroId: string, review: any) => {
+export const addReview = async (heroId: string, review: any): Promise<SubmitResult> => {
     try {
         const res = await fetch(`${API_URL}/reviews`, {
             method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ heroId, ...review })
         });
-        return res.ok;
-    } catch { return false; }
+        if (res.ok) return { ok: true };
+        return { ok: false, failure: apiFailure(res, await res.json().catch(() => ({}))) };
+    } catch { return { ok: false }; }
 };
 
 /* === "CINE E SUB COSTUM" ===
