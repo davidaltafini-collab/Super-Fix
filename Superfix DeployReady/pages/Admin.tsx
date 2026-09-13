@@ -8,7 +8,7 @@ import {
 import { JobCategory, Hero, ServiceRequest } from '../types';
 import {
     createHero, getAllRequests, loginUser, logoutUser,
-    getApplications, deleteApplication, getHeroes,
+    getApplications, deleteApplication, getAllHeroesAdmin,
     updateHero, deleteHero,
     getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword, deleteAdmin,
     AdminAccount, AdminRoleInfo,
@@ -513,7 +513,7 @@ export const Admin: React.FC = () => {
     };
 
     const refreshAllData = () => {
-        getHeroes().then(setHeroes);
+        getAllHeroesAdmin().then(setHeroes);
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
         if (activeTab === 'PAYOUTS') fetchPayouts();

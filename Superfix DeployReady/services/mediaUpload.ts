@@ -93,7 +93,7 @@ export function uploadErrorText(reason: UploadFailure, kind: 'image' | 'video' =
 export async function uploadSignedMedia(
   file: File,
   kind: 'image' | 'video',
-  options: { onboardingToken?: string; originToken?: string; maxEdge?: number } = {},
+  options: { onboardingToken?: string; originToken?: string; maxEdge?: number; purpose?: 'request' } = {},
 ): Promise<UploadResult> {
   /* Pozele se micșorează aici, nu în fiecare pagină: e singurul loc prin care
      trec toate șase. Un iPhone dă 4–6MB, din care pe sit se folosesc cel mult
@@ -128,6 +128,7 @@ export async function uploadSignedMedia(
         kind,
         onboardingToken: options.onboardingToken,
         originToken: options.originToken,
+        purpose: options.purpose,
       }),
     });
   } catch {

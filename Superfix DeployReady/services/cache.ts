@@ -48,6 +48,8 @@ export function dedupe<T>(key: string, run: () => Promise<T>): Promise<T> {
 
 export const CacheKey = {
   heroes: 'heroes',
+  heroSearch: (query: string) => `heroSearch:${query}`,
+  heroCategories: 'heroCategories',
   heroBySlug: (slug: string) => `hero:slug:${slug}`,
   heroById: (id: string) => `hero:id:${id}`,
   missions: 'missions',

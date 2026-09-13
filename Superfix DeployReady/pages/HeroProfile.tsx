@@ -86,10 +86,9 @@ export const HeroProfile: React.FC = () => {
   const [hasReviewed, setHasReviewed] = useState(false);
   const [reviewData, setReviewData] = useState({ clientName: '', rating: 5, comment: '' });
 
-  // Calculare rating mediu din recenzii
-  const averageRating = hero?.reviews && hero.reviews.length > 0 
-    ? (hero.reviews.reduce((acc: number, rev: any) => acc + rev.rating, 0) / hero.reviews.length).toFixed(1)
-    : 0;
+  // Nota vine calculată de server (FRONTEND-HANDOFF A9). După o recenzie nouă,
+  // `fetchData` reîncarcă profilul, iar serverul o include imediat.
+  const averageRating = hero?.ratingAvg != null ? hero.ratingAvg.toFixed(1) : 0;
 
   // Încărcare date erou
   const fetchData = async () => {
@@ -334,7 +333,7 @@ export const HeroProfile: React.FC = () => {
   if (!hero) return null;
 
   const TradeIcon = iconForTrade(hero.category);
-  const reviewCount = hero.reviews?.length || 0;
+  const reviewCount = hero.reviewCount ?? hero.reviews?.length ?? 0;
   // Doar lucrările care au măcar o poză — altfel secțiunea ar arăta găuri.
   const portfolio = (hero.portfolio || []).filter(p => p.beforeUrl || p.afterUrl);
   // Coperta din dosar = rezultatul ("după"); vizualizatorul primește ambele poze,

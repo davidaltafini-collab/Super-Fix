@@ -5,7 +5,7 @@ import { motion, useSpring, useReducedMotion } from 'framer-motion';
 import { Reveal, BlurIn, Magnetic, Tilt, ClickSpark, EASE_OUT } from '../components/motion';
 import { Pill3D, NeuButton } from '../components/Button';
 import { Mascot } from '../components/Mascot';
-import { getHeroes, peekHeroes } from '../services/dataService';
+import { searchHeroes, peekHeroSearch, type HeroSearchParams } from '../services/dataService';
 import { thumb } from '../lib/img';
 import { Hero } from '../types';
 import {
@@ -26,6 +26,8 @@ const DEFAULT_AVATAR_SM = 'https://super-fix.ro/revizie-sm.png';
    Claymorphism + micro-interactions (Emil Kowalski) + concepte
    React Bits (BlurText, TiltedCard, Magnet, ClickSpark).
    ============================================================ */
+
+const HOME_STRIP: HeroSearchParams = { limit: 12 };
 
 const fine = () =>
   typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -125,13 +127,13 @@ export const Home: React.FC = () => {
   const mx = useSpring(0, { stiffness: 60, damping: 16, mass: 0.4 });
   const my = useSpring(0, { stiffness: 60, damping: 16, mass: 0.4 });
 
-  // Banda de eroi de pe homepage: cei mai de încredere din listă, nu meserii generice.
-  const [heroes, setHeroes] = useState<Hero[]>(() => peekHeroes() ?? []);
-  useEffect(() => { getHeroes().then(setHeroes); }, []);
-  const topHeroes = useMemo(
-    () => [...heroes].sort((a, b) => b.trustFactor - a.trustFactor),
-    [heroes],
-  );
+  // Banda de eroi de pe homepage: cei mai de încredere, nu meserii generice.
+  // O singură cerere mică, fără recenzii (FRONTEND-HANDOFF A8); serverul îi dă
+  // deja ordonați după trustFactor.
+  const [topHeroes, setTopHeroes] = useState<Hero[]>(() => peekHeroSearch(HOME_STRIP)?.heroes ?? []);
+  useEffect(() => {
+    searchHeroes(HOME_STRIP).then(result => { if (result) setTopHeroes(result.heroes); });
+  }, []);
   /* Banda trebuie sa umple ecranul de doua ori (pentru bucla -50% fara sarituri).
      Cu doar 2-3 eroi in baza, o singura trecere e prea ingusta si se vede un gol
      in animatie — asa ca repetam lista pana avem destule carduri, apoi se reia. */

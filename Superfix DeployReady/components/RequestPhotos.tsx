@@ -70,7 +70,7 @@ export const RequestPhotosField: React.FC<FieldProps> = ({ urls, onChange, id = 
     let failure: string | null = null;
     for (const file of chosen) {
       setBusy(b => b + 1);
-      const result = await uploadSignedMedia(file, 'image');
+      const result = await uploadSignedMedia(file, 'image', { purpose: 'request' });
       setBusy(b => b - 1);
       if (result.url) added.push(result.url);
       else if (!failure) failure = clientErrorText(result.reason || 'network');

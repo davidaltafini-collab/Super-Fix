@@ -33,6 +33,7 @@ export interface PortfolioItem {
 
 export interface Hero {
     id: string;
+    slug?: string;
     alias: string;
     realName?: string;
     description: string;
@@ -53,6 +54,13 @@ export interface Hero {
     videoUrl?: string;
     trustFactor: number;
     missionsCompleted: number;
+    /* Calculate de server (FRONTEND-HANDOFF A9). `fields=lite` nu mai trimite
+       `reviews`, deci nota nu se mai poate calcula în browser. */
+    ratingAvg?: number | null;
+    reviewCount?: number;
+    /* Doar în căutarea cu `near` (A15): km întregi, minim 1; `null` când nu i
+       se știe poziția. Coordonatele eroului nu vin niciodată. */
+    distanceKm?: number | null;
     reviews?: Review[];
     portfolio?: PortfolioItem[];
     

@@ -58,7 +58,9 @@ const AnalyticsTracker = () => {
     if (consent === 'accepted') {
       logPageView();
     }
-  }, [location]);
+    // Doar pe schimbarea paginii: filtrele din lista de eroi se scriu în adresă
+    // (?meserie=…), iar fiecare filtru ar fi fost numărat ca o vizită nouă.
+  }, [location.pathname]);
 
   return null;
 };

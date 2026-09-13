@@ -463,16 +463,104 @@ export const getAllRequests = async (): Promise<ServiceRequest[]> => {
     } catch { return []; }
 };
 
-export const getHeroes = (): Promise<Hero[]> => dedupe(CacheKey.heroes, async () => {
+/* TOȚI eroii, dintr-o bucată — DOAR pentru panoul de admin (FRONTEND-HANDOFF A8).
+   La 80.000 de eroi răspunsul are ~21 MB comprimat; o pagină publică nu are voie
+   să-l ceară. Public: `searchHeroes`.
+
+   `cache: 'no-cache'` pune browserul să retrimită singur ETag-ul primit data
+   trecută (`If-None-Match`). Dacă nu s-a schimbat nimic, serverul dă 304 fără
+   corp, iar `fetch` primește corpul din cache-ul browserului. Manual nu se poate:
+   ETag-ul nu e în `Access-Control-Expose-Headers`, deci JavaScript nu-l vede. */
+export const getAllHeroesAdmin = (): Promise<Hero[]> => dedupe(CacheKey.heroes, async () => {
     try {
-        const res = await fetch(`${API_URL}/heroes`);
+        const res = await fetch(`${API_URL}/heroes`, { cache: 'no-cache' });
         if (!res.ok) return cacheGet<Hero[]>(CacheKey.heroes) ?? [];
         return cacheSet(CacheKey.heroes, await res.json() as Hero[]);
     } catch { return cacheGet<Hero[]>(CacheKey.heroes) ?? []; }
 });
 
-/** Ce stim deja, fara sa asteptam reteaua. Pentru primul render. */
-export const peekHeroes = (): Hero[] | undefined => cacheGet(CacheKey.heroes);
+/* === CĂUTAREA PUBLICĂ (FRONTEND-HANDOFF A8, A9, A15) ===
+   Paginată pe server. Filtrele, textul și ordinea „lângă mine" se calculează
+   acolo; browserul primește doar pagina cerută. */
+export interface HeroSearchParams {
+    page?: number;
+    limit?: number;            // serverul acceptă cel mult 50
+    category?: string;         // exact cum vine din /heroes/categories; 'ALL' sau gol = toate
+    counties?: string[];       // coduri de județ; eroul acoperă măcar unul
+    search?: string;
+    near?: { lat: number; lng: number } | null;
+    sortByDistance?: boolean;  // butonul „Aproape": strict cel mai apropiat primul
+}
+
+export interface HeroSearchResult {
+    heroes: Hero[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+}
+
+/* Poziția pleacă rotunjită la 2 zecimale (~1 km): adresa exactă a omului nu
+   ajunge în jurnalele serverului, iar cererile vecine împart cache-ul. */
+export const heroSearchQuery = (params: HeroSearchParams): string => {
+    const q = new URLSearchParams();
+    q.set('page', String(params.page ?? 1));
+    q.set('limit', String(params.limit ?? 24));
+    if (params.category && params.category !== 'ALL') q.set('category', params.category);
+    if (params.counties && params.counties.length > 0) q.set('counties', params.counties.join(','));
+    const search = params.search?.trim();
+    if (search) q.set('search', search);
+    if (params.near) {
+        q.set('near', `${params.near.lat.toFixed(2)},${params.near.lng.toFixed(2)}`);
+        if (params.sortByDistance) q.set('sort', 'distance');
+    }
+    q.set('fields', 'lite'); // fără vectorul `reviews`: pe liste ajung ratingAvg/reviewCount (A9)
+    return q.toString();
+};
+
+/** `null` la eroare: pagina arată „încearcă din nou", nu cade pe lista completă. */
+export const searchHeroes = (params: HeroSearchParams): Promise<HeroSearchResult | null> => {
+    const query = heroSearchQuery(params);
+    const key = CacheKey.heroSearch(query);
+    return dedupe(key, async () => {
+        try {
+            const res = await fetch(`${API_URL}/heroes/search?${query}`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (!Array.isArray(data?.heroes)) return null;
+            return cacheSet<HeroSearchResult>(key, {
+                heroes: data.heroes as Hero[],
+                total: Number(data.total) || 0,
+                page: Number(data.page) || 1,
+                limit: Number(data.limit) || 0,
+                hasMore: Boolean(data.hasMore),
+            });
+        } catch { return null; }
+    });
+};
+
+/** Ce știm deja pentru aceeași căutare, fără să așteptăm rețeaua. */
+export const peekHeroSearch = (params: HeroSearchParams): HeroSearchResult | undefined =>
+    cacheGet(CacheKey.heroSearch(heroSearchQuery(params)));
+
+export interface HeroCategoryCount { category: string; count: number; }
+
+/* Doar meseriile care au eroi listați, cele mai pline întâi. `category` se
+   trimite înapoi exact cum vine (poate avea spațiu la final); la afișare, trim. */
+export const getHeroCategories = (): Promise<HeroCategoryCount[]> =>
+  dedupe(CacheKey.heroCategories, async () => {
+    const cached = cacheGet<HeroCategoryCount[]>(CacheKey.heroCategories);
+    if (cached) return cached;
+    try {
+        const res = await fetch(`${API_URL}/heroes/categories`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const list = Array.isArray(data?.categories)
+            ? (data.categories as HeroCategoryCount[]).filter(c => typeof c?.category === 'string' && c.category.trim())
+            : [];
+        return cacheSet(CacheKey.heroCategories, list);
+    } catch { return []; }
+  });
 
 /* ATENȚIE la rută: `/heroes/:id` caută STRICT după id (UUID) și dă 404 pe slug.
    `/heroes/slug/:x` acceptă și slug, și id, și e singura care întoarce profilul

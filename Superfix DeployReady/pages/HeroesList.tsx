@@ -1,14 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Hero, JobCategory } from '../types';
-import { getHeroes } from '../services/dataService';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import {
+  getHeroCategories, heroSearchQuery, peekHeroSearch, searchHeroes,
+  type HeroCategoryCount, type HeroSearchParams, type HeroSearchResult,
+} from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { thumb } from '../lib/img';
 import { Tilt } from '../components/motion';
 import { GlassButton } from '../components/Button';
 import { Mascot } from '../components/Mascot';
-import { getCurrentLocation, geocodeAddress, haversineKm, isLocationError, locationErrorText, type GeoPoint } from '../lib/geo';
-import { searchHeroes } from '../lib/heroSearch';
+import {
+  getApproxLocation, getCurrentLocation, isLocationError, locationErrorText, peekApproxLocation,
+  type GeoPoint,
+} from '../lib/geo';
 import {
   MagnifyingGlass, MapPin, Plus, CaretDown, Check, X, ArrowCounterClockwise,
   Star, ShieldCheck, Sparkle, Lightning, Drop, Wrench, PaintRoller, Hammer,
@@ -44,19 +49,47 @@ const COUNTIES = [
   { code: 'SV', name: 'Suceava' }, { code: 'TR', name: 'Teleorman' }, { code: 'TM', name: 'Timiș' }, { code: 'TL', name: 'Tulcea' }, { code: 'VL', name: 'Vâlcea' },
   { code: 'VS', name: 'Vaslui' }, { code: 'VN', name: 'Vrancea' }
 ].sort((a, b) => a.name.localeCompare(b.name));
+const COUNTY_CODES = new Set(COUNTIES.map(c => c.code));
+
+/* Eroii vin pe pagini de la server (FRONTEND-HANDOFF A8): la 80.000 de meseriași,
+   lista completă înseamnă ~21 MB la fiecare vizită. 24 umple rândurile și pe
+   2, și pe 3, și pe 4 coloane. */
+const PAGE_SIZE = 24;
+
+/* Ultima listă afișată, cu toate paginile încărcate, doar în memorie. Cine
+   deschide un profil și apasă Înapoi găsește aceiași eroi, nu doar prima pagină.
+   După câteva minute se cere din nou. */
+const LIST_MEMORY_MS = 5 * 60 * 1000;
+let lastList: { key: string; at: number; result: HeroSearchResult } | null = null;
+
+const rememberedList = (key: string): HeroSearchResult | undefined =>
+  lastList && lastList.key === key && Date.now() - lastList.at < LIST_MEMORY_MS
+    ? lastList.result
+    : undefined;
+
+/* Filtrele stau în adresă (?meserie=…&judete=…&q=…): Înapoi le păstrează, iar
+   o listă filtrată se poate trimite cuiva. */
+const readCounties = (value: string | null): string[] =>
+  (value || '').split(',').map(c => c.trim().toUpperCase()).filter(c => COUNTY_CODES.has(c));
 
 const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // sau link-ul pe care l-ai folosit
 
 export const HeroesList: React.FC = () => {
-  const [heroes, setHeroes] = useState<Hero[]>([]);
-  const [loading, setLoading] = useState(true);
-  
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // === STATE FILTRE ===
-  // Acestea sunt singurele surse de adevăr pentru filtrare.
-  const [filterCategory, setFilterCategory] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCounties, setFilterCounties] = useState<string[]>([]);
-  
+  // Acestea sunt singurele surse de adevăr pentru filtrare. Pornesc din adresă.
+  const [filterCategory, setFilterCategory] = useState<string>(() => searchParams.get('meserie') || 'ALL');
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [filterCounties, setFilterCounties] = useState<string[]>(() => readCounties(searchParams.get('judete')));
+
+  // Textul pleacă la server după o scurtă pauză de tastare, nu la fiecare literă.
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchTerm.trim());
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
   // State pentru Dropdown-ul Custom (Brand Identity)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -66,25 +99,24 @@ export const HeroesList: React.FC = () => {
   const [showMap, setShowMap] = useState(false);
   const mapPanelRef = useRef<HTMLDivElement>(null);
 
-  // State pentru categoriile dinamice (Admin + DB + Default)
-  const [allCategories, setAllCategories] = useState<string[]>([]);
+  // Meseriile care au eroi listați, de la server (FRONTEND-HANDOFF A8).
+  const [categories, setCategories] = useState<HeroCategoryCount[]>([]);
 
-  // === SORTARE DUPĂ CEI MAI APROPIAȚI ===
-  // Toggle discret (nu deschide nimic vizibil) — ia locația din browser o
-  // singură dată, geocodează orașul fiecărui erou (cache-uit în lib/geo) și
-  // sortează după distanța în linie dreaptă.
+  // === „LÂNGĂ MINE" ȘI „APROAPE DE MINE" (FRONTEND-HANDOFF A15) ===
+  // Ordinea o face serverul. Lista pornește „lângă mine", după poziția
+  // aproximativă a IP-ului, fără să ceară permisiunea. Toggle-ul cere locația
+  // exactă, ca până acum, și cere ordinea strict după distanță.
+  const [approxLoc, setApproxLoc] = useState<GeoPoint | null | undefined>(() => peekApproxLocation());
   const [sortNearby, setSortNearby] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geoErrorMsg, setGeoErrorMsg] = useState<string | null>(null);
   const [userLoc, setUserLoc] = useState<GeoPoint | null>(null);
-  const [heroDistances, setHeroDistances] = useState<Record<string, number>>({});
-  const [distancesPending, setDistancesPending] = useState(false);
 
   const toggleNearby = async () => {
     if (sortNearby) { setSortNearby(false); return; }
     setGeoErrorMsg(null);
     setLocating(true);
-    const result = await getCurrentLocation();
+    const result = await getCurrentLocation({ withAddress: false });
     setLocating(false);
     if (isLocationError(result)) {
       setGeoErrorMsg(locationErrorText(result.reason));
@@ -115,59 +147,111 @@ export const HeroesList: React.FC = () => {
     return () => document.removeEventListener('pointerdown', handlePointerOutside);
   }, []);
 
-  /* Odată ce avem locația omului, geocodăm orașul fiecărui erou (o dată, cu
-     cache) și calculăm distanța.
-
-     `distancesPending` există pentru că pasul ăsta durează: serviciul de
-     geocodare e public și acceptă o cerere pe secundă, deci se merge pe rând,
-     erou cu erou. Între „am dat voie browserului" și primul număr afișat treceau
-     câteva secunde în care pe ecran nu se schimba absolut nimic — exact
-     intervalul în care omul trage concluzia că nu merge. */
+  // Poziția aproximativă, o dată pe sesiune (vezi lib/geo). Lista o așteaptă,
+  // ca eroii să nu apară într-o ordine și să se rearanjeze după o clipă.
   useEffect(() => {
-    if (!sortNearby || !userLoc) return;
-    let cancelled = false;
-    setDistancesPending(true);
-    (async () => {
-      const entries: [string, number][] = [];
-      for (const hero of heroes) {
-        if (cancelled) return;
-        if (!hero.location) continue;
-        const point = await geocodeAddress(hero.location);
-        if (point) entries.push([hero.id, haversineKm(userLoc, point)]);
-      }
-      if (!cancelled) {
-        setHeroDistances(Object.fromEntries(entries));
-        setDistancesPending(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [sortNearby, userLoc, heroes]);
+    if (approxLoc !== undefined) return;
+    let alive = true;
+    getApproxLocation().then(point => { if (alive) setApproxLoc(point); });
+    return () => { alive = false; };
+  }, [approxLoc]);
+
+  // === LISTA, DE LA SERVER (FRONTEND-HANDOFF A8) ===
+  const nearReady = userLoc !== null || approxLoc !== undefined;
+  const query: HeroSearchParams = {
+    limit: PAGE_SIZE,
+    category: filterCategory,
+    counties: filterCounties,
+    search: debouncedSearch,
+    near: userLoc ?? approxLoc ?? null,
+    sortByDistance: sortNearby,
+  };
+  const queryKey = heroSearchQuery(query);
+  const knownList = () => rememberedList(queryKey) ?? peekHeroSearch(query);
+
+  const [list, setList] = useState<HeroSearchResult | null>(() => (nearReady ? knownList() ?? null : null));
+  // Scheletul apare doar când n-avem nimic de arătat. La o schimbare de filtru
+  // rămân pe ecran eroii de dinainte până vine răspunsul.
+  const [loading, setLoading] = useState(() => !(nearReady && knownList()));
+  const [fetching, setFetching] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
+  const requestSeq = useRef(0);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const data = await getHeroes();
-      setHeroes(data);
+    if (!nearReady) return;
+    const seq = ++requestSeq.current;
+    setLoadingMore(false);
+    setMoreError(false);
 
-      // --- LOGICA CATEGORII COMPLETE ---
-      // 1. Categoriile default (Hardcoded)
-      const defaultCats = Object.values(JobCategory);
-      
-      // 2. Categoriile Custom din Admin (LocalStorage)
-      const storedCats = localStorage.getItem('superfix_full_categories');
-      const customCats = storedCats ? JSON.parse(storedCats) : [];
-
-      // 3. Categoriile existente deja pe eroi (DB)
-      const heroCats = data.map(h => h.category);
-
-      // Combinăm totul într-un set unic și sortăm
-      const unique = new Set([...defaultCats, ...customCats, ...heroCats]);
-      setAllCategories(Array.from(unique).sort());
-
+    const remembered = rememberedList(queryKey);
+    if (remembered) {
+      // Revenire pe listă: aceleași pagini deja încărcate, fără cerere nouă.
+      setList(remembered);
+      setLoadError(false);
       setLoading(false);
+      setFetching(false);
+      return;
+    }
+
+    const cached = peekHeroSearch(query);
+    if (cached) {
+      setList(cached);
+      setLoadError(false);
+      setLoading(false);
+    }
+    setFetching(true);
+
+    searchHeroes(query).then(result => {
+      // Între timp a pornit o căutare mai nouă: răspunsul ăsta nu mai contează.
+      if (seq !== requestSeq.current) return;
+      setFetching(false);
+      setLoading(false);
+      if (!result) {
+        // Fără listă completă ca plasă de siguranță (A8): mesaj și „încearcă din nou".
+        if (!cached) { setList(null); setLoadError(true); }
+        return;
+      }
+      lastList = { key: queryKey, at: Date.now(), result };
+      setList(result);
+      setLoadError(false);
+    });
+  }, [nearReady, queryKey, retryTick]);
+
+  const loadMore = async () => {
+    if (!list || !list.hasMore || loadingMore) return;
+    const seq = requestSeq.current;
+    const current = list;
+    setLoadingMore(true);
+    setMoreError(false);
+    const result = await searchHeroes({ ...query, page: current.page + 1 });
+    if (seq !== requestSeq.current) return; // filtrele s-au schimbat între timp
+    setLoadingMore(false);
+    if (!result) { setMoreError(true); return; }
+    // Ordinea e fixă pe server, deci paginile nu se suprapun; filtrul pe id e doar plasă.
+    const seen = new Set(current.heroes.map(h => h.id));
+    const merged: HeroSearchResult = {
+      ...result,
+      heroes: [...current.heroes, ...result.heroes.filter(h => !seen.has(h.id))],
     };
-    fetchData();
-  }, []);
+    lastList = { key: queryKey, at: Date.now(), result: merged };
+    setList(merged);
+  };
+
+  // Filtrele în adresă, fără câte o intrare nouă în istoric la fiecare schimbare.
+  // Alți parametri din adresă (de ex. utm_*) rămân neatinși.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    const put = (key: string, value: string) => { if (value) next.set(key, value); else next.delete(key); };
+    put('meserie', filterCategory === 'ALL' ? '' : filterCategory);
+    put('judete', filterCounties.join(','));
+    put('q', debouncedSearch);
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [filterCategory, filterCounties, debouncedSearch]);
+
+  useEffect(() => { getHeroCategories().then(setCategories); }, []);
 
   // Funcție toggle județ (Folosită și de hartă și de dropdown)
   const toggleCounty = (code: string) => {
@@ -176,43 +260,11 @@ export const HeroesList: React.FC = () => {
       );
   };
 
-  const getAverageRating = (hero: Hero) => {
-      if (!hero.reviews || hero.reviews.length === 0) return 0;
-      const sum = hero.reviews.reduce((acc: number, r: any) => acc + r.rating, 0);
-      return sum / hero.reviews.length;
-  };
-
-
-  // === LOGICĂ FILTRARE EROI ===
-  // Căutarea e fuzzy și pe tot profilul (alias, meserie, descriere, puteri,
-  // locație, telefon), nu doar un `includes` pe nume — vezi lib/heroSearch.ts.
-  // Aceasta doar ASCUNDE eroii, NU modifică starea hărții (filterCounties)
-  const isSearching = searchTerm.trim().length > 0;
-  const searchedHeroes = isSearching ? searchHeroes(heroes, searchTerm) : heroes;
-
-  const filteredHeroes = searchedHeroes.filter(hero => {
-    // 1. Categorie
-    const matchesCategory = filterCategory === 'ALL' || hero.category.toUpperCase() === filterCategory.toUpperCase();
-
-    // 2. Hartă (Dacă eroul acoperă MĂCAR UNUL din județele selectate)
-    // Dacă nu e selectat niciun județ, îi arătăm pe toți.
-    const heroAreas = Array.isArray(hero.actionAreas) ? hero.actionAreas : [];
-    const matchesMap = filterCounties.length === 0 ||
-                       heroAreas.some(area => filterCounties.includes(area));
-
-    return matchesCategory && matchesMap;
-  }).sort((a, b) => {
-    // Cu o căutare activă păstrăm ordinea de relevanță dată de searchHeroes.
-    if (isSearching) return 0;
-    if (sortNearby) {
-      const da = heroDistances[a.id];
-      const db = heroDistances[b.id];
-      if (da != null && db != null) return da - db;
-      if (da != null) return -1;
-      if (db != null) return 1;
-    }
-    return b.trustFactor - a.trustFactor;
-  });
+  const heroes = list?.heroes ?? [];
+  const hasFilters = filterCategory !== 'ALL' || filterCounties.length > 0 || debouncedSearch !== '';
+  // „Aproape" pornit, dar serverul n-a putut poziționa niciun erou din pagină.
+  const distancesMissing =
+    sortNearby && !fetching && heroes.length > 0 && heroes.every(h => h.distanceKm == null);
 
   // Harta + controalele ei — identice pentru varianta mobil (accordion inline)
   // și varianta desktop (panou plutitor), ca sa nu se scrie de doua ori.
@@ -317,6 +369,14 @@ export const HeroesList: React.FC = () => {
 
   return (
     <div className="relative mx-auto min-h-screen max-w-7xl px-5 pb-16 pt-28 sm:px-6 font-sans text-graphite">
+      {/* Rezultatele unei căutări sau ale unor filtre nu intră în Google
+          (FRONTEND-HANDOFF A14): le tratează ca pagini subțiri. Cuvintele se
+          prind prin profiluri și prin paginile pe meserie și loc. */}
+      {hasFilters && (
+        <Helmet>
+          <meta name="robots" content="noindex, follow" />
+        </Helmet>
+      )}
 
       {/* Header */}
       <div className="relative z-10 mb-10 text-center">
@@ -342,7 +402,7 @@ export const HeroesList: React.FC = () => {
             </div>
             <input
                 type="text"
-                placeholder="Caută nume, meserie, oraș, telefon..."
+                placeholder="Caută nume, meserie, oraș..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full rounded-full border border-graphite/15 bg-white/85 py-4 pl-14 pr-5 text-base text-graphite shadow-clay-sm outline-none transition-all placeholder:text-graphite-soft/70 focus:border-super-red/40 focus:bg-white focus:ring-4 focus:ring-super-red/15"
@@ -437,14 +497,14 @@ export const HeroesList: React.FC = () => {
                 </div>
               </div>
         </div>
-        {sortNearby && distancesPending && (
+        {sortNearby && fetching && (
             <p className="-mt-4 text-center text-xs text-graphite-soft">Calculez distanțele…</p>
         )}
 
-        {/* Reușită fără niciun rezultat: serviciul public de geocodare n-a
-            răspuns. Omul n-are ce repara, deci nu-i cerem nimic — îi spunem doar
-            ce vede pe ecran, ca să nu creadă că filtrul e stricat. */}
-        {sortNearby && !distancesPending && Object.keys(heroDistances).length === 0 && (
+        {/* Locația a venit, dar serverul n-a putut poziționa niciun erou (de ex.
+            o locație din afara țării). Omul n-are ce repara, deci nu-i cerem
+            nimic — îi spunem doar ce vede pe ecran, ca să nu creadă că filtrul e stricat. */}
+        {distancesMissing && (
             <p className="-mt-4 max-w-sm text-center text-xs text-graphite-soft">
                 Ți-am luat locația, dar distanțele n-au putut fi calculate acum. Lista rămâne în ordinea obișnuită.
             </p>
@@ -466,30 +526,32 @@ export const HeroesList: React.FC = () => {
               Toți eroii
             </button>
 
-            {allCategories.map((cat) => {
-              const Icon = iconForTrade(cat);
-              const active = filterCategory === cat;
+            {categories.map(({ category }) => {
+              // Valoarea pleacă la server exact cum vine; afișată fără spațiile de la capete.
+              const label = category.trim();
+              const Icon = iconForTrade(label);
+              const active = filterCategory === category;
               return (
                 <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat)}
+                  key={category}
+                  onClick={() => setFilterCategory(category)}
                   aria-pressed={active}
                   className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-heading text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
                     ${active ? 'bg-super-red text-white shadow-clay-red' : 'bg-white/80 text-graphite shadow-clay-sm hover:text-super-red'}`}
                 >
                   <Icon size={17} weight={active ? 'fill' : 'duotone'} aria-hidden="true" />
-                  {cat}
+                  {label}
                 </button>
               );
             })}
         </div>
 
         {/* Contor rezultate */}
-        {!loading && (
+        {!loading && list && (
           <p className="text-sm font-semibold text-graphite-soft" aria-live="polite">
-            {filteredHeroes.length === 0
+            {list.total === 0
               ? 'Niciun erou găsit'
-              : `${filteredHeroes.length} ${filteredHeroes.length === 1 ? 'erou disponibil' : 'eroi disponibili'}`}
+              : `${list.total.toLocaleString('ro-RO')} ${list.total === 1 ? 'erou disponibil' : 'eroi disponibili'}`}
           </p>
         )}
       </div>
@@ -512,7 +574,28 @@ export const HeroesList: React.FC = () => {
         </div>
       ) : (
         <>
-          {filteredHeroes.length === 0 ? (
+          {loadError ? (
+            <div className="sf-glass mx-auto max-w-2xl rounded-[32px] px-6 py-14 text-center">
+              <Mascot
+                className="mx-auto mb-6 w-auto max-h-44 opacity-90"
+                shadow="drop-shadow-[0_18px_26px_rgba(46,51,59,0.3)]"
+              />
+              <h3 className="font-heading text-2xl font-bold">Lista nu s-a încărcat</h3>
+              <p className="mx-auto mt-3 max-w-sm text-graphite-soft">
+                Verifică conexiunea la internet și încearcă din nou.
+              </p>
+              <div className="mt-7 flex justify-center">
+                <GlassButton
+                  type="button"
+                  tone="red"
+                  onClick={() => { setLoadError(false); setLoading(true); setRetryTick(t => t + 1); }}
+                >
+                  <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
+                  Încearcă din nou
+                </GlassButton>
+              </div>
+            </div>
+          ) : heroes.length === 0 ? (
             <div className="sf-glass mx-auto max-w-2xl rounded-[32px] px-6 py-14 text-center">
               <Mascot
                 className="mx-auto mb-6 w-auto max-h-44 opacity-90"
@@ -535,8 +618,8 @@ export const HeroesList: React.FC = () => {
             </div>
           ) : (
             <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredHeroes.map(hero => {
-                const avgRating = getAverageRating(hero);
+              {heroes.map(hero => {
+                const avgRating = hero.ratingAvg ?? 0; // calculată pe server (A9)
                 const TradeIcon = iconForTrade(hero.category);
                 return (
                   // CARD EROU — tilt 3D + glare la hover (doar pe pointer fin, vezi componenta Tilt)
@@ -553,13 +636,12 @@ export const HeroesList: React.FC = () => {
                           identică. Adică mergea, dar arăta exact ca și cum nu
                           merge. Distanța scrisă pe card e dovada că locația a
                           fost preluată și folosită, indiferent de ordine. */}
-                      {sortNearby && heroDistances[hero.id] !== undefined && (
+                      {sortNearby && hero.distanceKm != null && (
                         <div className="absolute left-2 top-2 z-20 sm:left-4 sm:top-4">
                             <span className="inline-flex items-center gap-1 rounded-full bg-super-red px-2 py-1 font-heading text-[9px] font-semibold text-white shadow-clay-red sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
                                 <Target size={12} weight="fill" aria-hidden="true" />
-                                {heroDistances[hero.id] < 1
-                                    ? 'sub 1 km'
-                                    : `${Math.round(heroDistances[hero.id])} km`}
+                                {/* De la server, în km întregi, minim 1 (A15). */}
+                                {`${hero.distanceKm} km`}
                             </span>
                         </div>
                       )}
@@ -613,7 +695,7 @@ export const HeroesList: React.FC = () => {
                                     {avgRating > 0 ? avgRating.toFixed(1) : '–'}
                                 </span>
                                 <span className="mt-0.5 whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
-                                    {hero.reviews?.length || 0} rec.
+                                    {hero.reviewCount ?? 0} rec.
                                 </span>
                             </div>
                         </div>
@@ -640,6 +722,20 @@ export const HeroesList: React.FC = () => {
                   </Tilt>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagina următoare, la cerere. Nu se încarcă singură la derulare: la
+              zeci de mii de eroi, subsolul cu linkurile legale n-ar mai putea fi
+              atins niciodată. */}
+          {!loadError && list?.hasMore && (
+            <div className="relative z-10 mt-10 flex flex-col items-center gap-3">
+              {moreError && (
+                <p className="text-center text-sm text-super-red">Următorii eroi nu s-au încărcat. Încearcă din nou.</p>
+              )}
+              <GlassButton type="button" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Se încarcă…' : 'Arată mai mulți eroi'}
+              </GlassButton>
             </div>
           )}
         </>

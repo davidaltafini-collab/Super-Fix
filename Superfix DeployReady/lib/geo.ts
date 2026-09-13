@@ -235,7 +235,54 @@ export async function reverseGeocode(point: GeoPoint): Promise<string | undefine
 /* ---------------- locația clientului ---------------- */
 
 /** Cere permisiunea, ia coordonatele, încearcă o adresă lizibilă. Nu aruncă niciodată. */
-export async function getCurrentLocation(): Promise<LocationResult> {
+/* Poziția aproximativă, după IP, fără permisiune — pentru ordinea „lângă mine"
+   din lista de eroi (FRONTEND-HANDOFF A15). O dă funcția `api/geo` de pe Vercel,
+   doar pentru România, rotunjită la ~1 km. Se ține pe sesiune, ca revenirea pe
+   listă să nu mai aștepte rețeaua.
+
+   În dezvoltare (fără Vercel) ruta nu există și rezultatul e `null`: lista merge
+   ca înainte, în ordinea de încredere. */
+const APPROX_KEY = 'superfix_approx_geo';
+
+const asPoint = (value: any): GeoPoint | null =>
+  value && typeof value.lat === 'number' && typeof value.lng === 'number'
+    ? { lat: value.lat, lng: value.lng }
+    : null;
+
+/** `undefined` = încă n-am întrebat în sesiunea asta; `null` = n-avem poziție. */
+export function peekApproxLocation(): GeoPoint | null | undefined {
+  try {
+    const raw = sessionStorage.getItem(APPROX_KEY);
+    return raw === null ? undefined : asPoint(JSON.parse(raw));
+  } catch { return undefined; }
+}
+
+export async function getApproxLocation(timeoutMs = 1200): Promise<GeoPoint | null> {
+  const known = peekApproxLocation();
+  if (known !== undefined) return known;
+
+  // Lista așteaptă răspunsul ăsta, deci nu-l lăsăm să o țină pe loc.
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch('/api/geo', { signal: controller.signal });
+    if (!res.ok) return null;
+    const point = asPoint(await res.json());
+    try { sessionStorage.setItem(APPROX_KEY, JSON.stringify(point)); } catch { /* ignore */ }
+    return point;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+/* `withAddress: false` sare peste adresa de la Nominatim (serviciu public, o
+   cerere pe secundă). Lista de eroi are nevoie doar de coordonate: ordinea și
+   distanțele le face serverul (FRONTEND-HANDOFF A15). */
+export async function getCurrentLocation(
+  { withAddress = true }: { withAddress?: boolean } = {},
+): Promise<LocationResult> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
     return { ok: false, reason: 'unavailable' };
   }
@@ -305,6 +352,7 @@ export async function getCurrentLocation(): Promise<LocationResult> {
   const lng = outcome.coords.longitude;
   if (!valid(lat, lng)) return { ok: false, reason: 'error' };
 
+  if (!withAddress) return { ok: true, location: { lat, lng } };
   const address = await reverseGeocode({ lat, lng });
   return { ok: true, location: { lat, lng, address } };
 }
