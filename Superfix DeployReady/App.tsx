@@ -47,6 +47,7 @@ const Withdrawal = lazy(() => import('./pages/LegalPages').then(m => ({ default:
 const CompanyContact = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.CompanyContact })));
 const Pricing = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Pricing })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
+const SeoLanding = lazy(() => import('./pages/SeoLanding').then(m => ({ default: m.SeoLanding })));
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })));
 const SubscriptionResult = lazy(() => import('./pages/SubscriptionResult').then(m => ({ default: m.SubscriptionResult })));
 
@@ -173,6 +174,9 @@ const App: React.FC = () => {
                 <Route path="/heroes" element={<HeroesList />} />
                 <Route path="/hero/:slug" element={<HeroProfile />} />
                 <Route path="/hero/:slug/origine" element={<HeroOrigin />} />
+                {/* Paginile pe meserie și loc (A14): adresele le dă backendul. */}
+                <Route path="/meserii/*" element={<SeoLanding />} />
+                <Route path="/zone/*" element={<SeoLanding />} />
                 <Route path="/cine-e-sub-costum" element={<HeroOriginEditor />} />
                 <Route path="/portal/profil" element={<HeroBasics />} />
                 <Route path="/portal/misiune/:id" element={<MissionDetail />} />

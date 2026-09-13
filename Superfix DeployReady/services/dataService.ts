@@ -1,5 +1,6 @@
 import { Hero, ServiceRequest, Review } from '../types';
 import { API_URL } from '../config/api';
+import type { HeroSeo, SeoLanding, SeoPage } from '../lib/seo';
 import { CacheKey, cacheClear, cacheDrop, cacheGet, cacheSet, dedupe } from './cache';
 import { apiFailure, type ApiFailure } from '../lib/apiError';
 
@@ -595,6 +596,88 @@ export const getHeroById = (id: string): Promise<Hero | undefined> =>
 
 export const peekHeroById = (id: string | null): Hero | undefined =>
     id ? cacheGet(CacheKey.heroById(id)) : undefined;
+
+/* ============================================================
+   SEO (FRONTEND-HANDOFF A14). Titlul, descrierea, firimiturile și linkurile
+   vin gata de la server. La intrarea directă pe o pagină ele sunt deja aici,
+   aduse de HTML-ul randat pe server (`seedFromServer`), deci nu se mai cer.
+   ============================================================ */
+
+export const getHeroSeo = (slug: string): Promise<HeroSeo | undefined> =>
+  dedupe(CacheKey.heroSeo(slug), async () => {
+    try {
+        const res = await fetch(`${API_URL}/seo/hero/${encodeURIComponent(slug)}`);
+        if (!res.ok) return cacheGet<HeroSeo>(CacheKey.heroSeo(slug));
+        const data = await res.json();
+        if (typeof data?.seo?.title !== 'string') return cacheGet<HeroSeo>(CacheKey.heroSeo(slug));
+        return cacheSet(CacheKey.heroSeo(slug), data.seo as HeroSeo);
+    } catch { return cacheGet<HeroSeo>(CacheKey.heroSeo(slug)); }
+  });
+
+export const peekHeroSeo = (slug: string): HeroSeo | undefined =>
+    cacheGet(CacheKey.heroSeo(slug));
+
+/* `missing` = API-ul a dat 404 (adresă necunoscută sau fără meseriași): pagina
+   arată „nu există”. `error` = n-a răspuns: pagina arată „încearcă din nou”. */
+export type SeoLandingResult =
+    | { status: 'ok'; data: SeoLanding }
+    | { status: 'missing' }
+    | { status: 'error' };
+
+export const SEO_LANDING_LIMIT = 24;
+
+export const getSeoLanding = (path: string, page: number): Promise<SeoLandingResult> => {
+    const key = CacheKey.seoLanding(path, page);
+    return dedupe<SeoLandingResult>(key, async () => {
+        try {
+            const query = new URLSearchParams({ path, page: String(page), limit: String(SEO_LANDING_LIMIT) });
+            const res = await fetch(`${API_URL}/seo/landing?${query}`);
+            if (res.status === 404) return { status: 'missing' };
+            if (!res.ok) return { status: 'error' };
+            const data = await res.json();
+            if (typeof data?.title !== 'string' || !Array.isArray(data?.heroes)) return { status: 'error' };
+            return { status: 'ok', data: cacheSet(key, data as SeoLanding) };
+        } catch { return { status: 'error' }; }
+    });
+};
+
+export const peekSeoLanding = (path: string, page: number): SeoLanding | undefined =>
+    cacheGet(CacheKey.seoLanding(path, page));
+
+/** Paginile pe meserie (`trade`) sau pe județ (`county`), cele mai pline întâi. */
+export const getSeoPages = (kind: 'trade' | 'county'): Promise<SeoPage[]> =>
+  dedupe(CacheKey.seoPages(kind), async () => {
+    const cached = cacheGet<SeoPage[]>(CacheKey.seoPages(kind));
+    if (cached) return cached;
+    try {
+        const res = await fetch(`${API_URL}/seo/pages?kind=${kind}&limit=50`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const list = Array.isArray(data?.pages)
+            ? (data.pages as SeoPage[]).filter(p => typeof p?.path === 'string' && p.path.startsWith('/') && typeof p.label === 'string')
+            : [];
+        return cacheSet(CacheKey.seoPages(kind), list);
+    } catch { return []; }
+  });
+
+/* Pagina a venit randată de server (api/ssr.ts), cu răspunsul API-ului lângă
+   ea. Îl punem în memoria sesiunii înainte de prima randare: profilul și
+   paginile pe meserie și loc se desenează direct, fără schelet și fără încă o
+   cerere pentru aceleași date. */
+export function seedFromServer(): void {
+    const el = document.getElementById('sf-ssr-data');
+    if (!el) return;
+    el.remove();
+    try {
+        const seed = JSON.parse(el.textContent || 'null');
+        if (seed?.kind === 'hero' && typeof seed.slug === 'string' && seed.hero && typeof seed.seo?.title === 'string') {
+            cacheSet(CacheKey.heroBySlug(seed.slug), seed.hero as Hero);
+            cacheSet(CacheKey.heroSeo(seed.slug), seed.seo as HeroSeo);
+        } else if (seed?.kind === 'landing' && typeof seed.path === 'string' && Array.isArray(seed.data?.heroes)) {
+            cacheSet(CacheKey.seoLanding(seed.path, Number(seed.page) || 1), seed.data as SeoLanding);
+        }
+    } catch { /* fără date de la server: pagina le cere singură */ }
+}
 
 /** Trimiteri din formulare: `failure` doar când serverul a răspuns cu eroare (vezi `lib/apiError`). */
 export type SubmitResult = { ok: boolean; failure?: ApiFailure };

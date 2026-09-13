@@ -14,6 +14,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Hero, ServiceRequest } from '../types';
 import {
   getHeroById, createServiceRequest, addReview, getHeroBySlug, peekHeroBySlug, getHeroPhone,
+  getHeroSeo, peekHeroSeo,
 } from '../services/dataService';
 import { Skel, SkeletonPage } from '../components/Loader';
 import { thumb } from '../lib/img';
@@ -24,6 +25,9 @@ import { failureMessage } from '../lib/apiError';
 import { GlassButton } from '../components/Button';
 import { AnimatedFolder } from '../components/ui/3d-folder';
 import { useNearViewport } from '../hooks/useNearViewport';
+import { SeoHead } from '../components/SeoHead';
+import { SeoCrumbs, SeoLinks } from '../components/SeoNav';
+import type { HeroSeo } from '../lib/seo';
 import {
   Phone, PaperPlaneTilt, ShieldCheck, Target, Star, MapPin, VideoCamera, Play,
   ChatCircleText, CheckCircle, Sparkle, IdentificationCard, Lightning, MaskHappy, ArrowLeft, NavigationArrow,
@@ -72,6 +76,8 @@ export const HeroProfile: React.FC = () => {
      atunci se deseneaza pe loc si se reimprospateaza in fundal. */
   const [hero, setHero] = useState<Hero | null>(() => peekHeroBySlug(slug || '') ?? null);
   const [loading, setLoading] = useState(() => !peekHeroBySlug(slug || ''));
+  // Titlul, descrierea, firimiturile și linkurile vin gata de la server (A14).
+  const [seo, setSeo] = useState<HeroSeo | undefined>(() => peekHeroSeo(slug || ''));
 
   // === RECENZII DESENATE TREPTAT ===
   const [visibleReviews, setVisibleReviews] = useState(REVIEWS_STEP);
@@ -136,6 +142,18 @@ export const HeroProfile: React.FC = () => {
         setHasReviewed(true);
     }
   }, [slug, navigate]);
+
+  /* La intrarea directă, datele SEO au venit deja cu HTML-ul de la server; se
+     cer doar când ajungi aici din site (din listă, de pe altă pagină). */
+  useEffect(() => {
+    if (!slug) return;
+    const known = peekHeroSeo(slug);
+    setSeo(known);
+    if (known) return;
+    let alive = true;
+    getHeroSeo(slug).then(data => { if (alive && data) setSeo(data); });
+    return () => { alive = false; };
+  }, [slug]);
 
   // HANDLER: Trimitere Cerere Misiune (SOS)
   const locate = async () => {
@@ -367,40 +385,37 @@ export const HeroProfile: React.FC = () => {
   return (
     // pb mai mare pe mobil: conținutul să nu rămână sub bara fixă de acțiune
     <div className="pb-8 font-sans text-graphite md:pb-20">
-      {/* === SEO DYNAMIC META TAGS === */}
-      <Helmet>
-        <title>{`${hero.alias} - ${hero.category} Profesionist | Superfix`}</title>
-        <meta name="description" content={`Contactează-l pe ${hero.alias} pentru servicii de ${hero.category}. Tarif: ${hero.hourlyRate} RON/h. Vezi recenzii și portofoliu video.`} />
-        <meta property="og:title" content={`${hero.alias} - ${hero.category} | Superfix`} />
-        <meta property="og:description" content={`Ai nevoie de un ${hero.category}? ${hero.alias} te poate ajuta! Vezi profilul complet.`} />
-        <meta property="og:image" content={hero.avatarUrl || 'https://superfix.ro/og-default.jpg'} />
-        
-        {/* Structured Data pentru Google (Schema.org) */}
-        <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "LocalBusiness",
-              "name": hero.alias,
-              "image": hero.avatarUrl,
-              "priceRange": `${hero.hourlyRate} RON`,
-              "description": hero.description,
-              "address": {
-                  "@type": "PostalAddress",
-                  "addressCountry": "RO"
-              }
-            })}
-        </script>
-      </Helmet>
+      {/* === SEO (A14) ===
+          Aceleași taguri ca în HTML-ul de pe server (api/ssr.ts), luate ca atare
+          din `/api/seo/hero`: titlul, descrierea, canonical, previzualizarea și
+          JSON-LD-ul potrivit meseriei. Nimic compus aici. */}
+      {seo ? (
+        <SeoHead
+          title={seo.title}
+          description={seo.metaDescription}
+          canonical={seo.canonical}
+          og={{ ...seo.og, alt: hero.alias }}
+          jsonLd={seo.jsonLd}
+        />
+      ) : (
+        <Helmet>
+          <title>{`${hero.alias} | Super-Fix`}</title>
+        </Helmet>
+      )}
 
       {/* === HEADER: FIȘA EROULUI === */}
       <div className="mx-auto max-w-6xl px-5 pt-28 sm:px-6">
-        <Link
-          to="/heroes"
-          className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-graphite-soft transition-colors hover:text-graphite"
-        >
-          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
-          Înapoi la eroi
-        </Link>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <Link
+            to="/heroes"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-graphite-soft transition-colors hover:text-graphite"
+          >
+            <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+            Înapoi la eroi
+          </Link>
+          {/* „Super-Fix › Electrician › București › Petrica Iscusitul” (seo.breadcrumbs) */}
+          <SeoCrumbs items={seo?.breadcrumbs} />
+        </div>
 
         <div className="sf-panel relative overflow-hidden rounded-[36px] p-6 md:p-10">
           <div className="relative flex flex-col items-center gap-7 md:flex-row md:items-start md:gap-10">
@@ -790,6 +805,15 @@ export const HeroProfile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* === MAI MULȚI MESERIAȘI (seo.links, A14) ===
+          Meseria lui în orașul lui, în județ, în toată țara, apoi zonele: linkuri
+          normale spre paginile pe meserie și loc. */}
+      {seo?.links?.length ? (
+        <div className="mx-auto max-w-6xl px-5 pb-12 sm:px-6">
+          <SeoLinks title="Mai mulți meseriași" links={seo.links} className="sf-glass rounded-[28px] p-6 sm:p-7" />
+        </div>
+      ) : null}
 
       {/* === BARĂ DE ACȚIUNE ANDOCABILĂ ===
           Singura suprafață de acțiune din pagină, pe toate ecranele. Nicăieri

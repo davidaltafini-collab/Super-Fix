@@ -165,7 +165,7 @@ export const Home: React.FC = () => {
         <meta name="description" content="Platforma unde găsești rapid instalatori, electricieni și meșteri verificați în zona ta. Alege eroul potrivit pentru problema ta." />
         <meta property="og:title" content="Superfix - Meșteri Locali Gata de Acțiune" />
         <meta property="og:description" content="Ai nevoie de un erou? Găsește meseriași verificați în zona ta." />
-        <link rel="canonical" href="https://superfix.ro/" />
+        <link rel="canonical" href="https://super-fix.ro/" />
       </Helmet>
 
       <style>{`

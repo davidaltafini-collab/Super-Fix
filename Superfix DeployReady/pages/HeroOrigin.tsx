@@ -141,6 +141,8 @@ export const HeroOrigin: React.FC = () => {
           name="description"
           content={`Povestea lui ${hero.realName || hero.alias}, ${hero.category} pe Superfix.`}
         />
+        {/* Povestea e și pe profil, deci Google le adună la profil (la fel în api/ssr.ts). */}
+        <link rel="canonical" href={`https://super-fix.ro/hero/${hero.slug || slug}`} />
       </Helmet>
 
       {/* === DEMASCAREA ===

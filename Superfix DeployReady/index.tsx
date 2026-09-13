@@ -3,12 +3,20 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { HelmetProvider } from 'react-helmet-async';
 import { installNetLog } from './services/netlog';
+import { seedFromServer } from './services/dataService';
+import { releaseServerHead } from './lib/seo';
 import './index.css';
 
 /* Înainte de orice randare, ca să prindă și cererile de la prima pagină.
    Nu trimite nimic nicăieri: ține un inel în memorie, pe care îl citește panoul
    din admin. Vezi `services/netlog.ts`. */
 installNetLog();
+
+/* Pe profil și pe paginile pe meserie și loc, serverul trimite datele odată cu
+   HTML-ul (api/ssr.ts). Intră în memoria sesiunii înainte de prima randare, iar
+   tagurile lui din <head> fac loc celor puse de aplicație. */
+seedFromServer();
+releaseServerHead();
 
 /* O înălțime de ecran care NU se mișcă la derulare.
 

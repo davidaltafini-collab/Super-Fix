@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import NTPLogo from 'ntp-logo-react';
 import { LEGAL } from '../config/legal';
+import { getSeoPages } from '../services/dataService';
+import type { SeoPage } from '../lib/seo';
 import {
   House, MagnifyingGlass, UserPlus, Handshake, IdentificationBadge,
   FileText, ShieldCheck, Cookie, Scales, EnvelopeSimple, Heart, CreditCard,
@@ -33,6 +35,26 @@ const linkRow =
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
+
+  /* Paginile pe meserie și pe județ (A14), cele mai pline întâi. Din subsol
+     ajung la ele și oamenii, și Google, de pe orice pagină. Doar cele care
+     intră în Google: una aproape goală n-are ce căuta pe fiecare pagină. */
+  const [pages, setPages] = React.useState<{ trades: SeoPage[]; counties: SeoPage[] }>({ trades: [], counties: [] });
+  React.useEffect(() => {
+    let alive = true;
+    Promise.all([getSeoPages('trade'), getSeoPages('county')]).then(([trades, counties]) => {
+      if (!alive) return;
+      setPages({
+        trades: trades.filter(p => p.indexable).slice(0, 12),
+        counties: counties.filter(p => p.indexable).slice(0, 12),
+      });
+    });
+    return () => { alive = false; };
+  }, []);
+  const pageGroups = [
+    { title: 'MESERII', label: 'Meseriași pe meserii', list: pages.trades },
+    { title: 'ZONE', label: 'Meseriași pe zone', list: pages.counties },
+  ].filter(group => group.list.length > 0);
 
   return (
     <footer id="site-footer" style={{ backgroundColor: '#2E333B' }} className="relative scroll-mt-6 overflow-hidden text-white mt-auto pt-16 pb-8">
@@ -117,6 +139,29 @@ export const Footer: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* MESERII ȘI ZONE (A14) */}
+        {pageGroups.length > 0 && (
+          <div className="mb-10 grid grid-cols-1 gap-8 border-t border-white/10 pt-8 md:grid-cols-2">
+            {pageGroups.map(group => (
+              <nav key={group.title} aria-label={group.label}>
+                <h3 className={colHeading}>{group.title}</h3>
+                <ul className="flex flex-wrap gap-2">
+                  {group.list.map(page => (
+                    <li key={page.path}>
+                      <Link
+                        to={page.path}
+                        className="inline-flex rounded-full bg-white/8 px-3.5 py-2 text-sm text-white/75 transition-colors duration-200 hover:bg-white/14 hover:text-white"
+                      >
+                        {page.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+          </div>
+        )}
 
         {/* COPYRIGHT */}
         <div className="border-t border-white/10 pt-7 flex flex-col md:flex-row justify-between items-center gap-3 text-sm text-white/45">

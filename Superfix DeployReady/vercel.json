@@ -8,6 +8,13 @@
       "source": "/:file(sitemap-[a-z]+-\\d+\\.xml)",
       "destination": "https://api.super-fix.ro/:file"
     },
+    { "source": "/hero/:slug/origine", "destination": "/api/ssr?__r=origin&__s=:slug" },
+    { "source": "/hero/:slug", "destination": "/api/ssr?__r=hero&__s=:slug" },
+    { "source": "/meserii/:a", "destination": "/api/ssr?__r=landing&__p=/meserii/:a" },
+    { "source": "/meserii/:a/:b", "destination": "/api/ssr?__r=landing&__p=/meserii/:a/:b" },
+    { "source": "/meserii/:a/:b/:c", "destination": "/api/ssr?__r=landing&__p=/meserii/:a/:b/:c" },
+    { "source": "/zone/:a", "destination": "/api/ssr?__r=landing&__p=/zone/:a" },
+    { "source": "/zone/:a/:b", "destination": "/api/ssr?__r=landing&__p=/zone/:a/:b" },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

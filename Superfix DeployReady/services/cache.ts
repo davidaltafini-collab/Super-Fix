@@ -52,6 +52,9 @@ export const CacheKey = {
   heroCategories: 'heroCategories',
   heroBySlug: (slug: string) => `hero:slug:${slug}`,
   heroById: (id: string) => `hero:id:${id}`,
+  heroSeo: (slug: string) => `seo:hero:${slug}`,
+  seoLanding: (path: string, page: number) => `seo:landing:${path}?page=${page}`,
+  seoPages: (kind: string) => `seo:pages:${kind}`,
   missions: 'missions',
   origin: (token?: string | null) => `origin:${token || 'me'}`,
   basics: 'basics',
@@ -77,6 +80,8 @@ const LIMITS: [prefix: string, max: number][] = [
   ['heroSearch:', 30],
   ['hero:slug:', 40],
   ['hero:id:', 40],
+  ['seo:hero:', 40],
+  ['seo:landing:', 30],
 ];
 
 export function cacheSet<T>(key: string, data: T): T {
