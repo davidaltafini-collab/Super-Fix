@@ -69,8 +69,26 @@ export function cacheAge(key: string): number {
   return entry ? Date.now() - entry.at : Infinity;
 }
 
+/* Plafon pe tipuri de intrări. Căutările și profilurile se adună cu fiecare
+   filtru încercat și fiecare erou deschis; fără limită, o sesiune lungă ține în
+   memorie răspunsuri vechi pe care nu le mai cere nimeni. `Map` păstrează
+   ordinea inserării, deci primele chei ale unui tip sunt cele mai vechi. */
+const LIMITS: [prefix: string, max: number][] = [
+  ['heroSearch:', 30],
+  ['hero:slug:', 40],
+  ['hero:id:', 40],
+];
+
 export function cacheSet<T>(key: string, data: T): T {
+  store.delete(key); // reinserată la final: devine cea mai proaspătă
   store.set(key, { data, at: Date.now() });
+
+  const limit = LIMITS.find(([prefix]) => key.startsWith(prefix));
+  if (limit) {
+    const [prefix, max] = limit;
+    const keys = Array.from(store.keys()).filter(k => k.startsWith(prefix));
+    for (const old of keys.slice(0, Math.max(0, keys.length - max))) store.delete(old);
+  }
   return data;
 }
 

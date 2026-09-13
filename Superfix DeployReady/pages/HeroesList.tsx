@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { Hero } from '../types';
+import { useNearViewport } from '../hooks/useNearViewport';
 import {
   getHeroCategories, heroSearchQuery, peekHeroSearch, searchHeroes,
   type HeroCategoryCount, type HeroSearchParams, type HeroSearchResult,
@@ -56,6 +58,12 @@ const COUNTY_CODES = new Set(COUNTIES.map(c => c.code));
    2, și pe 3, și pe 4 coloane. */
 const PAGE_SIZE = 24;
 
+/* Bucățile vin singure pe măsură ce omul derulează, dar doar până aici (5
+   bucăți). La zeci de mii de eroi, o listă fără sfârșit n-ar mai lăsa pe nimeni
+   să ajungă la subsol, unde sunt Termenii și linkurile ANPC/SAL. Cine vrea mai
+   departe restrânge lista cu filtrele. */
+const AUTO_LOAD_LIMIT = 120;
+
 /* Ultima listă afișată, cu toate paginile încărcate, doar în memorie. Cine
    deschide un profil și apasă Înapoi găsește aceiași eroi, nu doar prima pagină.
    După câteva minute se cere din nou. */
@@ -73,6 +81,131 @@ const readCounties = (value: string | null): string[] =>
   (value || '').split(',').map(c => c.trim().toUpperCase()).filter(c => COUNTY_CODES.has(c));
 
 const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // sau link-ul pe care l-ai folosit
+
+/* Schelet în forma cardului final (nu spinner generic): la prima încărcare și cât
+   vine bucata următoare — pagina nu "sare". */
+const HeroCardSkeleton: React.FC = () => (
+  <div className="sf-glass overflow-hidden rounded-[20px] sm:rounded-[28px]">
+    <div className="aspect-square animate-pulse bg-graphite/10 sm:aspect-auto sm:h-60" />
+    <div className="p-3 sm:p-5">
+      <div className="h-5 w-2/3 animate-pulse rounded-full bg-graphite/10" />
+      <div className="mt-4 h-3 w-full animate-pulse rounded-full bg-graphite/10" />
+      <div className="mt-2 h-3 w-4/5 animate-pulse rounded-full bg-graphite/10" />
+      <div className="mt-5 h-8 w-1/2 animate-pulse rounded-full bg-graphite/10" />
+    </div>
+  </div>
+);
+
+/* CARD EROU — tilt 3D + glare la hover (doar pe pointer fin, vezi componenta Tilt).
+
+   `memo`: când vine bucata următoare, React adaugă doar cardurile noi. Cele deja
+   afișate primesc exact același obiect `hero` și nu se mai recalculează deloc. */
+const HeroListCard = React.memo(function HeroListCard({ hero, showDistance }: { hero: Hero; showDistance: boolean }) {
+  const avgRating = hero.ratingAvg ?? 0; // calculată pe server (A9)
+  const TradeIcon = iconForTrade(hero.category);
+  return (
+    <Tilt max={8} className="h-full rounded-[20px] sm:rounded-[28px]">
+      <Link
+        to={`/hero/${hero.slug || hero.id}`}
+        className="group sf-glass relative flex h-full flex-col overflow-hidden rounded-[20px] transition-shadow duration-300 sm:rounded-[28px]"
+      >
+        {/* Cât de departe e, odată ce știm unde ești.
+
+            Fără asta, „Aproape de mine" nu producea NIMIC vizibil:
+            singurul lui efect era ordinea din listă, iar eroii de
+            acum au toți același oraș, deci ordinea rămânea
+            identică. Adică mergea, dar arăta exact ca și cum nu
+            merge. Distanța scrisă pe card e dovada că locația a
+            fost preluată și folosită, indiferent de ordine. */}
+        {showDistance && hero.distanceKm != null && (
+          <div className="absolute left-2 top-2 z-20 sm:left-4 sm:top-4">
+              <span className="inline-flex items-center gap-1 rounded-full bg-super-red px-2 py-1 font-heading text-[9px] font-semibold text-white shadow-clay-red sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                  <Target size={12} weight="fill" aria-hidden="true" />
+                  {/* De la server, în km întregi, minim 1 (A15). */}
+                  {`${hero.distanceKm} km`}
+              </span>
+          </div>
+        )}
+
+        {/* Badge Categorie */}
+        <div className="absolute right-2 top-2 z-20 sm:right-4 sm:top-4">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-heading font-semibold text-graphite shadow-clay-sm backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                <TradeIcon size={12} weight="fill" className="text-super-red" aria-hidden="true" />
+                {hero.category}
+            </span>
+        </div>
+
+        {/* Imagine — patrat, ca sa respecte safe-space-ul circular din cropper-ul de poza profil.
+            `content-visibility: auto`: cât cardul e departe de ecran, browserul nu mai
+            desenează poza. Blocul are dimensiune fixă (pătrat / h-60), deci nimic nu
+            sare când revine în ecran; umbrele cardului sunt pe Link, în afara lui. */}
+        <div className="relative aspect-square overflow-hidden bg-cloud [content-visibility:auto] sm:aspect-auto sm:h-60">
+          <img
+            src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 640, { square: true })}
+            alt={hero.alias}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
+          <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-base font-bold sf-thicken text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
+              {hero.alias}
+          </h3>
+        </div>
+
+        {/* Conținut */}
+        <div className="flex flex-grow flex-col p-3 sm:p-5">
+
+          {/* Stats */}
+          <div className="flex items-center justify-between gap-1 rounded-xl bg-white/55 px-2 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2.5">
+              <div className="flex flex-col items-center">
+                  <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
+                      <ShieldCheck size={13} weight="fill" className="text-emerald-600" aria-hidden="true" />
+                      {hero.trustFactor}
+                  </span>
+                  <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                      <span className="sm:hidden">Încr.</span>
+                      <span className="hidden sm:inline">Încredere</span>
+                  </span>
+              </div>
+              <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
+              <div className="flex flex-col items-center">
+                  <span className="font-heading text-xs sf-thicken text-graphite sm:text-base">{hero.missionsCompleted}</span>
+                  <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
+              </div>
+              <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
+              <div className="flex flex-col items-center">
+                  <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
+                      <Star size={13} weight="fill" className="text-comic-yellow" aria-hidden="true" />
+                      {avgRating > 0 ? avgRating.toFixed(1) : '–'}
+                  </span>
+                  <span className="mt-0.5 whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
+                      {hero.reviewCount ?? 0} rec.
+                  </span>
+              </div>
+          </div>
+
+          {/* Descriere scurtă */}
+          <p className="mt-2.5 flex-grow text-xs leading-snug text-graphite-soft sm:mt-4 sm:text-sm sm:leading-relaxed">
+            {hero.description ? (hero.description.length > 80 ? hero.description.substring(0, 80) + "…" : hero.description) : "Erou gata de acțiune."}
+          </p>
+
+          {/* Footer Card */}
+          <div className="mt-3 flex items-end justify-between gap-1.5 sm:mt-5">
+            <div>
+              <p className="text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Tarif orar</p>
+              <p className="font-heading text-base font-bold text-super-red sm:text-xl">{hero.hourlyRate} RON</p>
+            </div>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-graphite px-2.5 py-1.5 text-[10px] font-heading font-semibold text-white transition-all duration-200 group-hover:bg-super-red sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs sm:group-hover:gap-2.5">
+                <span className="sm:hidden">Profil</span>
+                <span className="hidden sm:inline">Vezi profil</span>
+                <ArrowRight size={12} weight="bold" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+      </Link>
+    </Tilt>
+  );
+});
 
 export const HeroesList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -179,10 +312,14 @@ export const HeroesList: React.FC = () => {
   const [moreError, setMoreError] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
   const requestSeq = useRef(0);
+  // Observatorul poate anunța de două ori înainte ca starea să apuce să se schimbe.
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!nearReady) return;
     const seq = ++requestSeq.current;
+    loadingMoreRef.current = false;
     setLoadingMore(false);
     setMoreError(false);
 
@@ -221,13 +358,15 @@ export const HeroesList: React.FC = () => {
   }, [nearReady, queryKey, retryTick]);
 
   const loadMore = async () => {
-    if (!list || !list.hasMore || loadingMore) return;
+    if (!list || !list.hasMore || loadingMoreRef.current || list.heroes.length >= AUTO_LOAD_LIMIT) return;
     const seq = requestSeq.current;
     const current = list;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     setMoreError(false);
     const result = await searchHeroes({ ...query, page: current.page + 1 });
     if (seq !== requestSeq.current) return; // filtrele s-au schimbat între timp
+    loadingMoreRef.current = false;
     setLoadingMore(false);
     if (!result) { setMoreError(true); return; }
     // Ordinea e fixă pe server, deci paginile nu se suprapun; filtrul pe id e doar plasă.
@@ -265,6 +404,11 @@ export const HeroesList: React.FC = () => {
   // „Aproape" pornit, dar serverul n-a putut poziționa niciun erou din pagină.
   const distancesMissing =
     sortNearby && !fetching && heroes.length > 0 && heroes.every(h => h.distanceKm == null);
+
+  // Bucata următoare pleacă singură când omul se apropie de finalul listei. După o
+  // eroare se oprește (altfel ar reîncerca la nesfârșit) până apasă „Încearcă din nou".
+  const canAutoLoad = !loading && !loadError && !moreError && Boolean(list?.hasMore) && heroes.length < AUTO_LOAD_LIMIT;
+  useNearViewport(sentinelRef, loadMore, { enabled: canAutoLoad, resetKey: `${queryKey}|${heroes.length}` });
 
   // Harta + controalele ei — identice pentru varianta mobil (accordion inline)
   // și varianta desktop (panou plutitor), ca sa nu se scrie de doua ori.
@@ -558,19 +702,8 @@ export const HeroesList: React.FC = () => {
 
       {/* === GRID EROI === */}
       {loading ? (
-        // Schelete în forma cardului final (nu spinner generic) — pagina nu "sare" la încărcare.
         <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4" aria-live="polite" aria-busy="true">
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} className="sf-glass overflow-hidden rounded-[20px] sm:rounded-[28px]">
-              <div className="aspect-square animate-pulse bg-graphite/10 sm:aspect-auto sm:h-60" />
-              <div className="p-3 sm:p-5">
-                <div className="h-5 w-2/3 animate-pulse rounded-full bg-graphite/10" />
-                <div className="mt-4 h-3 w-full animate-pulse rounded-full bg-graphite/10" />
-                <div className="mt-2 h-3 w-4/5 animate-pulse rounded-full bg-graphite/10" />
-                <div className="mt-5 h-8 w-1/2 animate-pulse rounded-full bg-graphite/10" />
-              </div>
-            </div>
-          ))}
+          {[0, 1, 2, 3].map(i => <HeroCardSkeleton key={i} />)}
         </div>
       ) : (
         <>
@@ -618,125 +751,30 @@ export const HeroesList: React.FC = () => {
             </div>
           ) : (
             <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4">
-              {heroes.map(hero => {
-                const avgRating = hero.ratingAvg ?? 0; // calculată pe server (A9)
-                const TradeIcon = iconForTrade(hero.category);
-                return (
-                  // CARD EROU — tilt 3D + glare la hover (doar pe pointer fin, vezi componenta Tilt)
-                  <Tilt key={hero.id} max={8} className="h-full rounded-[20px] sm:rounded-[28px]">
-                    <Link
-                      to={`/hero/${hero.slug || hero.id}`}
-                      className="group sf-glass relative flex h-full flex-col overflow-hidden rounded-[20px] transition-shadow duration-300 sm:rounded-[28px]"
-                    >
-                      {/* Cât de departe e, odată ce știm unde ești.
-
-                          Fără asta, „Aproape de mine" nu producea NIMIC vizibil:
-                          singurul lui efect era ordinea din listă, iar eroii de
-                          acum au toți același oraș, deci ordinea rămânea
-                          identică. Adică mergea, dar arăta exact ca și cum nu
-                          merge. Distanța scrisă pe card e dovada că locația a
-                          fost preluată și folosită, indiferent de ordine. */}
-                      {sortNearby && hero.distanceKm != null && (
-                        <div className="absolute left-2 top-2 z-20 sm:left-4 sm:top-4">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-super-red px-2 py-1 font-heading text-[9px] font-semibold text-white shadow-clay-red sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
-                                <Target size={12} weight="fill" aria-hidden="true" />
-                                {/* De la server, în km întregi, minim 1 (A15). */}
-                                {`${hero.distanceKm} km`}
-                            </span>
-                        </div>
-                      )}
-
-                      {/* Badge Categorie */}
-                      <div className="absolute right-2 top-2 z-20 sm:right-4 sm:top-4">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-heading font-semibold text-graphite shadow-clay-sm backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
-                              <TradeIcon size={12} weight="fill" className="text-super-red" aria-hidden="true" />
-                              {hero.category}
-                          </span>
-                      </div>
-
-                      {/* Imagine — patrat, ca sa respecte safe-space-ul circular din cropper-ul de poza profil */}
-                      <div className="relative aspect-square overflow-hidden bg-cloud sm:aspect-auto sm:h-60">
-                        <img
-                          src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 640, { square: true })}
-                          alt={hero.alias}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
-                        <h3 className="absolute bottom-2 left-2.5 right-2.5 truncate font-heading text-base font-bold sf-thicken text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:bottom-3 sm:left-4 sm:right-4 sm:text-2xl">
-                            {hero.alias}
-                        </h3>
-                      </div>
-
-                      {/* Conținut */}
-                      <div className="flex flex-grow flex-col p-3 sm:p-5">
-
-                        {/* Stats */}
-                        <div className="flex items-center justify-between gap-1 rounded-xl bg-white/55 px-2 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2.5">
-                            <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
-                                    <ShieldCheck size={13} weight="fill" className="text-emerald-600" aria-hidden="true" />
-                                    {hero.trustFactor}
-                                </span>
-                                <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
-                                    <span className="sm:hidden">Încr.</span>
-                                    <span className="hidden sm:inline">Încredere</span>
-                                </span>
-                            </div>
-                            <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
-                            <div className="flex flex-col items-center">
-                                <span className="font-heading text-xs sf-thicken text-graphite sm:text-base">{hero.missionsCompleted}</span>
-                                <span className="mt-0.5 text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Misiuni</span>
-                            </div>
-                            <div className="h-7 w-px bg-graphite/10 sm:h-8" aria-hidden="true" />
-                            <div className="flex flex-col items-center">
-                                <span className="flex items-center gap-1 font-heading text-xs sf-thicken text-graphite sm:text-base">
-                                    <Star size={13} weight="fill" className="text-comic-yellow" aria-hidden="true" />
-                                    {avgRating > 0 ? avgRating.toFixed(1) : '–'}
-                                </span>
-                                <span className="mt-0.5 whitespace-nowrap text-[8px] font-extrabold uppercase tracking-wide text-graphite-soft sm:text-[10px]">
-                                    {hero.reviewCount ?? 0} rec.
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Descriere scurtă */}
-                        <p className="mt-2.5 flex-grow text-xs leading-snug text-graphite-soft sm:mt-4 sm:text-sm sm:leading-relaxed">
-                          {hero.description ? (hero.description.length > 80 ? hero.description.substring(0, 80) + "…" : hero.description) : "Erou gata de acțiune."}
-                        </p>
-
-                        {/* Footer Card */}
-                        <div className="mt-3 flex items-end justify-between gap-1.5 sm:mt-5">
-                          <div>
-                            <p className="text-[8px] font-semibold uppercase tracking-wide text-graphite-soft sm:text-[10px]">Tarif orar</p>
-                            <p className="font-heading text-base font-bold text-super-red sm:text-xl">{hero.hourlyRate} RON</p>
-                          </div>
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-graphite px-2.5 py-1.5 text-[10px] font-heading font-semibold text-white transition-all duration-200 group-hover:bg-super-red sm:gap-1.5 sm:px-4 sm:py-2 sm:text-xs sm:group-hover:gap-2.5">
-                              <span className="sm:hidden">Profil</span>
-                              <span className="hidden sm:inline">Vezi profil</span>
-                              <ArrowRight size={12} weight="bold" aria-hidden="true" />
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </Tilt>
-                );
-              })}
+              {heroes.map(hero => (
+                <HeroListCard key={hero.id} hero={hero} showDistance={sortNearby} />
+              ))}
+              {loadingMore && [0, 1, 2, 3].map(i => <HeroCardSkeleton key={`more-${i}`} />)}
             </div>
           )}
 
-          {/* Pagina următoare, la cerere. Nu se încarcă singură la derulare: la
-              zeci de mii de eroi, subsolul cu linkurile legale n-ar mai putea fi
-              atins niciodată. */}
-          {!loadError && list?.hasMore && (
+          {/* Semnalul pentru bucata următoare: invizibil, la finalul listei. */}
+          {canAutoLoad && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
+
+          {!loadError && moreError && (
             <div className="relative z-10 mt-10 flex flex-col items-center gap-3">
-              {moreError && (
-                <p className="text-center text-sm text-super-red">Următorii eroi nu s-au încărcat. Încearcă din nou.</p>
-              )}
-              <GlassButton type="button" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? 'Se încarcă…' : 'Arată mai mulți eroi'}
+              <p className="text-center text-sm text-graphite-soft">Următorii eroi nu s-au încărcat.</p>
+              <GlassButton type="button" onClick={() => setMoreError(false)}>
+                <ArrowCounterClockwise size={18} weight="bold" aria-hidden="true" />
+                Încearcă din nou
               </GlassButton>
             </div>
+          )}
+
+          {!loadError && !moreError && list?.hasMore && heroes.length >= AUTO_LOAD_LIMIT && (
+            <p className="relative z-10 mx-auto mt-10 max-w-md text-center text-sm font-semibold text-graphite-soft">
+              Ai văzut primii {heroes.length} de eroi. Alege o meserie sau un județ ca să-i găsești mai repede.
+            </p>
           )}
         </>
       )}

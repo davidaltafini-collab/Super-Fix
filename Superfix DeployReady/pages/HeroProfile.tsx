@@ -22,6 +22,7 @@ import { Helmet } from 'react-helmet-async';
 import { API_URL } from '../config/api';
 import { GlassButton } from '../components/Button';
 import { AnimatedFolder } from '../components/ui/3d-folder';
+import { useNearViewport } from '../hooks/useNearViewport';
 import {
   Phone, PaperPlaneTilt, ShieldCheck, Target, Star, MapPin, VideoCamera, Play,
   ChatCircleText, CheckCircle, Sparkle, IdentificationCard, Lightning, MaskHappy, ArrowLeft, NavigationArrow,
@@ -36,6 +37,12 @@ const TRADE_ICONS: Record<string, React.ElementType> = {
 };
 const iconForTrade = (name: string): React.ElementType =>
   TRADE_ICONS[(name || '').toUpperCase()] || Toolbox;
+
+/* Recenziile se desenează câte 10, pe măsură ce omul derulează spre ele. Un erou
+   cu sute de recenzii nu mai construiește sute de bule la deschiderea paginii,
+   deși cei mai mulți nu ajung niciodată până jos. Textul lor complet rămâne
+   oricum în răspunsul API (și, la A14, în HTML-ul randat pe server). */
+const REVIEWS_STEP = 10;
 
 
 export const HeroProfile: React.FC = () => {
@@ -64,6 +71,16 @@ export const HeroProfile: React.FC = () => {
      atunci se deseneaza pe loc si se reimprospateaza in fundal. */
   const [hero, setHero] = useState<Hero | null>(() => peekHeroBySlug(slug || '') ?? null);
   const [loading, setLoading] = useState(() => !peekHeroBySlug(slug || ''));
+
+  // === RECENZII DESENATE TREPTAT ===
+  const [visibleReviews, setVisibleReviews] = useState(REVIEWS_STEP);
+  const reviewsEndRef = React.useRef<HTMLDivElement>(null);
+  const totalReviews = hero?.reviews?.length ?? 0;
+  useEffect(() => { setVisibleReviews(REVIEWS_STEP); }, [slug]);
+  useNearViewport(reviewsEndRef, () => setVisibleReviews(count => count + REVIEWS_STEP), {
+    enabled: visibleReviews < totalReviews,
+    resetKey: visibleReviews,
+  });
   
   // === STATE FORMULAR CERERE ===
   const [showForm, setShowForm] = useState(false);
@@ -681,7 +698,7 @@ export const HeroProfile: React.FC = () => {
                        <p className="mt-4 text-graphite-soft">Încă nu sunt recenzii verificate.</p>
                    </div>
                )}
-               {(hero.reviews || []).map((review: any) => (
+               {(hero.reviews || []).slice(0, visibleReviews).map((review: any) => (
                  // bulă de dialog: colțul din stânga-jos e "coada" (rounded-bl-md)
                  <div key={review.id} className="sf-glass rounded-[24px] rounded-bl-md p-6">
                    <div className="flex flex-wrap items-center justify-between gap-2">
@@ -704,6 +721,7 @@ export const HeroProfile: React.FC = () => {
                    <p className="mt-3 leading-relaxed text-graphite-soft">{review.comment}</p>
                  </div>
                ))}
+               {visibleReviews < totalReviews && <div ref={reviewsEndRef} aria-hidden="true" className="h-px" />}
              </div>
           </section>
         </div>
