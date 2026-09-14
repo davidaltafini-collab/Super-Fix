@@ -84,16 +84,12 @@ export const isInternalPath = (value: unknown): value is string =>
 export const DEFAULT_OG_IMAGE = 'https://super-fix.ro/og-default.jpg';
 
 /* Previzualizarea pe WhatsApp: poza omului, lărgită la 1200×630 pe un fundal
-   făcut din ea însăși, încețoșat, cu insigna SUPER-FIX în colț. Pe contul
-   nostru Cloudinary tipul `fetch` e restricționat, deci logoul nu se poate lipi
-   de la o adresă; insigna e text.
+   făcut din ea însăși, cu logoul Super-Fix (public/logo.png) în colț. O face
+   api/og.ts, la /og/<versiune>/<id>.jpg.
 
    Ține funcția la fel cu `ogImage` din api/ssr.ts: pagina din aplicație
    trebuie să arate aceeași poză ca HTML-ul de la server. */
-const OG_LAYOUT =
-  'c_fill,w_1200,h_630/e_blur:1500/e_brightness:-20/l_{id}/c_fit,w_1200,h_630/fl_layer_apply,g_center/' +
-  'co_white,b_rgb:E13745,bo_16px_solid_rgb:E13745,l_text:Anton_44_letter_spacing_2:SUPER-FIX/' +
-  'fl_layer_apply,g_south_east,x_32,y_32/f_jpg,q_auto';
+const OG_SOURCE = /^https:\/\/res\.cloudinary\.com\/dnsmgqllf\/image\/upload\/(?:[^/]+\/)*?(v\d+)\/([A-Za-z0-9_\-/]+)(\.[A-Za-z0-9]+)?$/;
 
 /* Tagurile puse de server în <head> (api/ssr.ts, marcate `data-ssr`) sunt
    pentru cine nu rulează aplicația: Google la prima citire, WhatsApp, Facebook.
@@ -133,8 +129,8 @@ export function keepSingleDescription(): void {
 
 export function wideOgImage(url?: string | null): { url: string; wide: boolean } {
   const raw = (url || '').trim();
-  const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:[^/]+\/)*?(v\d+)\/([A-Za-z0-9_\-/]+)(\.[A-Za-z0-9]+)?$/.exec(raw);
+  const match = OG_SOURCE.exec(raw);
   if (!match) return raw.startsWith('https://') ? { url: raw, wide: false } : { url: DEFAULT_OG_IMAGE, wide: true };
-  const [, base, version, id, ext = ''] = match;
-  return { url: `${base}${OG_LAYOUT.replace('{id}', id.replace(/\//g, ':'))}/${version}/${id}${ext}`, wide: true };
+  const [, version, id] = match;
+  return { url: `https://super-fix.ro/og/${version}/${id}.jpg`, wide: true };
 }

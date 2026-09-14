@@ -97,21 +97,16 @@ function picture(url: unknown, width: number, square = false): string {
 }
 
 /* Previzualizarea pe WhatsApp: poza omului, lărgită la 1200×630 pe un fundal
-   făcut din ea însăși, încețoșat, cu insigna SUPER-FIX în colț. Pe contul
-   nostru Cloudinary tipul `fetch` e restricționat, deci logoul nu se poate lipi
-   de la o adresă; insigna e text. Ține funcția la fel cu `wideOgImage` din
-   lib/seo.ts. */
-const OG_LAYOUT =
-  'c_fill,w_1200,h_630/e_blur:1500/e_brightness:-20/l_{id}/c_fit,w_1200,h_630/fl_layer_apply,g_center/' +
-  'co_white,b_rgb:E13745,bo_16px_solid_rgb:E13745,l_text:Anton_44_letter_spacing_2:SUPER-FIX/' +
-  'fl_layer_apply,g_south_east,x_32,y_32/f_jpg,q_auto';
+   făcut din ea însăși, cu logoul Super-Fix în colț. O face api/og.ts, la
+   /og/<versiune>/<id>.jpg. Ține funcția la fel cu `wideOgImage` din lib/seo.ts. */
+const OG_SOURCE = /^https:\/\/res\.cloudinary\.com\/dnsmgqllf\/image\/upload\/(?:[^/]+\/)*?(v\d+)\/([A-Za-z0-9_\-/]+)(\.[A-Za-z0-9]+)?$/;
 
 function ogImage(url: unknown): { url: string; wide: boolean } {
   const raw = text(url);
-  const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:[^/]+\/)*?(v\d+)\/([A-Za-z0-9_\-/]+)(\.[A-Za-z0-9]+)?$/.exec(raw);
+  const match = OG_SOURCE.exec(raw);
   if (!match) return raw.startsWith('https://') ? { url: raw, wide: false } : { url: DEFAULT_OG_IMAGE, wide: true };
-  const [, base, version, id, ext = ''] = match;
-  return { url: `${base}${OG_LAYOUT.replace('{id}', id.replace(/\//g, ':'))}/${version}/${id}${ext}`, wide: true };
+  const [, version, id] = match;
+  return { url: `${SITE}/og/${version}/${id}.jpg`, wide: true };
 }
 
 /* ---------- <head> ---------- */
@@ -159,9 +154,15 @@ function headHtml(head: Head, defaultTitle: string): string {
 
 /* ---------- bucăți de pagină ---------- */
 
-/* Se văd doar cât se încarcă aplicația (și de cine n-o rulează deloc), deci
-   stil puțin, dar lizibil. */
+/* Pentru Google, WhatsApp și cine n-are JavaScript (ei nu aplică CSS-ul de mai
+   jos, citesc textul). Pe ecran, varianta asta simplă apare doar dacă aplicația
+   întârzie peste 1,5 s: pe un telefon rapid aplicația preia pagina înainte și
+   omul nu mai vede o clipă „alt site”; pe unul lent vede măcar conținutul în loc
+   de un ecran gol. Pozele se descarcă oricum de la început (opacitatea nu le
+   oprește), deci aplicația le găsește gata. */
 const STYLE = `<style>
+@keyframes ssr-in{from{opacity:0}to{opacity:1}}
+.ssr{animation:ssr-in .25s ease-out 1.5s both}
 .ssr{max-width:60rem;margin:0 auto;padding:7rem 1.25rem 3rem;font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;color:#2E333B;line-height:1.6}
 .ssr h1{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:2.4rem;line-height:1.1;margin:.4rem 0 .6rem}
 .ssr h2{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:1.4rem;margin:2.2rem 0 .6rem}
