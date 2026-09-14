@@ -114,6 +114,23 @@ export function releaseServerHead(): void {
   });
 }
 
+/* index.html are o descriere implicită (marcată `data-fallback`), pentru cine
+   citește HTML-ul fără să ruleze aplicația. Paginile cu descrierea lor o pun
+   prin Helmet lângă ea (React 19 doar adaugă), iar Google vedea două, cea
+   implicită prima. Cât timp pagina are descrierea ei, cea implicită iese din
+   joc (i se schimbă numele); revine pe paginile care n-au una a lor. */
+export function keepSingleDescription(): void {
+  const fallback = document.head.querySelector('meta[data-fallback]');
+  if (!fallback) return; // pe paginile de la server a scos-o deja api/ssr.ts
+  const sync = () => {
+    const own = document.head.querySelector('meta[name="description"]:not([data-fallback])');
+    fallback.setAttribute('name', own ? 'description-fallback' : 'description');
+  };
+  sync();
+  // Doar copiii lui <head>: schimbarea numelui nu e o astfel de mutație, deci nu se reapelează singur.
+  new MutationObserver(sync).observe(document.head, { childList: true });
+}
+
 export function wideOgImage(url?: string | null): { url: string; wide: boolean } {
   const raw = (url || '').trim();
   const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:[^/]+\/)*?(v\d+)\/([A-Za-z0-9_\-/]+)(\.[A-Za-z0-9]+)?$/.exec(raw);

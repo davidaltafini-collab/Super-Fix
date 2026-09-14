@@ -425,8 +425,9 @@ export const HeroProfile: React.FC = () => {
                 <div className="absolute -inset-4 rounded-[36px] bg-spark/15 blur-2xl" aria-hidden="true" />
                 <div className="sf-clay relative h-44 w-44 overflow-hidden rounded-[26px] p-1.5 sm:h-52 sm:w-52 md:h-60 md:w-60">
                     <img
-                      src={thumb(hero.avatarUrl || 'https://super-fix.ro/revizie.png', 720, { square: true })}
+                      src={thumb(hero.avatarUrl || '/revizie-card.webp', 720, { square: true })}
                       alt={hero.alias}
+                      fetchPriority="high"
                       className="h-full w-full rounded-[20px] object-cover"
                     />
                 </div>
@@ -781,6 +782,8 @@ export const HeroProfile: React.FC = () => {
                     <img
                       src={thumb(hero.avatarUrl, 800)}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="block aspect-[4/5] w-full object-cover transition-transform duration-500 group-hover:scale-[1.04] md:aspect-square"
                     />
                   ) : (

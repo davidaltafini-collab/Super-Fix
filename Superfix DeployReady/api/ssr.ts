@@ -77,6 +77,15 @@ const paragraphs = (value: unknown): string =>
 
 const UPLOAD = '/image/upload/';
 
+/* Aceleași lățimi ca în aplicație (profil 720, carduri 640): când React preia
+   pagina cere exact aceeași adresă, iar poza vine din memoria browserului în loc
+   să dispară și să se descarce a doua oară. */
+const AVATAR_WIDTH = 720;
+const CARD_WIDTH = 640;
+/* Primele carduri se văd fără derulare: pozele lor pornesc imediat. Același
+   număr ca `PRIORITY_CARDS` din components/HeroListCard.tsx. */
+const EAGER_CARDS = 4;
+
 /** Poza la lățimea la care se vede, ca în lib/img.ts. */
 function picture(url: unknown, width: number, square = false): string {
   const raw = text(url);
@@ -240,7 +249,7 @@ function heroPage(hero: Json, seo: Json, slug: string): { head: Head; body: stri
   ${crumbs(seo.breadcrumbs)}
   <article>
     <header>
-      ${hero.avatarUrl ? `<img class="ssr-avatar" src="${esc(picture(hero.avatarUrl, 480, true))}" alt="${esc(hero.alias)}" width="160" height="160">` : ''}
+      ${hero.avatarUrl ? `<img class="ssr-avatar" src="${esc(picture(hero.avatarUrl, AVATAR_WIDTH, true))}" alt="${esc(hero.alias)}" width="160" height="160" fetchpriority="high">` : ''}
       <p class="ssr-kicker">${esc(text(hero.category))}${where ? ` · ${esc(where)}` : ''}</p>
       <h1>${esc(hero.alias)}</h1>
       ${text(hero.realName) ? `<p>Identitate secretă: <strong>${esc(hero.realName)}</strong></p>` : ''}
@@ -323,11 +332,11 @@ function landingPage(data: Json, path: string, page: number): { head: Head; body
       : '',
   ].filter(Boolean);
 
-  const cards = heroes.map(hero => {
+  const cards = heroes.map((hero, index) => {
     const slug = slugOf(hero, '');
     const reviews = Number(hero.reviewCount) || 0;
     return `<li><a href="/hero/${esc(slug)}">
-      ${hero.avatarUrl ? `<img src="${esc(picture(hero.avatarUrl, 480, true))}" alt="${esc(hero.alias)}" loading="lazy">` : ''}
+      ${hero.avatarUrl ? `<img src="${esc(picture(hero.avatarUrl, CARD_WIDTH, true))}" alt="${esc(hero.alias)}"${index < EAGER_CARDS ? ' fetchpriority="high"' : ' loading="lazy"'}>` : ''}
       <h3>${esc(hero.alias)}</h3></a>
       <p class="ssr-muted">${esc(text(hero.category))}${text(hero.location) ? ` · ${esc(hero.location)}` : ''}</p>
       <p>${reviews > 0 && hero.ratingAvg != null ? `Nota ${rating(hero.ratingAvg)} (${count(reviews, 'recenzie', 'recenzii')})` : 'Fără recenzii încă'}${Number(hero.hourlyRate) > 0 ? ` · ${esc(hero.hourlyRate)} lei/oră` : ''}</p>
@@ -411,10 +420,16 @@ const DEFAULT_HEAD_TAGS = [
   /<link\s+rel="canonical"[^>]*>\s*/gi,
 ];
 
+/* Mascota e poza principală doar pe prima pagină. Pe profil și pe paginile pe
+   meserie și loc nu apare, iar preîncărcarea ei (79 KB, prioritate mare) lua
+   banda pozelor care chiar se văd. */
+const MASCOT_PRELOAD = /<link\s+rel="preload"\s+href="\/mascot\.png"[^>]*>\s*/i;
+
 function render(template: string, page: { head: Head; body: string }, seed: unknown): string {
   const defaultTitle = /<title>([\s\S]*?)<\/title>/i.exec(template)?.[1].trim() || 'Super-Fix';
   let html = template;
   for (const pattern of DEFAULT_HEAD_TAGS) html = html.replace(pattern, '');
+  html = html.replace(MASCOT_PRELOAD, '');
   html = html.replace('</head>', `    ${headHtml(page.head, defaultTitle)}\n    ${STYLE}\n  </head>`);
   const data = seed ? `<script type="application/json" id="sf-ssr-data">${scriptJson(seed)}</script>` : '';
   return html.replace(/<div id="root">\s*<\/div>/, `<div id="root">${page.body}</div>${data}`);

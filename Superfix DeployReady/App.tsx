@@ -18,6 +18,11 @@ import { ErrorBoundary, installStaleChunkReload } from './components/ErrorBounda
 import { Home } from './pages/Home';
 import { HeroesList } from './pages/HeroesList';
 import { HeroProfile } from './pages/HeroProfile';
+/* Paginile pe meserie si loc (A14) sunt tot pagini de intrare din Google. Ca
+   bucata separata, fisierul lor venea abia dupa aplicatie, iar continutul trimis
+   de server disparea ~2s pe telefon pana sosea. Adauga putin: cardul, capul SEO
+   si firimiturile sunt deja in pachetul de start. */
+import { SeoLanding } from './pages/SeoLanding';
 
 /* Restul se descarca abia cand cineva chiar merge acolo.
 
@@ -47,7 +52,6 @@ const Withdrawal = lazy(() => import('./pages/LegalPages').then(m => ({ default:
 const CompanyContact = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.CompanyContact })));
 const Pricing = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.Pricing })));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
-const SeoLanding = lazy(() => import('./pages/SeoLanding').then(m => ({ default: m.SeoLanding })));
 const Subscription = lazy(() => import('./pages/Subscription').then(m => ({ default: m.Subscription })));
 const SubscriptionResult = lazy(() => import('./pages/SubscriptionResult').then(m => ({ default: m.SubscriptionResult })));
 

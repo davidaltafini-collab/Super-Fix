@@ -9,7 +9,7 @@ import {
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 // Cardul stă în componenta lui: îl folosesc și paginile pe meserie și loc.
-import { HeroListCard, HeroCardSkeleton, iconForTrade } from '../components/HeroListCard';
+import { HeroListCard, HeroCardSkeleton, iconForTrade, PRIORITY_CARDS } from '../components/HeroListCard';
 import { GlassButton } from '../components/Button';
 import { Mascot } from '../components/Mascot';
 import {
@@ -606,8 +606,8 @@ export const HeroesList: React.FC = () => {
             </div>
           ) : (
             <div className="relative z-10 grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-7 lg:grid-cols-3 xl:grid-cols-4">
-              {heroes.map(hero => (
-                <HeroListCard key={hero.id} hero={hero} showDistance={sortNearby} />
+              {heroes.map((hero, index) => (
+                <HeroListCard key={hero.id} hero={hero} showDistance={sortNearby} priority={index < PRIORITY_CARDS} />
               ))}
               {loadingMore && [0, 1, 2, 3].map(i => <HeroCardSkeleton key={`more-${i}`} />)}
             </div>

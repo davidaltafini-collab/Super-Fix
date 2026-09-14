@@ -4,7 +4,7 @@ import App from './App';
 import { HelmetProvider } from 'react-helmet-async';
 import { installNetLog } from './services/netlog';
 import { seedFromServer } from './services/dataService';
-import { releaseServerHead } from './lib/seo';
+import { keepSingleDescription, releaseServerHead } from './lib/seo';
 import './index.css';
 
 /* Înainte de orice randare, ca să prindă și cererile de la prima pagină.
@@ -17,6 +17,7 @@ installNetLog();
    tagurile lui din <head> fac loc celor puse de aplicație. */
 seedFromServer();
 releaseServerHead();
+keepSingleDescription();
 
 /* O înălțime de ecran care NU se mișcă la derulare.
 

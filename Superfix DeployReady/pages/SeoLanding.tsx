@@ -6,7 +6,7 @@ import {
 
 import { getSeoLanding, peekSeoLanding } from '../services/dataService';
 import type { SeoLanding as LandingData } from '../lib/seo';
-import { HeroListCard, HeroCardSkeleton, iconForTrade } from '../components/HeroListCard';
+import { HeroListCard, HeroCardSkeleton, iconForTrade, PRIORITY_CARDS } from '../components/HeroListCard';
 import { SeoHead } from '../components/SeoHead';
 import { SeoCrumbs, SeoLinks } from '../components/SeoNav';
 import { GlassButton } from '../components/Button';
@@ -172,7 +172,9 @@ export const SeoLanding: React.FC = () => {
 
       <section aria-label="Meseriașii">
         <div className={GRID}>
-          {data.heroes.map(hero => <HeroListCard key={hero.id} hero={hero} showDistance={false} />)}
+          {data.heroes.map((hero, index) => (
+            <HeroListCard key={hero.id} hero={hero} showDistance={false} priority={index < PRIORITY_CARDS} />
+          ))}
         </div>
 
         {pages > 1 && (

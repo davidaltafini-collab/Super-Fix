@@ -16,6 +16,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://api.super-fix.ro" crossorigin />
+    <!-- Pozele eroilor vin de pe Cloudinary: conexiunea se deschide cat se
+         descarca aplicatia, nu abia cand apare prima poza. Fara `crossorigin`:
+         <img> cere fara CORS, deci n-ar folosi o conexiune deschisa cu CORS. -->
+    <link rel="preconnect" href="https://res.cloudinary.com" />
     <!-- Google Identity Services: doar biblioteca, butonul se randeaza in
          ClientAuthPanel si doar daca VITE_GOOGLE_CLIENT_ID e setat la build. -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -23,7 +27,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     
     <title>SUPERFIX - Cheamă Eroul</title>
-    <meta name="description" content="Marketplace pentru meseriași - Ai nevoie de un Erou? Găsește instalatori, electricieni și mecanici verificați." />
+    <!-- data-fallback: se opreste singura cat pagina are descrierea ei (lib/seo.ts). -->
+    <meta name="description" content="Marketplace pentru meseriași - Ai nevoie de un Erou? Găsește instalatori, electricieni și mecanici verificați." data-fallback="" />
 
     <meta property="og:title" content="SUPERFIX - Cheamă Eroul" />
     <meta property="og:description" content="Marketplace pentru meseriași - Ai nevoie de un Erou? Găsește instalatori, electricieni și mecanici verificați." />

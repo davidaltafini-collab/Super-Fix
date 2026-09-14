@@ -124,10 +124,14 @@ export const Footer: React.FC = () => {
                 aria-label="Depune o cerere SAL la ANPC (se deschide într-o filă nouă)"
                 className="inline-flex rounded-[18px] transition-transform duration-150 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spark focus-visible:ring-offset-4 focus-visible:ring-offset-[#2E333B]"
               >
+                {/* 100 KB, jos în pagină: se descarcă doar când ajungi aproape de el,
+                    nu odată cu pozele de sus. */}
                 <img
                   src="/uploads/anpc-sal.svg"
                   width="165"
                   height="41"
+                  loading="lazy"
+                  decoding="async"
                   alt="Soluționarea Alternativă a Litigiilor — ANPC"
                   className="h-auto w-[165px] sm:w-[190px]"
                 />

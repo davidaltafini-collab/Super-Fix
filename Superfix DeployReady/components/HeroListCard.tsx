@@ -28,7 +28,14 @@ const TRADE_ICONS: Record<string, React.ElementType> = {
 export const iconForTrade = (name: string): React.ElementType =>
   TRADE_ICONS[name.toUpperCase()] || Toolbox;
 
-const DEFAULT_AVATAR = "https://super-fix.ro/revizie.png"; // sau link-ul pe care l-ai folosit
+/* Poza „în revizie", pentru cine n-are încă poză: 640px WebP, 31 KB.
+   Originalul (revizie.png, 766px, 306 KB) întârzia pozele adevărate din listă. */
+const DEFAULT_AVATAR = '/revizie-card.webp';
+
+/* Primele carduri se văd fără derulare (două coloane pe telefon): pozele lor
+   pornesc imediat și cu prioritate, nu abia când le găsește browserul pe ecran.
+   Același număr ca `EAGER_CARDS` din api/ssr.ts. */
+export const PRIORITY_CARDS = 4;
 
 /* Schelet în forma cardului final (nu spinner generic): la prima încărcare și cât
    vine bucata următoare — pagina nu "sare". */
@@ -48,7 +55,7 @@ export const HeroCardSkeleton: React.FC = () => (
 
    `memo`: când vine bucata următoare, React adaugă doar cardurile noi. Cele deja
    afișate primesc exact același obiect `hero` și nu se mai recalculează deloc. */
-export const HeroListCard = React.memo(function HeroListCard({ hero, showDistance }: { hero: Hero; showDistance: boolean }) {
+export const HeroListCard = React.memo(function HeroListCard({ hero, showDistance, priority = false }: { hero: Hero; showDistance: boolean; priority?: boolean }) {
   const avgRating = hero.ratingAvg ?? 0; // calculată pe server (A9)
   const TradeIcon = iconForTrade(hero.category);
   return (
@@ -91,7 +98,8 @@ export const HeroListCard = React.memo(function HeroListCard({ hero, showDistanc
           <img
             src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 640, { square: true })}
             alt={hero.alias}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : 'auto'}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-graphite/70 to-transparent" />
