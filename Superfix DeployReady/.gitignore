@@ -12,3 +12,8 @@ server/dist/
 # === Diverse ===
 *.log
 .DS_Store
+
+# === Backendul stă pe VPS, nu în repo-ul site-ului ===
+/server/
+/uploads/
+/BACKEND-*.md
