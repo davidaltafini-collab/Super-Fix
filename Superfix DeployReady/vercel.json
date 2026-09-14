@@ -1,7 +1,4 @@
 {
-  "functions": {
-    "api/og.ts": { "includeFiles": "public/logo.png" }
-  },
   "rewrites": [
     {
       "source": "/sitemap.xml",
