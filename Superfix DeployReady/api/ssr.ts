@@ -154,15 +154,18 @@ function headHtml(head: Head, defaultTitle: string): string {
 
 /* ---------- bucăți de pagină ---------- */
 
-/* Pentru Google, WhatsApp și cine n-are JavaScript (ei nu aplică CSS-ul de mai
-   jos, citesc textul). Pe ecran, varianta asta simplă apare doar dacă aplicația
-   întârzie peste 1,5 s: pe un telefon rapid aplicația preia pagina înainte și
-   omul nu mai vede o clipă „alt site”; pe unul lent vede măcar conținutul în loc
-   de un ecran gol. Pozele se descarcă oricum de la început (opacitatea nu le
-   oprește), deci aplicația le găsește gata. */
-const STYLE = `<style>
+/* Pentru Google, WhatsApp și cine n-are JavaScript (ei citesc textul, nu se uită
+   la CSS). Pe ecran, varianta asta simplă NU apare cât timp aplicația se încarcă:
+   omul vede fundalul, ca înainte de SSR, apoi direct pagina aplicației. Cu o
+   întârziere de 1,5 s, pe un telefon lent apărea după 1,5 s și era înlocuită
+   abia după alte câteva secunde, adică „alt site” care clipea (14 sept).
+   Apare doar dacă aplicația nu pornește deloc în 10 s (script picat, browser
+   foarte vechi) sau fără JavaScript (<noscript>). Pozele se descarcă oricum de
+   la început (opacitatea nu le oprește), deci aplicația le găsește gata. */
+const STYLE = `<noscript><style>.ssr{animation:none!important}</style></noscript>
+<style>
 @keyframes ssr-in{from{opacity:0}to{opacity:1}}
-.ssr{animation:ssr-in .25s ease-out 1.5s both}
+.ssr{animation:ssr-in .25s ease-out 10s both}
 .ssr{max-width:60rem;margin:0 auto;padding:7rem 1.25rem 3rem;font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;color:#2E333B;line-height:1.6}
 .ssr h1{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:2.4rem;line-height:1.1;margin:.4rem 0 .6rem}
 .ssr h2{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:1.4rem;margin:2.2rem 0 .6rem}

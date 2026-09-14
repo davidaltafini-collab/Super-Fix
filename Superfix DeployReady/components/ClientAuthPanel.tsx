@@ -36,6 +36,31 @@ declare global {
   }
 }
 
+/* Biblioteca Google (~100 KB comprimat) se cere doar când apare panoul ăsta, nu
+   din index.html pe fiecare pagină: pe un telefon lent concura cu aplicația
+   pentru rețea și procesor, deși butonul e doar aici. */
+const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client';
+let googleScript: Promise<void> | null = null;
+
+function loadGoogleIdentity(): Promise<void> {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (!googleScript) {
+    googleScript = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = GOOGLE_SCRIPT;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        googleScript = null; // la următoarea deschidere mai încearcă o dată
+        script.remove();
+        reject(new Error('gsi'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return googleScript;
+}
+
 const BackLink: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
   <button type="button" onClick={onClick} className="self-start text-[0.8125rem] font-semibold text-graphite-soft underline underline-offset-2">
     {children}
@@ -75,31 +100,26 @@ export const ClientAuthPanel: React.FC<{ onSuccess: (client: ClientInfo) => void
     finish(res);
   }, []);
 
+  // Cât omul citește primul ecran, biblioteca Google se descarcă deja.
+  React.useEffect(() => {
+    if (GOOGLE_CLIENT_ID) loadGoogleIdentity().catch(() => {});
+  }, []);
+
   // Butonul oficial Google, randat direct de biblioteca lor — nu-l desenăm
   // noi (garanția de brand a lui Google, plus recunoaștere instant).
   React.useEffect(() => {
     if (!GOOGLE_CLIENT_ID || step !== 'choose') return;
     let cancelled = false;
-    let intervalId: number | undefined;
-    let timeoutId: number | undefined;
-    const render = () => {
+    loadGoogleIdentity().then(() => {
       if (cancelled || !googleBtnRef.current || !window.google?.accounts?.id) return;
-      if (intervalId) clearInterval(intervalId);
       window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         type: 'standard', theme: 'outline', size: 'large', shape: 'pill', width: 260,
       });
-    };
-    if (window.google?.accounts?.id) render();
-    else {
-      intervalId = window.setInterval(render, 200);
-      timeoutId = window.setTimeout(() => { if (intervalId) clearInterval(intervalId); }, 8000);
-    }
-    return () => {
-      cancelled = true;
-      if (intervalId) clearInterval(intervalId);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
+    }, () => {
+      // Google nu se încarcă (rețea, blocat): rămâne codul pe email.
+    });
+    return () => { cancelled = true; };
   }, [step, handleGoogleCredential]);
 
   const handleSendCode = async () => {

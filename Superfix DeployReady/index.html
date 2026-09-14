@@ -20,9 +20,8 @@
          descarca aplicatia, nu abia cand apare prima poza. Fara `crossorigin`:
          <img> cere fara CORS, deci n-ar folosi o conexiune deschisa cu CORS. -->
     <link rel="preconnect" href="https://res.cloudinary.com" />
-    <!-- Google Identity Services: doar biblioteca, butonul se randeaza in
-         ClientAuthPanel si doar daca VITE_GOOGLE_CLIENT_ID e setat la build. -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Identity Services NU se mai incarca de aici: o cere ClientAuthPanel
+         cand apare (~100 KB comprimat, doar acolo e butonul Google). -->
     <link rel="preload" href="/mascot.png" as="image" fetchpriority="high" />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     
