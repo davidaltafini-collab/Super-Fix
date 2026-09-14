@@ -1,0 +1,4 @@
+Contact: mailto:contact@super-fix.ro
+Expires: 2027-09-01T00:00:00.000Z
+Preferred-Languages: ro, en
+Canonical: https://super-fix.ro/.well-known/security.txt
