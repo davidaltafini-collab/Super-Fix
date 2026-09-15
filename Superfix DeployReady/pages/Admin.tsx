@@ -24,6 +24,7 @@ import { PhotoCropper } from '../components/PhotoCropper';
 import { netLog, onNetLog, clearNetLog, NetEntry } from '../services/netlog';
 import { thumb, full } from '../lib/img';
 import QRCode from 'qrcode';
+import { ReportsPanel, SanctionsPanel, FeedbackPanel, fetchModerationCounts } from './AdminModeration';
 
 import './admin.css';
 
@@ -120,7 +121,9 @@ export const Admin: React.FC = () => {
   const [searchResult, setSearchResult] = useState<InvestigateResult | null>(null);
   const [searchRan, setSearchRan] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'REPORTS' | 'SANCTIONS' | 'FEEDBACK' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
+  // Raportări necitite și sugestii noi, pentru numerele din taburi (AdminModeration.tsx).
+  const [moderationCounts, setModerationCounts] = useState({ reports: 0, feedback: 0 });
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
   const [funnelCounts, setFunnelCounts] = useState<Record<string, number> | null>(null);
   const [funnelStage, setFunnelStage] = useState<string | null>(null);
@@ -513,10 +516,16 @@ export const Admin: React.FC = () => {
         }
     };
 
+    // Numerele nu sunt esențiale: dacă cererea pică, taburile rămân fără ele.
+    const refreshModerationCounts = () => {
+        fetchModerationCounts().then(setModerationCounts).catch(() => {});
+    };
+
     const refreshAllData = () => {
         getAllHeroesAdmin().then(setHeroes);
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
+        refreshModerationCounts();
         if (activeTab === 'PAYOUTS') fetchPayouts();
         if (activeTab === 'RECRUITERS') fetchRecruiters();
         if (activeTab === 'FUNNEL') fetchFunnelCounts();
@@ -1442,11 +1451,21 @@ export const Admin: React.FC = () => {
     return <span className="adm-state" data-tone={found.tone}>{found.word}</span>;
   };
 
+  /* Paginile de moderare dau de un 401 doar când sesiunea chiar a murit: aceeași
+     ieșire ca la recruiteri, cu mesajul spus o dată. */
+  const expireAdminSession = () => {
+    toast.error('Sesiunea de administrator a expirat. Autentifică-te din nou.');
+    handleLogout();
+  };
+
   const pendingRecruiters = recruiters.filter(r => r.status === 'PENDING').length;
 
   const TABS: { key: string; label: string; count: number }[] = [
     { key: 'HEROES', label: 'Eroi', count: 0 },
     { key: 'REQUESTS', label: 'Misiuni', count: 0 },
+    { key: 'REPORTS', label: 'Raportări', count: moderationCounts.reports },
+    { key: 'SANCTIONS', label: 'Sancțiuni', count: 0 },
+    { key: 'FEEDBACK', label: 'Sugestii', count: moderationCounts.feedback },
     { key: 'APPLICATIONS', label: 'Recrutare', count: applications.length },
     { key: 'FUNNEL', label: 'Pâlnie', count: funnelCounts ? (funnelCounts.APROBAT_FARA_ONBOARDING || 0) + (funnelCounts.ONBOARDED_FARA_CARD || 0) : 0 },
     { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
@@ -1702,6 +1721,17 @@ export const Admin: React.FC = () => {
               </div>
             )}
           </section>
+        )}
+
+        {/* ---------------- RAPORTĂRI, SANCȚIUNI, SUGESTII (AdminModeration.tsx) ---------------- */}
+        {activeTab === 'REPORTS' && (
+          <ReportsPanel onSessionExpired={expireAdminSession} onChanged={refreshModerationCounts} />
+        )}
+        {activeTab === 'SANCTIONS' && (
+          <SanctionsPanel onSessionExpired={expireAdminSession} onChanged={refreshModerationCounts} heroes={heroes} />
+        )}
+        {activeTab === 'FEEDBACK' && (
+          <FeedbackPanel onSessionExpired={expireAdminSession} onChanged={refreshModerationCounts} />
         )}
 
         {/* ---------------- MISIUNI ---------------- */}
