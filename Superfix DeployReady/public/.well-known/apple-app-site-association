@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "9B56F9MNDY.superfix.app",
+          "9B56F9MNDY.superfix.app.preview",
+          "9B56F9MNDY.ro.superfix.app",
+          "9B56F9MNDY.ro.superfix.app.preview"
+        ],
+        "components": [
+          { "/": "/app" },
+          { "/": "/app/*" }
+        ]
+      }
+    ]
+  }
+}
