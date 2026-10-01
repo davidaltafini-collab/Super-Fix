@@ -1,156 +1,146 @@
 import { API_URL } from '../config/api';
 
-/* ============================================================
-   Abonamentul de listare.
+/* Plata pe lucrări. Cardul verificat cu 0 lei este condiția de listare; sumele
+   lunii se calculează și se încasează de server după închiderea lunii. */
 
-   Oglindă a `SuperfixApp/src/services/subscription.ts`, ca web-ul și aplicația
-   să se poarte identic pe același API. Contractul e descris în
-   `SuperfixApp/PAYMENTS.md`; documentul acela are prioritate față de orice
-   presupunere de aici.
+export const FALLBACK_PRICES: BillingPrices = {
+  tier1Bani: 2500,
+  tier2Bani: 5000,
+  busyFrom: 11,
+  teamMemberBani: 1500,
+};
 
-   Ce trebuie știut înainte de a atinge fișierul ăsta:
+export interface BillingPrices {
+  tier1Bani: number;
+  tier2Bani: number;
+  busyFrom: number;
+  teamMemberBani: number;
+}
 
-   - **Datele cardului nu trec niciodată prin noi.** Se introduc exclusiv în
-     checkout-ul găzduit NETOPIA. Noi primim un `paymentUrl` și trimitem omul
-     acolo; înapoi vine un token criptat, o mască și niște amprente. PAN și CVV
-     nu ajung nici în browser, nici pe serverul nostru.
-   - **Redirectul din browser nu e adevărul.** Sursa de adevăr e IPN-ul verificat
-     de server. Un om care se întoarce pe pagina de rezultat poate ajunge acolo
-     înaintea IPN-ului, deci pagina aia trebuie să știe să aștepte.
-   - **Prețul vine de la server**, nu din frontend. `priceBani` din `/status` e
-     singura cifră în care avem voie să ne încredem.
-   ============================================================ */
-
-/** Stările, exact cele din `SuperfixApp/src/config/billing.ts`. */
 export type SubscriptionStatus =
-  /** fără card — profilul există, dar nu-l vede niciun client */
   | 'NONE'
-  /** an gratuit activ, prin cod promoțional sau invitație calificată */
-  | 'FREE'
-  /** abonament plătit */
   | 'ACTIVE'
-  /** o plată a eșuat; mai e o perioadă de grație */
   | 'PAST_DUE'
-  /** banca cere o nouă autentificare 3-D Secure */
   | 'ACTION_REQUIRED'
-  /** răspuns incert de la procesator; nu se retrimite automat, ca să nu taxăm de două ori */
   | 'PAYMENT_REVIEW'
-  /** anulat — profilul e arhivat */
   | 'CANCELLED';
+
+export type MonthReason = 'NO_JOBS' | 'FREE' | 'EXEMPT' | 'DUE';
+export type MonthStatus = 'NOTHING_DUE' | 'DUE' | 'PAID' | 'FAILED' | 'REVERSED' | 'WAIVED';
+
+export interface BillingMonth {
+  id?: string;
+  month: string;
+  jobs: number;
+  freeJobs: number;
+  teamJobs: number;
+  teamMembers: number;
+  tierBani: number;
+  teamBani: number;
+  totalBani: number;
+  reason: MonthReason;
+  status?: MonthStatus;
+  retryCount?: number;
+  nextRetryAt?: string | null;
+  paidAt?: string | null;
+  closesAt?: string;
+}
+
+export interface PriceStep {
+  beforeBani: number;
+  afterBani: number;
+  nth: number;
+}
 
 export interface SubscriptionState {
   status: SubscriptionStatus;
-  /** `true` = profilul nu apare în căutări. Ăsta e steagul care contează. */
+  listed: boolean;
   archived: boolean;
+  teamOnly: boolean;
+  hasCard: boolean;
+  cardMask: string | null;
+  needsConsent: boolean;
+  cardIssue: 'DUPLICATE' | null;
+  exempt: boolean;
+  prices: BillingPrices;
+  current: BillingMonth | null;
+  nextJobStep: PriceStep | null;
+  free: { from: string; until: string; active: boolean } | null;
+  team: { verifiedMembers: number } | null;
+  unpaid: BillingMonth[];
+  history: BillingMonth[];
+  code: { kind: 'promo' | 'referral' | 'recruiter'; months: number; status: string } | null;
+  canApplyCode: boolean;
+  termsVersion: string;
+  // Câmpuri vechi, păstrate în contract cât timp serverul le mai trimite.
   subscriptionEndsAt?: string | null;
   nextChargeAt?: string | null;
-  cancelAtPeriodEnd: boolean;
-  hasCard: boolean;
-  cardMask?: string | null;
+  cancelAtPeriodEnd?: false;
   priceBani?: number | null;
   currency?: string | null;
   interval?: string | null;
-  /** versiunea condițiilor comerciale; fără ea nu se poate porni checkout-ul */
-  termsVersion?: string | null;
 }
 
 const OFFLINE: SubscriptionState = {
-  status: 'NONE',
-  archived: true,
-  cancelAtPeriodEnd: false,
-  hasCard: false,
+  status: 'NONE', listed: false, archived: true, teamOnly: false,
+  hasCard: false, cardMask: null, needsConsent: false, cardIssue: null,
+  exempt: false, prices: FALLBACK_PRICES, current: null, nextJobStep: null,
+  free: null, team: null, unpaid: [], history: [], code: null,
+  canApplyCode: false, termsVersion: '',
 };
 
 const authHeaders = () => {
   try {
     const token = localStorage.getItem('superfix_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 };
 
 async function call(path: string, init: RequestInit = {}) {
-  return fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init.headers || {}) },
-  });
+  return fetch(`${API_URL}${path}`, { ...init, headers: { ...authHeaders(), ...(init.headers || {}) } });
 }
 
 export async function getSubscriptionStatus(): Promise<SubscriptionState> {
   try {
-    const response = await call('/subscription/status');
+    const response = await call('/subscription/status', { cache: 'no-store' });
     if (!response.ok) return OFFLINE;
     const data = await response.json();
-    // `cancelAtPeriodEnd` trebuie să fie boolean sigur: pe el se schimbă tot textul
-    return { ...data, cancelAtPeriodEnd: data?.cancelAtPeriodEnd === true };
-  } catch {
-    return OFFLINE;
-  }
+    return {
+      ...OFFLINE, ...data,
+      prices: data?.prices || FALLBACK_PRICES,
+      unpaid: Array.isArray(data?.unpaid) ? data.unpaid : [],
+      history: Array.isArray(data?.history) ? data.history : [],
+    };
+  } catch { return OFFLINE; }
 }
 
-/**
- * Ce s-a întâmplat cu o plată anume.
- *
- * `/status` descrie contul, nu plata: o înrolare de card respinsă lasă contul
- * pe `NONE`, deci pagina de rezultat n-are din ce să afle că a picat. Asta e
- * întrebarea pe care trebuie s-o pună ea.
- */
-export type PaymentOutcome =
-  /** încă nu s-a așezat — se mai așteaptă IPN-ul */
-  | 'PENDING'
-  /** plătit / card înrolat cu succes */
-  | 'PAID'
-  /** banca a refuzat */
-  | 'DECLINED'
-  /** anulată înainte de finalizare */
-  | 'CANCELLED'
-  /** banca mai cere un pas 3-D Secure */
-  | 'ACTION_REQUIRED'
-  /** răspuns incert; se verifică manual, nu se retrimite automat */
-  | 'REVIEW'
-  /** stornată după ce trecuse */
-  | 'REVERSED';
+export type PaymentOutcome = 'PENDING' | 'PAID' | 'DECLINED' | 'CANCELLED' | 'ACTION_REQUIRED' | 'REVIEW' | 'REVERSED';
 
 export interface PaymentAttemptResult {
   found: boolean;
   outcome?: PaymentOutcome;
-  type?: 'CARD_SETUP' | 'ONE_OFF' | 'SUBSCRIPTION';
+  type?: string;
   amountBani?: number;
   orderId?: string;
 }
 
-/**
- * Rezultatul plății identificate prin `orderId` (cel din adresa pe care o
- * compune NETOPIA la redirect). Serverul îl folosește doar ca să găsească
- * rândul — verdictul vine din IPN-ul verificat de el, nu din adresă.
- *
- * La orice eroare de rețea întoarce `{ found: false }`: apelantul trebuie să
- * mai aștepte, nu să conchidă ceva.
- */
 export async function getPaymentAttempt(orderId?: string | null): Promise<PaymentAttemptResult> {
   try {
     const query = orderId ? `?orderId=${encodeURIComponent(orderId)}` : '';
-    const response = await call(`/subscription/attempt${query}`);
+    const response = await call(`/subscription/attempt${query}`, { cache: 'no-store' });
     if (!response.ok) return { found: false };
     const data = await response.json();
     return data?.found ? data : { found: false };
-  } catch {
-    return { found: false };
-  }
+  } catch { return { found: false }; }
 }
 
-/**
- * Semn că plecarea spre NETOPIA a fost o schimbare de card, nu o activare.
- * Adresa de întoarcere o fixează serverul, deci semnul stă în sesiunea filei.
- */
 const CARD_CHANGE_FLAG = 'superfix:card-change';
 
 export function markCardChange(on: boolean) {
   try {
     if (on) sessionStorage.setItem(CARD_CHANGE_FLAG, '1');
     else sessionStorage.removeItem(CARD_CHANGE_FLAG);
-  } catch { /* fără stocare, pagina de rezultat arată textul general */ }
+  } catch { /* pagina poate funcționa și fără sessionStorage */ }
 }
 
 export function isCardChange() {
@@ -158,110 +148,95 @@ export function isCardChange() {
 }
 
 export interface CheckoutOutcome {
-  /** adresa checkout-ului găzduit; acolo se duce omul */
   url?: string;
-  /** ce se arată dacă n-a mers */
+  orderId?: string;
   message?: string;
-  /** plățile nu sunt încă pornite pe server — nu e vina lui, deci nu-l punem să repare */
   notReady?: boolean;
-  /** condițiile s-au schimbat între încărcarea paginii și apăsare */
   termsChanged?: boolean;
 }
 
-/**
- * Pornește plata.
- *
- * `termsVersion` vine din `/status` și se trimite înapoi ca dovadă de
- * consimțământ. Serverul refuză cu `409 TERMS_CHANGED` dacă între timp s-a
- * schimbat — pagina trebuie reîncărcată, nu insistat.
- *
- * `autoRenew` alege fluxul: `true` (implicit) validează cardul și-l salvează
- * pentru reînnoirea lunară; `false` ia o singură lună acum, fără card salvat și
- * fără nicio taxare viitoare.
- */
-export async function startCheckout(
-  termsVersion: string | null | undefined,
-  autoRenew = true,
-): Promise<CheckoutOutcome> {
+/** Deschide verificarea de card cu 0 lei. Fluxul one-off nu mai există. */
+export async function startCheckout(termsVersion: string | null | undefined): Promise<CheckoutOutcome> {
   const version = (termsVersion || '').trim();
-  if (!version) {
-    return { message: 'Condițiile comerciale nu s-au încărcat. Reîncarcă pagina și încearcă din nou.' };
-  }
-
+  if (!version) return { message: 'Condițiile comerciale nu s-au încărcat. Reîncarcă pagina și încearcă din nou.' };
   try {
     const response = await call('/subscription/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ termsAccepted: true, termsVersion: version, autoRenew }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ termsAccepted: true, termsVersion: version }),
     });
-    const data = await response.json().catch(() => ({} as any));
-
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
     if (response.status === 409 && data?.error === 'TERMS_CHANGED') {
-      return { termsChanged: true, message: 'Condițiile s-au actualizat. Reîncarcă pagina și confirmă din nou.' };
+      return { termsChanged: true, message: 'Condițiile s-au actualizat. Recitește acordul și confirmă din nou.' };
     }
-    /* Bridge-ul găzduit nu e încă pornit (vezi „Blocaje reale" din PAYMENTS.md).
-       E o problemă de-a noastră, nu a lui: nu-i explicăm POS-uri. */
-    if (response.status === 503) {
-      return { notReady: true, message: 'Plățile nu sunt încă deschise. Revino în scurt timp.' };
-    }
-    if (!response.ok) {
-      return { message: data?.message || 'N-am putut deschide plata acum. Mai încearcă o dată.' };
-    }
-    return { url: data?.paymentUrl || undefined };
-  } catch {
-    return { message: 'N-am putut deschide plata acum. Verifică semnalul și mai încearcă.' };
-  }
+    if (response.status === 503) return { notReady: true, message: 'Verificarea cardului nu este disponibilă momentan.' };
+    if (!response.ok) return { message: String(data?.message || data?.error || 'N-am putut deschide verificarea cardului.') };
+    return {
+      url: typeof data?.paymentUrl === 'string' ? data.paymentUrl : undefined,
+      orderId: typeof data?.orderId === 'string' ? data.orderId : undefined,
+    };
+  } catch { return { message: 'N-am putut deschide verificarea cardului. Verifică internetul și mai încearcă.' }; }
 }
 
-export async function applyPromoCode(code: string): Promise<{ ok: boolean; message?: string }> {
+export async function applyPromoCode(code: string): Promise<{ success: boolean; kind?: 'promo' | 'referral' | 'recruiter'; months?: number; message?: string }> {
   try {
     const response = await call('/subscription/apply-promo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: code.trim().toUpperCase() }),
     });
-    const data = await response.json().catch(() => ({} as any));
-    return { ok: response.ok && !!data?.success, message: data?.message || data?.error };
-  } catch {
-    return { ok: false, message: 'N-am putut verifica codul acum. Mai încearcă o dată.' };
-  }
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    return {
+      success: response.ok && !!data?.success,
+      kind: data?.kind as 'promo' | 'referral' | 'recruiter' | undefined,
+      months: typeof data?.months === 'number' ? data.months : undefined,
+      message: typeof (data?.message || data?.error) === 'string' ? String(data.message || data.error) : undefined,
+    };
+  } catch { return { success: false, message: 'N-am putut verifica codul acum. Mai încearcă o dată.' }; }
 }
 
-/** Oprește reînnoirea. Profilul rămâne listat până la finalul perioadei plătite. */
-export async function cancelSubscription(): Promise<boolean> {
-  try {
-    return (await call('/subscription/cancel', { method: 'POST' })).ok;
-  } catch {
-    return false;
-  }
-}
-
-/** Repornește reînnoirea. Poate cere o nouă trecere prin checkout. */
-export async function reactivateSubscription(): Promise<{ ok: boolean; url?: string }> {
+/** „Reia plata”: cere acum restanța de pe cardul verificat. */
+export async function payOutstanding(): Promise<{ ok: boolean; pending?: boolean; nothingDue?: boolean; error?: string; message?: string }> {
   try {
     const response = await call('/subscription/reactivate', { method: 'POST' });
-    if (!response.ok) return { ok: false };
-    const data = await response.json().catch(() => ({} as any));
-    return { ok: true, url: data?.paymentUrl };
-  } catch {
-    return { ok: false };
-  }
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) return {
+      ok: false,
+      error: typeof data?.error === 'string' ? data.error : undefined,
+      message: typeof data?.message === 'string' ? data.message : undefined,
+    };
+    return { ok: true, pending: !!data?.pending, nothingDue: !!data?.nothingDue };
+  } catch { return { ok: false, message: 'N-am putut porni plata. Verifică internetul și mai încearcă.' }; }
 }
 
-/* ---------------- ajutoare de afișare ---------------- */
+const MONTHS_RO = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
 
-export function money(bani?: number | null, currency = 'RON') {
-  const value = (bani ?? 0) / 100;
-  return new Intl.NumberFormat('ro-RO', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
-  }).format(value);
-}
+export const monthLabel = (key: string, now = new Date()) => {
+  const [year, month] = key.split('-').map(Number);
+  const name = MONTHS_RO[(month || 1) - 1] || key;
+  return year === now.getFullYear() ? name : `${name} ${year}`;
+};
 
-export function onDate(value?: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
-}
+export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+export const leiLabel = (bani: number) => {
+  const lei = bani / 100;
+  return `${Number.isInteger(lei) ? lei : lei.toFixed(2).replace('.', ',')} lei`;
+};
+
+export const jobsLabel = (count: number) => {
+  if (count === 1) return '1 lucrare';
+  const of = count % 100 === 0 || count % 100 >= 20 ? ' de' : '';
+  return `${count}${of} lucrări`;
+};
+
+export const dayLabel = (iso?: string | null, now = new Date()) => {
+  if (!iso) return '';
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  return at.toLocaleDateString('ro-RO', {
+    day: 'numeric', month: 'long',
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  });
+};
+
+export const onDate = dayLabel;
+export const money = (bani?: number | null) => leiLabel(bani ?? 0);

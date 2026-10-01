@@ -411,15 +411,15 @@ Nume de erou: ${form.alias.trim()}` : ''}`,
                 Textul de dinainte promitea exact asta și lăsa oameni să aștepte
                 degeaba. Vezi `server/prisma/schema.prisma:82` și `server/billing.ts`. */}
             <p className="mt-4 rounded-2xl bg-white/60 p-4 text-left text-sm leading-relaxed text-graphite">
-              <strong>Ca să apari în căutări, activează listarea din portal.</strong> Până
-              atunci profilul există, dar nu-l vede niciun client. Dacă ai un cod de invitație
-              sau de recruiter, se aplică singur la activare.
+              <strong>Ca să apari în căutări, verifică-ți cardul cu 0 lei.</strong> Până
+              atunci profilul există, dar nu-l vede niciun client. După verificare plătești
+              doar lunile în care ai lucrări; luna fără lucrări costă 0 lei.
             </p>
             <div className="mt-7 flex flex-col gap-3">
               {/* Pasul care chiar urmează. Trimiterea în portal îl lăsa să caute
                   singur de ce nu apare nicăieri. */}
               <GlassButton type="button" tone="red" full onClick={() => { window.location.href = '/abonament'; }}>
-                Activează listarea
+                Verifică cardul · 0 lei
               </GlassButton>
               <Link
                 to="/"

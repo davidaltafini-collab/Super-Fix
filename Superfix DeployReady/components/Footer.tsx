@@ -22,7 +22,7 @@ const legalLinks = [
   { to: '/preturi', label: 'Serviciu și prețuri', Icon: CreditCard },
   { to: '/terms', label: 'Termeni și condiții', Icon: FileText },
   { to: '/terms#livrarea-serviciului', label: 'Livrarea serviciului', Icon: FileText },
-  { to: '/terms#anularea-abonamentului', label: 'Anularea abonamentului', Icon: FileText },
+  { to: '/terms', label: 'Regulile de plată', Icon: FileText },
   { to: '/withdrawal', label: 'Retragere din contract', Icon: Scales },
   { to: '/privacy', label: 'Confidențialitate', Icon: ShieldCheck },
   { to: '/cookies', label: 'Politica de cookies', Icon: Cookie },

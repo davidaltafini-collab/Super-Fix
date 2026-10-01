@@ -8,7 +8,7 @@ import { Field } from '../components/Field';
 import './legal.css';
 import '../components/form.css';
 
-const UPDATED_AT = '03.09.2026';
+const UPDATED_AT = '01.10.2026';
 
 /* Cele patru documente se citesc unul dintr-altul: din politica de cookies
    vrei de obicei confidențialitatea, din termeni vrei drepturile. Linkurile din
@@ -20,6 +20,7 @@ const DOCS = [
   { to: '/cookies', short: 'Cookies' },
   { to: '/gdpr', short: 'Drepturile tale' },
   { to: '/withdrawal', short: 'Retragere' },
+  { to: '/stergere-cont', short: 'Ștergere cont' },
 ];
 
 const LegalLayout: React.FC<{ title: string; lastUpdated: string; children: React.ReactNode }> = ({
@@ -110,31 +111,29 @@ export const CompanyContact: React.FC = () => (
 );
 
 export const Pricing: React.FC = () => (
-  <LegalLayout title="Serviciul Superfix și prețurile" lastUpdated="04.09.2026">
+  <LegalLayout title="Serviciul Superfix și prețurile" lastUpdated={UPDATED_AT}>
     <h3>Serviciul comercializat</h3>
     <p>
       <OperatorIdentity /> comercializează către meseriași serviciul digital de
-      publicare și administrare a unui profil profesional în platforma Superfix.
-      Serviciul este denumit <strong>abonament de listare Superfix</strong>.
+      publicare și administrare a unui profil profesional și de primire a cererilor
+      de lucrări în platforma Superfix. Serviciul include:
     </p>
-    <p>Abonamentul de listare include:</p>
     <ul>
-      <li>publicarea profilului profesional cu nume de prezentare, meserie, descriere, fotografii, videoclip și zone de lucru;</li>
-      <li>afișarea profilului în căutările clienților din zonele selectate;</li>
-      <li>primirea și administrarea solicitărilor de servicii transmise prin platformă;</li>
+      <li>profilul profesional cu nume de prezentare, meserie, descriere, fotografii, videoclip și zone de lucru;</li>
+      <li>afișarea profilului în căutările clienților din zonele alese;</li>
+      <li>primirea și administrarea cererilor de lucrări transmise prin platformă;</li>
       <li>profil public cu recenzii verificate și indicatorul de reputație Fix-o-metru;</li>
-      <li>acces la portalul de administrare a profilului și a misiunilor.</li>
+      <li>instrumentele din aplicație pentru lucrări, echipă și pontaj.</li>
     </ul>
 
-    <h3>Preț și monedă</h3>
-    <p>
-      Prețul abonamentului de listare este de <strong>25,00 RON pentru o lună</strong>,
-      preț total. Moneda tranzacției este RON.
-    </p>
+    <h3>Plata pe lucrări</h3>
     <ul>
-      <li>La reînnoirea automată, tariful este de 25,00 RON în fiecare lună, până la oprirea reînnoirii.</li>
-      <li>Dacă se alege plata unică, suma de 25,00 RON acoperă o singură lună de listare și nu se efectuează automat o plată viitoare.</li>
-      <li>Un cod de invitație, recruiter sau promoțional eligibil poate acorda o perioadă gratuită. Condițiile aplicabile sunt afișate în cont înainte de activare.</li>
+      <li>Verificarea cardului: <strong>0,00 RON</strong>. Cardul verificat este condiția ca profilul să apară la clienți.</li>
+      <li>Luna fără lucrări: <strong>0,00 RON</strong>. Luna cu 1–10 lucrări: <strong>25,00 RON</strong>. Luna cu 11 sau mai multe lucrări: <strong>50,00 RON</strong>. Prețuri totale; moneda tranzacției este RON.</li>
+      <li>Lucrare înseamnă o cerere acceptată de Erou în luna respectivă și neanulată de Client.</li>
+      <li>Echipe: titularul echipei plătește, în plus, <strong>15,00 RON</strong> pentru fiecare membru verificat, numai în lunile cu lucrări de echipă.</li>
+      <li>În timpul lunii, lucrările numărate și suma la zi se văd în cont. În prima zi a lunii următoare, luna se închide și suma se ia automat de pe cardul salvat.</li>
+      <li>Luni gratuite: cod promoțional sau de recruiter — 6 luni; codul unui Erou — 3 luni; Eroul care invită — o lună pentru fiecare invitat calificat, cel mult 10. Lucrările acceptate în lunile gratuite nu se plătesc.</li>
     </ul>
 
     <h3>Ce nu se plătește prin Superfix</h3>
@@ -146,16 +145,18 @@ export const Pricing: React.FC = () => (
 
     <h3>Activarea și livrarea serviciului</h3>
     <p>
-      Serviciul este furnizat exclusiv digital. Listarea se activează după
-      confirmarea plății sau a perioadei gratuite aplicabile. Nu se livrează
-      bunuri fizice și nu există taxe de transport.
+      Serviciul este furnizat exclusiv digital. Profilul apare la clienți după
+      aprobarea contului și verificarea cardului. Nu se livrează bunuri fizice și
+      nu există taxe de transport.
     </p>
 
-    <h3>Plată, anulare și suport</h3>
+    <h3>Card, plăți eșuate și oprire</h3>
     <p>
-      Plata cu cardul se realizează în pagina securizată NETOPIA Payments.
-      Reînnoirea poate fi oprită din cont, iar profilul rămâne activ până la
-      sfârșitul perioadei deja plătite. Detaliile complete sunt disponibile în{' '}
+      Cardul se introduce numai în pagina securizată NETOPIA Payments. O plată
+      eșuată se reîncearcă după 1, 3 și 7 zile; după ultima încercare, profilul nu
+      mai apare în căutări până la plată. Nu există abonament de anulat: fără
+      lucrări acceptate nu se plătește nimic, iar după ștergerea contului nu se mai
+      ia nimic de pe card. Detaliile complete sunt în{' '}
       <Link to="/terms">Termeni și condiții</Link>. Pentru ajutor, scrie la{' '}
       <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.
     </p>
@@ -175,52 +176,53 @@ export const Terms: React.FC = () => (
       <li>Eroul răspunde pentru autorizațiile necesare, calitatea lucrării, garanții și obligațiile fiscale proprii.</li>
       <li>Superfix poate modera profiluri și poate oferi instrumente de comunicare, dar nu devine parte în contractul lucrării.</li>
     </ul>
-    <p>Serviciul comercializat de <OperatorIdentity /> este publicarea și administrarea profilului profesional al Eroului în platformă, împreună cu accesul la instrumentele digitale aferente. Superfix nu vinde și nu facturează lucrarea executată de Erou.</p>
+    <p>Serviciul comercializat de <OperatorIdentity /> este publicarea și administrarea profilului profesional al Eroului în platformă și primirea cererilor de lucrări, împreună cu instrumentele digitale aferente. Superfix nu vinde și nu facturează lucrarea executată de Erou.</p>
 
-    <h3>3. Plăți și abonamentul Eroului</h3>
+    <h3>3. Plăți: plata pe lucrări a Eroului</h3>
     <ul>
-      <li>Utilizarea platformei de către Clienți este gratuită. Superfix nu încasează prețul lucrărilor și nu procesează plățile dintre Client și Erou.</li>
-      <li>Contractul și plata lucrării se realizează direct între Client și Erou, în afara platformei Superfix.</li>
-      <li><OperatorIdentity /> comercializează și facturează exclusiv serviciul digital de listare oferit Eroului, sub forma abonamentului Superfix.</li>
-      <li>Tariful curent al listării este <strong>25,00 RON/lună</strong>, preț total. Moneda tranzacției este RON. Perioada gratuită aplicabilă și următoarea dată de plată sunt afișate înainte de activare și în contul Eroului.</li>
-      <li>Abonamentul se reînnoiește lunar până când Eroul oprește reînnoirea. Orice tarif viitor diferit va fi afișat clar înainte de acceptare și nu se aplică retroactiv perioadelor deja plătite.</li>
-      <li>Datele complete ale cardului sunt introduse numai în pagina securizată NETOPIA Payments. Superfix păstrează doar tokenul tehnic primit și date mascate, nu numărul complet al cardului sau codul CVV.</li>
-      <li>Oprirea reînnoirii produce efecte la finalul perioadei deja plătite ori acordate gratuit, conform datei afișate în cont.</li>
+      <li>Utilizarea platformei de către Clienți este gratuită. Superfix nu încasează prețul lucrărilor și nu procesează plățile dintre Client și Erou; acestea se fac direct între ei, în afara platformei.</li>
+      <li><OperatorIdentity /> comercializează și facturează exclusiv serviciul digital oferit Eroului. Prețul se calculează lunar, după numărul de lucrări din luna calendaristică (ora României): 0 lucrări — <strong>0,00 RON</strong>; 1–10 lucrări — <strong>25,00 RON</strong>; 11 sau mai multe — <strong>50,00 RON</strong>. Prețurile sunt totale, în RON (<Link to="/preturi">Serviciul și prețurile</Link>).</li>
+      <li>Lucrare înseamnă o cerere acceptată de Erou în luna respectivă și neanulată de Client. Cererile refuzate și cele anulate de Client nu se numără; o lucrare anulată la cererea Eroului, după ce a acceptat-o, se numără.</li>
+      <li>Echipe: titularul echipei plătește, în plus, <strong>15,00 RON</strong> pentru fiecare membru cu cardul verificat, numai în lunile în care echipa are cel puțin o lucrare. Lucrările echipei se numără la titular. Membrii nu plătesc.</li>
+      <li>Intrarea în platformă se face prin verificarea cardului cu 0,00 RON, în pagina securizată NETOPIA Payments. Cardul verificat este condiția ca profilul să apară la clienți. Superfix păstrează doar tokenul tehnic primit și date mascate, nu numărul complet al cardului sau codul CVV.</li>
+      <li>Prin verificarea cardului, Eroul autorizează Superfix să debiteze lunar, de pe cardul salvat, suma calculată după aceste reguli, fără a fi prezent la fiecare plată, până la înlocuirea cardului sau ștergerea contului. În timpul lunii, Eroul vede în cont lucrările numărate și suma la zi; luna se închide și suma se debitează în prima zi a lunii următoare.</li>
+      <li>Dacă o plată nu reușește, o reîncercăm după 1, 3 și 7 zile. Cât reîncercăm, profilul rămâne vizibil; după ultima încercare, profilul nu mai apare în căutări până la plata sumei restante. Un card nou verificat plătește automat sumele restante.</li>
+      <li>Orice modificare a prețurilor se anunță în cont și pe email cu cel puțin 30 de zile înainte și se aplică numai lunilor care încep după intrarea ei în vigoare.</li>
+      <li>Superfix poate acorda, la alegerea sa, gratuități sau scutiri individuale de plată.</li>
     </ul>
 
     <h3 id="livrarea-serviciului" className="scroll-mt-28">4. Livrarea și activarea serviciului digital</h3>
     <ul>
       <li>Nu se livrează bunuri fizice și nu există costuri de transport.</li>
-      <li>Listarea se activează electronic după aprobarea profilului și confirmarea plății sau a gratuității aplicabile. Confirmarea este afișată în cont și transmisă pe email.</li>
-      <li>După activare, profilul devine eligibil pentru afișare în căutări, iar serviciul este furnizat pe durata indicată în cont. Disponibilitatea efectivă poate fi afectată de moderare, mentenanță ori incidente tehnice.</li>
-      <li>Dacă activarea nu se confirmă, Eroul nu este taxat ca pentru un abonament activ și poate contacta <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</li>
+      <li>Profilul apare la clienți după aprobarea contului și verificarea cardului. Confirmarea este afișată în cont.</li>
+      <li>Disponibilitatea efectivă poate fi afectată de moderare, mentenanță ori incidente tehnice.</li>
     </ul>
 
-    <h3 id="anularea-abonamentului" className="scroll-mt-28">5. Anularea abonamentului și oprirea reînnoirii</h3>
+    <h3 id="anularea-abonamentului" className="scroll-mt-28">5. Oprirea plăților și ștergerea contului</h3>
     <ul>
-      <li>Eroul poate opri oricând reînnoirea din pagina „Abonament” a contului, prin butonul „Oprește reînnoirea”, fără taxă de anulare.</li>
-      <li>Dacă nu poate accesa contul, poate cere oprirea în scris la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>, de pe adresa asociată contului.</li>
-      <li>Profilul rămâne listat până la sfârșitul perioadei deja plătite sau gratuite, apoi este arhivat și nu se mai efectuează debitări recurente.</li>
-      <li>Anularea reînnoirii nu este același lucru cu retragerea legală din contract. Pentru aceasta există <Link to="/withdrawal">pagina dedicată retragerii</Link>.</li>
+      <li>Nu există abonament de anulat: o lună fără lucrări acceptate nu costă nimic.</li>
+      <li>Eroul poate opri oricând primirea cererilor din aplicație („Semnalul”), fără niciun cost.</li>
+      <li>Eroul poate șterge contul oricând, din aplicație (Cont → Șterge contul) sau printr-o cerere la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a> de pe adresa asociată contului. După ștergere, cardul se șterge și nu se mai efectuează nicio debitare.</li>
+      <li>Ștergerea contului nu este același lucru cu retragerea legală din contract. Pentru aceasta există <Link to="/withdrawal">pagina dedicată retragerii</Link>.</li>
     </ul>
 
     <h3>6. Dreptul de retragere</h3>
-    <p>Dacă persoana care contractează abonamentul are, potrivit legii, calitatea de consumator, aceasta se poate retrage din contractul la distanță în termen de 14 zile de la încheiere, fără să indice un motiv. Dreptul legal nu se aplică unei persoane care contractează exclusiv în scopul activității sale profesionale; posibilitatea contractuală de oprire a reînnoirii rămâne însă disponibilă tuturor Eroilor.</p>
-    <p>Retragerea poate fi transmisă prin <Link to="/withdrawal">pagina dedicată</Link>, care pregătește declarația pentru trimitere prin email, sau prin orice altă declarație neechivocă trimisă la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Dacă, la cererea expresă a consumatorului, serviciul a început în perioada de retragere, poate fi datorată suma proporțională cu serviciul furnizat până la comunicarea retragerii. Rambursarea sumelor datorate se face, de regulă, prin aceeași metodă de plată, în termenul legal.</p>
+    <p>Dacă persoana care contractează serviciul are, potrivit legii, calitatea de consumator, aceasta se poate retrage din contractul la distanță în termen de 14 zile de la încheiere, fără să indice un motiv. Dreptul legal nu se aplică unei persoane care contractează exclusiv în scopul activității sale profesionale.</p>
+    <p>Retragerea poate fi transmisă prin <Link to="/withdrawal">pagina dedicată</Link>, care pregătește declarația pentru trimitere prin email, sau prin orice altă declarație neechivocă trimisă la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Dacă, la cererea expresă a consumatorului, serviciul a început în perioada de retragere, poate fi datorată suma corespunzătoare lucrărilor deja acceptate. Rambursarea sumelor datorate se face, de regulă, prin aceeași metodă de plată, în termenul legal.</p>
 
-    <h3>7. Gratuitate, invitații și recruiteri</h3>
+    <h3>7. Luni gratuite, invitații și recruiteri</h3>
     <ul>
-      <li>Invitația este calificată numai după aprobarea contului invitat și validarea metodei sale de plată. Conturile duplicate, proprii, frauduloase sau anulate nu sunt eligibile.</li>
-      <li>În configurația curentă, invitatul eligibil primește 12 luni gratuite, iar Eroul care invită primește o lună gratuită pentru fiecare prag de 5 invitați calificați.</li>
-      <li>Un cont poate fi atribuit unui singur cod, introdus la înscriere sau oricând înainte de activarea abonamentului: fie cod de invitație, fie cod de recruiter. După activare, atribuirea nu se mai poate face.</li>
-      <li>Recruiterii sunt aprobați manual. Comisionul curent este 50% din primele 6 facturi de abonament efectiv încasate pentru fiecare Erou atribuit.</li>
-      <li>Lunile gratuite și plățile eșuate, anulate sau rambursate nu generează comision. Un refund sau chargeback anulează comisionul aferent.</li>
+      <li>Un cod promoțional sau un cod de recruiter acordă 6 luni gratuite. Codul unui Erou (invitația) acordă 3 luni gratuite. Eroul care invită primește o lună gratuită pentru fiecare invitat calificat, cel mult 10.</li>
+      <li>Lunile gratuite curg din ziua verificării cardului (respectiv a calificării invitatului) și se adaugă una după alta. Lucrările acceptate în lunile gratuite nu se plătesc. Lunile gratuite nu acoperă suma pentru membrii echipei.</li>
+      <li>Invitația este calificată numai după aprobarea contului invitat și verificarea cardului său. Conturile duplicate, proprii, frauduloase sau șterse nu sunt eligibile.</li>
+      <li>Un cont poate avea un singur cod (promoțional, de invitație sau de recruiter), introdus înainte de verificarea cardului.</li>
+      <li>Recruiterii sunt aprobați manual. Comisionul este 50% din partea individuală a primelor 6 luni plătite de fiecare Erou atribuit (12,50 RON dintr-o lună de 25,00 RON, 25,00 RON dintr-o lună de 50,00 RON). Lunile gratuite, suma pentru membrii echipei și plățile eșuate, anulate sau rambursate nu generează comision; un refund sau chargeback anulează comisionul aferent.</li>
       <li>Comisioanele sunt verificate înainte de plată. Recruiterul furnizează un IBAN propriu valid și răspunde pentru obligațiile fiscale care îi revin.</li>
       <li>Valorile afișate în cont la data calificării se aplică acelui beneficiu. Superfix poate modifica programul pentru înscrieri viitoare, cu actualizarea acestor termeni.</li>
     </ul>
 
-    <h3>8. Trust Factor și clasament</h3>
-    <p>Rezultatele pot fi ordonate în principal după potrivirea specializării și zonei cu cererea Clientului, disponibilitate, Trust Factor, misiuni finalizate, recenzii și respectarea regulilor. Relevanța pentru cerere și proximitatea au o pondere mai mare decât popularitatea generală. Manipularea recenziilor sau a activității poate duce la suspendare ori delistare.</p>
+    <h3>8. Fix-o-metru și ordinea rezultatelor</h3>
+    <p>Rezultatele pot fi ordonate în principal după potrivirea meseriei și zonei cu cererea Clientului, disponibilitate, Fix-o-metru (factorul de încredere), lucrări finalizate, recenzii și respectarea regulilor. Relevanța pentru cerere și apropierea cântăresc mai mult decât popularitatea generală. Manipularea recenziilor sau a activității poate duce la suspendare ori scoaterea din căutări.</p>
 
     <h3>9. Conținut foto/video</h3>
     <p>Prin încărcarea materialelor, utilizatorul declară că are dreptul să le folosească și că nu încalcă drepturile ori viața privată a altor persoane. Materialele sunt folosite pentru executarea cererii, suport, prevenirea fraudei și, numai când există un temei legal adecvat, promovare.</p>
@@ -229,7 +231,7 @@ export const Terms: React.FC = () => (
     <p>Superfix poate limita sau suspenda conturi, recompense, recenzii și conținut atunci când există indicii rezonabile de fraudă, abuz, încălcarea legii ori a acestor termeni. Datele care trebuie păstrate pentru obligații legale, plăți, securitate sau apărarea unui drept nu sunt eliminate odată cu închiderea contului.</p>
 
     <h3>11. Reclamații și soluționarea litigiilor</h3>
-    <p>Reclamațiile privind abonamentul de listare furnizat de <OperatorIdentity /> pot fi trimise la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Consumatorii eligibili pot folosi și procedura de Soluționare Alternativă a Litigiilor prin <a href="https://reclamatiisal.anpc.ro/" target="_blank" rel="noopener noreferrer">platforma oficială ANPC</a>. Litigiile privind prețul sau executarea unei lucrări contractate direct cu un Erou se soluționează cu acel prestator, deoarece Superfix nu încasează și nu facturează lucrarea.</p>
+    <p>Reclamațiile privind serviciul furnizat Eroilor de <OperatorIdentity /> pot fi trimise la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Consumatorii eligibili pot folosi și procedura de Soluționare Alternativă a Litigiilor prin <a href="https://reclamatiisal.anpc.ro/" target="_blank" rel="noopener noreferrer">platforma oficială ANPC</a>. Litigiile privind prețul sau executarea unei lucrări contractate direct cu un Erou se soluționează cu acel prestator, deoarece Superfix nu încasează și nu facturează lucrarea.</p>
 
     <h3>12. Legea aplicabilă</h3>
     <p>Acești termeni sunt guvernați de legea română. Nicio prevedere nu restrânge drepturile imperative acordate consumatorilor de legislația aplicabilă.</p>
@@ -291,7 +293,7 @@ export const GDPR: React.FC = () => (
   </LegalLayout>
 );
 
-const WITHDRAWAL_DECLARATION = 'Vă informez că doresc retragerea din contractul pentru abonamentul digital de listare Superfix identificat mai jos.';
+const WITHDRAWAL_DECLARATION = 'Vă informez că doresc retragerea din contractul pentru serviciul digital Superfix pentru meseriași, identificat mai jos.';
 
 export const Withdrawal: React.FC = () => {
   const [name, setName] = useState('');
@@ -307,7 +309,7 @@ export const Withdrawal: React.FC = () => {
     const nextErrors: Record<string, string> = {};
     if (name.trim().length < 2) nextErrors.name = 'Introdu numele complet.';
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) nextErrors.email = 'Introdu o adresă de email validă.';
-    if (contractId.trim().length < 2) nextErrors.contractId = 'Introdu identificatorul abonamentului, plății sau contului.';
+    if (contractId.trim().length < 2) nextErrors.contractId = 'Introdu identificatorul plății sau al contului.';
     if (!confirmed) nextErrors.confirmed = 'Confirmarea este necesară pentru transmiterea retragerii.';
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
@@ -319,7 +321,7 @@ export const Withdrawal: React.FC = () => {
       '',
       `Nume: ${name.trim()}`,
       `Email: ${email.trim()}`,
-      `Identificator abonament / plată / cont: ${contractId.trim()}`,
+      `Identificator plată / cont: ${contractId.trim()}`,
       `Data încheierii contractului: ${contractDate || 'necunoscută'}`,
       `Data pregătirii declarației: ${submittedAt.toLocaleString('ro-RO')}`,
     ].join('\n');
@@ -331,7 +333,7 @@ export const Withdrawal: React.FC = () => {
     <LegalLayout title="Retragere din contract" lastUpdated={UPDATED_AT}>
       <>
         <h3>Retrageți-vă din contract aici</h3>
-        <p>Dacă ai calitatea legală de consumator, poți transmite online declarația de retragere din contractul pentru abonamentul Superfix. Termenul obișnuit este de 14 zile de la încheierea contractului. Formularul nu este destinat anulării lucrărilor contractate direct cu un Erou.</p>
+        <p>Dacă ai calitatea legală de consumator, poți transmite online declarația de retragere din contractul pentru serviciul Superfix pentru meseriași. Termenul obișnuit este de 14 zile de la încheierea contractului. Formularul nu este destinat anulării lucrărilor contractate direct cu un Erou.</p>
         <p>Poți transmite aceeași declarație direct la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Folosirea acestei pagini nu limitează celelalte modalități permise de lege.</p>
 
         {preparedAt && (
@@ -365,10 +367,10 @@ export const Withdrawal: React.FC = () => {
             />
             <Field
               id="withdrawal-contract"
-              label="Identificator abonament, plată sau cont"
+              label="Identificator plată sau cont"
               value={contractId}
               error={errors.contractId}
-              hint="De exemplu: ID-ul plății NETOPIA, ID-ul abonamentului sau emailul contului."
+              hint="De exemplu: ID-ul plății NETOPIA sau emailul contului."
               onChange={event => { setContractId(event.target.value); setErrors(current => ({ ...current, contractId: '' })); }}
             />
             <Field
@@ -396,6 +398,114 @@ export const Withdrawal: React.FC = () => {
             >
               Deschide emailul și confirmă retragerea
             </button>
+        </form>
+      </>
+    </LegalLayout>
+  );
+};
+
+const DELETION_REQUEST = 'Vă rog să ștergeți contul meu Superfix identificat mai jos.';
+
+/* Google Play cere o pagină web pentru ștergerea contului, pe care o poți folosi și fără aplicație. Textul spune
+   exact ce face aplicația la „Șterge contul” (Cont, jos), pentru client și pentru meseriaș. */
+export const AccountDeletion: React.FC = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState<'client' | 'erou'>('client');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [preparedAt, setPreparedAt] = useState('');
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const nextErrors: Record<string, string> = {};
+    if (name.trim().length < 2) nextErrors.name = 'Introdu numele de pe cont.';
+    if (!/^\S+@\S+\.\S+$/.test(email.trim()) && phone.replace(/\D/g, '').length < 9) {
+      nextErrors.email = 'Scrie emailul sau telefonul contului, ca să-l găsim.';
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+    const submittedAt = new Date();
+    const body = [
+      DELETION_REQUEST,
+      '',
+      `Nume: ${name.trim()}`,
+      `Email: ${email.trim() || '-'}`,
+      `Telefon: ${phone.trim() || '-'}`,
+      `Tip cont: ${role === 'erou' ? 'meseriaș (erou)' : 'client'}`,
+      `Data cererii: ${submittedAt.toLocaleString('ro-RO')}`,
+    ].join('\n');
+    setPreparedAt(submittedAt.toISOString());
+    window.location.href = `mailto:${LEGAL.supportEmail}?subject=${encodeURIComponent('Cerere de ștergere a contului Superfix')}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <LegalLayout title="Ștergerea contului" lastUpdated={UPDATED_AT}>
+      <>
+        <h3>Din aplicație, pe loc</h3>
+        <p>Deschide aplicația Superfix → <strong>Cont</strong> → jos, <strong>Șterge contul</strong> → <strong>Șterge definitiv</strong>. Ștergerea se face imediat.</p>
+
+        <h3>Fără aplicație</h3>
+        <p>Completează formularul de mai jos: îți pregătește un email către <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>. Scrie-ne de pe adresa sau cu telefonul contului, ca să știm că ești tu; ștergem contul în cel mult 30 de zile și îți confirmăm pe email.</p>
+
+        <h3>Ce se șterge și ce rămâne</h3>
+        <ul>
+          <li><strong>Meseriaș:</strong> dispar pagina publică, lucrările din portofoliu, pozele, recenziile și cardul salvat; de pe card nu se mai ia nimic. Dacă ești șef de echipă, echipa se desființează.</li>
+          <li><strong>Client:</strong> numele, emailul și telefonul se șterg din cont. Lucrările și conversațiile nu dispar, fiindcă sunt și ale meseriașului cu care ai lucrat; numele tău nu mai apare pe ele.</li>
+          <li><strong>Ce păstrăm:</strong> evidențele de plată și facturare, jurnalele de securitate și ce e necesar pentru o dispută sau o raportare în curs, doar pe durata impusă de lege, apoi le ștergem.</li>
+        </ul>
+
+        {preparedAt && (
+          <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900">
+            <CheckCircle size={26} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <strong>Emailul este pregătit</strong>
+              <p className="mt-1 text-sm">Apasă „Trimite” în aplicația de email ca cererea să ajungă la Superfix. Pregătit la {new Date(preparedAt).toLocaleString('ro-RO')}.</p>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={submit} noValidate className="mt-7 space-y-5">
+          <Field
+            id="deletion-name"
+            label="Numele de pe cont"
+            autoComplete="name"
+            value={name}
+            error={errors.name}
+            onChange={event => { setName(event.target.value); setErrors(current => ({ ...current, name: '' })); }}
+          />
+          <Field
+            id="deletion-email"
+            type="email"
+            label="Emailul contului"
+            autoComplete="email"
+            value={email}
+            error={errors.email}
+            onChange={event => { setEmail(event.target.value); setErrors(current => ({ ...current, email: '' })); }}
+          />
+          <Field
+            id="deletion-phone"
+            type="tel"
+            label="Telefonul contului (dacă n-ai email)"
+            autoComplete="tel"
+            value={phone}
+            onChange={event => { setPhone(event.target.value); setErrors(current => ({ ...current, email: '' })); }}
+          />
+          <fieldset className="flex gap-3">
+            <legend className="mb-2 text-sm font-semibold text-graphite-soft">Ce fel de cont</legend>
+            {(['client', 'erou'] as const).map(value => (
+              <label key={value} className="sf-consent flex-1">
+                <input type="radio" name="deletion-role" className="mt-1 accent-[#e42e3f]" checked={role === value} onChange={() => setRole(value)} />
+                <span className="text-sm text-graphite">{value === 'erou' ? 'Meseriaș' : 'Client'}</span>
+              </label>
+            ))}
+          </fieldset>
+          <button
+            type="submit"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-graphite px-6 font-heading text-white transition-transform active:scale-[0.98]"
+          >
+            Deschide emailul cu cererea
+          </button>
         </form>
       </>
     </LegalLayout>

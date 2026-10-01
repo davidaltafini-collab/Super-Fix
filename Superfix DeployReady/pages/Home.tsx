@@ -389,7 +389,7 @@ export const Home: React.FC = () => {
                     </ClickSpark>
                   </Magnetic>
                   <span className="hidden sm:inline-flex items-center gap-1 text-white/70 font-semibold">
-                    <Star size={18} weight="fill" className="text-comic-yellow" aria-hidden="true" /> gratuit la start
+                    <Star size={18} weight="fill" className="text-comic-yellow" aria-hidden="true" /> 0 lei fără lucrări
                   </span>
                 </div>
               </div>

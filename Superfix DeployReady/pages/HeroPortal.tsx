@@ -536,7 +536,7 @@ export const HeroPortal: React.FC = () => {
           </div>
         </div>
 
-        {/* Listarea oprită este următorul lucru pe care trebuie să-l vadă eroul
+        {/* Cardul neverificat este următorul lucru pe care trebuie să-l vadă eroul
             după salut: înaintea mesajelor și a misiunilor care depind de ea. */}
         {hidden && (
           <Link
@@ -549,10 +549,10 @@ export const HeroPortal: React.FC = () => {
                 Nu apari încă în căutări
               </span>
               <span className="mt-1 block text-sm font-semibold leading-snug text-graphite-soft">
-                Profilul e gata, dar clienții nu-l pot vedea încă.
+                Verifică-ți cardul cu 0 lei. Plătești doar lunile în care ai lucrări.
               </span>
               <span className="mt-2 inline-flex items-center gap-1 font-heading text-xs uppercase tracking-[0.12em] text-super-red-dark sm:text-sm">
-                Activează listarea
+                Verifică cardul
                 <CaretRight size={16} weight="bold" aria-hidden="true" />
               </span>
             </span>

@@ -7,8 +7,9 @@ import {
   getPaymentAttempt,
   getSubscriptionStatus,
   isCardChange,
+  leiLabel,
   markCardChange,
-  onDate,
+  PaymentAttemptResult,
   PaymentOutcome,
   SubscriptionState,
 } from '../services/subscription';
@@ -55,6 +56,7 @@ export const SubscriptionResult: React.FC = () => {
   const [phase, setPhase] = useState<Phase>('waiting');
   const [state, setState] = useState<SubscriptionState | null>(null);
   const [outcome, setOutcome] = useState<PaymentOutcome | null>(null);
+  const [attempt, setAttempt] = useState<PaymentAttemptResult | null>(null);
   /* Omul a plecat de pe „Schimbă cardul", nu de pe activare. */
   const [cardChange] = useState(isCardChange);
   const startedAt = useRef(Date.now());
@@ -82,10 +84,11 @@ export const SubscriptionResult: React.FC = () => {
       if (!alive) return;
       setState(data);
       const result = attempt.found ? (attempt.outcome ?? null) : null;
+      setAttempt(attempt);
       setOutcome(result);
 
       /* `archived: false` pe cont e semnul cel mai tare că profilul e în căutări. */
-      const listed = !data.archived && (data.status === 'ACTIVE' || data.status === 'FREE');
+      const listed = data.listed && !data.archived;
 
       /* Verdictul vine din plata asta, nu din cont. Un cont deja activ (schimbare
          de card) sau deja restant (reluarea plății) își păstrează starea de
@@ -95,8 +98,8 @@ export const SubscriptionResult: React.FC = () => {
         if (result === 'ACTION_REQUIRED') { setPhase('action'); return; }
         if (result === 'REVIEW') { setPhase('review'); return; }
         if (result === 'PAID') {
-          /* Cardul a trecut. Fără gratuitate urmează imediat prima taxare, deci
-             „ești listat" îl spunem abia când contul chiar e listat. */
+          /* La verificarea cu 0 lei așteptăm și listarea; la o restanță, verdictul
+             tentativei este suficient pentru mesajul de plată reușită. */
           if (listed || attempt.type !== 'CARD_SETUP') { setPhase('done'); return; }
           if (data.status === 'ACTION_REQUIRED') { setPhase('action'); return; }
           if (data.status === 'PAYMENT_REVIEW') { setPhase('review'); return; }
@@ -119,6 +122,8 @@ export const SubscriptionResult: React.FC = () => {
     return () => { alive = false; window.clearTimeout(timer); };
   }, [search]);
 
+  const cardVerified = attempt?.type === 'CARD_SETUP' || attempt?.amountBani === 0 || (!attempt?.found && !!state?.listed);
+
   return (
     <div className="sub flex min-h-[70vh] items-center justify-center px-5 py-24 font-sans text-graphite">
       <Helmet>
@@ -130,9 +135,9 @@ export const SubscriptionResult: React.FC = () => {
         {phase === 'waiting' && (
           <>
             <div className="sub-wait" aria-hidden="true" />
-            <h1 className="mt-6 font-heading text-2xl font-bold text-graphite">Confirmăm plata</h1>
+            <h1 className="mt-6 font-heading text-2xl font-bold text-graphite">Confirmăm la bancă</h1>
             <p className="mt-3 leading-relaxed text-graphite-soft">
-              Durează câteva secunde. Nu închide pagina și nu plăti încă o dată —
+              Durează câteva secunde. Nu închide pagina și nu încerca încă o dată —
               așteptăm confirmarea de la bancă.
             </p>
           </>
@@ -144,27 +149,27 @@ export const SubscriptionResult: React.FC = () => {
               <CheckCircle size={30} weight="fill" aria-hidden="true" />
             </span>
             <h1 className="mt-5 font-heading text-2xl font-bold text-graphite">
-              {cardChange ? 'Cardul nou e salvat' : 'Gata, ești listat'}
+              {cardVerified
+                ? (cardChange ? 'Cardul nou e verificat' : 'Cardul e verificat')
+                : 'Restanța este plătită'}
             </h1>
             {cardChange ? (
               <p className="mt-3 leading-relaxed text-graphite-soft">
-                Plățile următoare se iau de pe {state?.cardMask || 'cardul nou'}
-                {state?.nextChargeAt ? `, începând cu ${onDate(state.nextChargeAt)}` : ''}.
-                Cardul vechi e scos din cont.
+                Cardul vechi a fost înlocuit. De acum folosim {state?.cardMask || 'cardul nou'}
+                pentru lunile în care ai lucrări. Pentru verificare nu s-a luat niciun ban.
+              </p>
+            ) : cardVerified ? (
+              <p className="mt-3 leading-relaxed text-graphite-soft">
+                Cardul e verificat. Apari acum la clienți; pentru verificare nu s-a luat niciun ban.
               </p>
             ) : (
               <p className="mt-3 leading-relaxed text-graphite-soft">
-                Profilul tău apare de acum în căutările clienților.
-                {state?.status === 'FREE'
-                  ? ` Ești gratuit până la ${onDate(state.subscriptionEndsAt)}.`
-                  : state?.nextChargeAt
-                    ? ` Următoarea plată: ${onDate(state.nextChargeAt)}.`
-                    : ''}
+                Am înregistrat plata lunii restante{attempt?.amountBani ? `, ${leiLabel(attempt.amountBani)}` : ''}. Dacă profilul era ascuns din cauza ei, reapare acum la clienți.
               </p>
             )}
             <div className="mt-7 flex flex-col gap-3">
               {cardChange ? (
-                <GlassLink to="/abonament" tone="red" full>Înapoi la abonament</GlassLink>
+                <GlassLink to="/abonament" tone="red" full>Înapoi la plată</GlassLink>
               ) : (
                 <>
                   <GlassLink to="/portal" tone="red" full>Mergi în portal</GlassLink>
@@ -201,20 +206,28 @@ export const SubscriptionResult: React.FC = () => {
               <XCircle size={30} weight="duotone" aria-hidden="true" />
             </span>
             <h1 className="mt-5 font-heading text-2xl font-bold text-graphite">
-              {cardChange
+              {state?.cardIssue === 'DUPLICATE'
+                ? 'Cardul este deja folosit pe alt cont'
+                : cardChange
                 ? (outcome === 'CANCELLED' ? 'Cardul nu s-a schimbat' : 'Cardul nou n-a fost acceptat')
-                : outcome === 'CANCELLED' ? 'Plata a fost anulată'
-                  : outcome === 'REVERSED' ? 'Plata a fost stornată'
-                    : 'Plata n-a trecut'}
+                : cardVerified
+                  ? (outcome === 'CANCELLED' ? 'Verificarea a fost anulată' : 'Cardul a fost refuzat')
+                  : outcome === 'CANCELLED' ? 'Plata a fost anulată'
+                    : outcome === 'REVERSED' ? 'Plata a fost stornată'
+                      : 'Plata n-a trecut'}
             </h1>
             <p className="mt-3 leading-relaxed text-graphite-soft">
-              {cardChange
+              {state?.cardIssue === 'DUPLICATE'
+                ? 'Fiecare meseriaș trebuie să-și verifice propriul card. Încearcă din nou cu un card care nu este legat de alt cont Superfix.'
+                : cardChange
                 ? 'Nu s-a schimbat nimic: plățile se iau în continuare de pe cardul vechi. Poți încerca din nou, cu alt card.'
                 : outcome === 'CANCELLED'
                   ? 'Nu s-a luat niciun ban și nu s-a salvat niciun card. Poți relua oricând.'
                   : outcome === 'REVERSED'
-                    ? 'Banii s-au întors la tine, iar listarea nu s-a activat. Poți încerca din nou.'
-                    : 'Banca n-a acceptat cardul, deci nu s-a luat niciun ban. Încearcă din nou, cu același card sau cu altul.'}
+                    ? 'Banii s-au întors pe card. Dacă era o restanță, ea rămâne de plătit.'
+                    : cardVerified
+                      ? 'Banca n-a acceptat cardul. Pentru verificare nu s-a luat niciun ban; încearcă din nou cu același card sau cu altul.'
+                      : 'Banca a refuzat plata lunii restante. Încearcă din nou sau schimbă cardul.'}
             </p>
             <div className="mt-7">
               <GlassLink to="/abonament" tone="red" full>Încearcă din nou</GlassLink>

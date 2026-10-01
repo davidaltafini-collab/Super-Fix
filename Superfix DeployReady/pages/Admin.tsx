@@ -25,6 +25,7 @@ import { netLog, onNetLog, clearNetLog, NetEntry } from '../services/netlog';
 import { thumb, full } from '../lib/img';
 import QRCode from 'qrcode';
 import { ReportsPanel, SanctionsPanel, FeedbackPanel, fetchModerationCounts } from './AdminModeration';
+import { AdminBillingPanel, BillingExemptControl } from './AdminBilling';
 
 import './admin.css';
 
@@ -121,7 +122,7 @@ export const Admin: React.FC = () => {
   const [searchResult, setSearchResult] = useState<InvestigateResult | null>(null);
   const [searchRan, setSearchRan] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'REPORTS' | 'SANCTIONS' | 'FEEDBACK' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'REPORTS' | 'SANCTIONS' | 'FEEDBACK' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'BILLING_MONTHS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
   // Raportări necitite și sugestii noi, pentru numerele din taburi (AdminModeration.tsx).
   const [moderationCounts, setModerationCounts] = useState({ reports: 0, feedback: 0 });
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
@@ -1470,6 +1471,7 @@ export const Admin: React.FC = () => {
     { key: 'FUNNEL', label: 'Pâlnie', count: funnelCounts ? (funnelCounts.APROBAT_FARA_ONBOARDING || 0) + (funnelCounts.ONBOARDED_FARA_CARD || 0) : 0 },
     { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
+    { key: 'BILLING_MONTHS', label: 'Luni', count: 0 },
     { key: 'SETTINGS', label: 'Setări', count: 0 },
     { key: 'LOGS', label: 'Jurnal', count: 0 },
     { key: 'CAUTARE', label: 'Căutare', count: 0 },
@@ -1732,6 +1734,9 @@ export const Admin: React.FC = () => {
         )}
         {activeTab === 'FEEDBACK' && (
           <FeedbackPanel onSessionExpired={expireAdminSession} onChanged={refreshModerationCounts} />
+        )}
+        {activeTab === 'BILLING_MONTHS' && (
+          <AdminBillingPanel onSessionExpired={expireAdminSession} />
         )}
 
         {/* ---------------- MISIUNI ---------------- */}
@@ -2726,6 +2731,13 @@ export const Admin: React.FC = () => {
                     <p className="adm-label">Descriere</p>
                     <p className="text-sm leading-relaxed text-graphite">{formData.description || '—'}</p>
                   </div>
+
+                  {selectedHero && (
+                    <BillingExemptControl
+                      heroId={selectedHero.id}
+                      initialExempt={Boolean((formData as any).billingAccount?.exempt ?? (formData as any).billingExempt)}
+                    />
+                  )}
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="adm-card p-4">
