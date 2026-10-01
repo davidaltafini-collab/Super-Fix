@@ -21,7 +21,7 @@ import '../components/form.css';
 
 /** „Luna cu lucrări de echipă: 25 lei + 15 lei pe om; de la a 3-a lucrare de echipă, 50 lei + 30 lei pe om.” */
 const teamPriceText = (s: SubscriptionState) =>
-  `Luna cu lucrări de echipă: ${leiLabel(s.prices.tier1Bani)} + ${leiLabel(s.prices.teamMemberBani)} pe om; de la a ${s.prices.teamBusyFrom}-a lucrare de echipă, ${leiLabel(s.prices.tier2Bani)} + ${leiLabel(s.prices.teamMemberBusyBani)} pe om.${s.free ? ' Lunile gratuite n-o acoperă.' : ''}`;
+  `Luna cu lucrări de echipă: ${leiLabel(s.prices.tier1Bani)} + ${leiLabel(s.prices.teamMemberBani)} pe om; de la a ${s.prices.teamBusyFrom}-a lucrare de echipă, ${leiLabel(s.prices.tier2Bani)} + ${leiLabel(s.prices.teamMemberBusyBani)} pe om.${s.free ? ' Lunile gratuite nu acoperă lucrările de echipă.' : ''}`;
 
 const benefits = (s: SubscriptionState) => [
   'Apari la clienții din zona ta și primești cereri',
@@ -65,9 +65,14 @@ function headline(s: SubscriptionState, monthName: string, allJobs: number, bloc
     label: 'Apari la clienți · bilet de aur', title: 'Nu plătești nimic', tone: 'live', icon: <Trophy weight="fill" />,
     body: `${capitalize(monthName)} până acum: ${jobsLabel(allJobs)}.`,
   };
+  // Și gratuite, și plătite (de echipă sau după lunile gratuite): spunem câte sunt gratuite, altfel
+  // „13 lucrări” lângă 25 lei pare greșit.
+  const freeJobs = s.current && s.current.jobs > 0 ? s.current.freeJobs : 0;
   return {
     label: 'Apari la clienți', title: monthTitle, tone: 'live', icon: <CheckCircle weight="fill" />,
-    body: allJobs === 1 ? 'O lucrare acceptată până acum.' : allJobs ? `${jobsLabel(allJobs)} acceptate până acum.` : 'Nicio lucrare încă luna asta.',
+    body: allJobs === 1 ? 'O lucrare acceptată până acum.'
+      : allJobs ? `${jobsLabel(allJobs)} acceptate până acum${freeJobs ? `, din care ${freeJobs === 1 ? 'una gratuită' : `${freeJobs} gratuite`}` : ''}.`
+      : 'Nicio lucrare încă luna asta.',
   };
 }
 
@@ -209,7 +214,7 @@ export const Subscription: React.FC = () => {
 
   const s = state;
   const { current, monthName, head, cardCta, freeActive } = view;
-  // Treapta aprinsă e cea socotită de server. Luna cu lucrări de echipă: pragul e a 3-a lucrare de echipă, fără zile gratuite.
+  // Treapta aprinsă e cea socotită de server. Luna cu lucrări de echipă: pragul e a 3-a lucrare de echipă.
   const teamMonth = (current?.teamJobs || 0) > 0;
   const busyFrom = teamMonth ? s.prices.teamBusyFrom : s.prices.busyFrom;
   const what = teamMonth ? ' de echipă' : ' lucrări';
@@ -259,7 +264,7 @@ export const Subscription: React.FC = () => {
               </div>
 
               {freeActive && s.free && <p className="sub-line"><Sparkle size={17} weight="fill" aria-hidden="true" /><span>{teamMonth
-                ? `Gratuit până pe ${dayLabel(s.free.until)}, dar nu și luna cu lucrări de echipă: ea se plătește întreagă.`
+                ? `Gratuit până pe ${dayLabel(s.free.until)}. Lucrările de echipă se plătesc și până atunci.`
                 : `Gratuit până pe ${dayLabel(s.free.until)}: lucrările de până atunci nu se plătesc.`}</span></p>}
               {s.team && <p className="sub-line"><UsersThree size={18} weight="fill" aria-hidden="true" /><span>{current.teamBani > 0
                 ? `Echipa: ${current.teamMembers === 1 ? 'un om' : `${current.teamMembers} oameni`} × ${leiLabel(current.teamBani / Math.max(1, current.teamMembers))} = ${leiLabel(current.teamBani)} luna asta.`
