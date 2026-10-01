@@ -19,9 +19,14 @@ import { Skel, SkeletonPage } from '../components/Loader';
 import './subscription.css';
 import '../components/form.css';
 
+/** „Luna cu lucrări de echipă: 25 lei + 15 lei pe om; de la a 3-a lucrare de echipă, 50 lei + 30 lei pe om.” */
+const teamPriceText = (s: SubscriptionState) =>
+  `Luna cu lucrări de echipă: ${leiLabel(s.prices.tier1Bani)} + ${leiLabel(s.prices.teamMemberBani)} pe om; de la a ${s.prices.teamBusyFrom}-a lucrare de echipă, ${leiLabel(s.prices.tier2Bani)} + ${leiLabel(s.prices.teamMemberBusyBani)} pe om.${s.free ? ' Lunile gratuite n-o acoperă.' : ''}`;
+
 const benefits = (s: SubscriptionState) => [
   'Apari la clienții din zona ta și primești cereri',
   `Plătești doar lunile cu lucrări: ${leiLabel(s.prices.tier1Bani)} pentru 1–${s.prices.busyFrom - 1}, ${leiLabel(s.prices.tier2Bani)} de la a ${s.prices.busyFrom}-a`,
+  ...(s.team ? [teamPriceText(s)] : []),
   'Luna fără lucrări nu costă nimic',
 ];
 
@@ -204,10 +209,15 @@ export const Subscription: React.FC = () => {
 
   const s = state;
   const { current, monthName, head, cardCta, freeActive } = view;
+  // Treapta aprinsă e cea socotită de server. Luna cu lucrări de echipă: pragul e a 3-a lucrare de echipă, fără zile gratuite.
+  const teamMonth = (current?.teamJobs || 0) > 0;
+  const busyFrom = teamMonth ? s.prices.teamBusyFrom : s.prices.busyFrom;
+  const what = teamMonth ? ' de echipă' : ' lucrări';
+  const tierNow = current?.tierBani || 0;
   const tiers = [
-    { price: '0 lei', caption: 'fără lucrări', on: (current?.jobs || 0) === 0 || freeActive },
-    { price: leiLabel(s.prices.tier1Bani), caption: `1–${s.prices.busyFrom - 1} lucrări`, on: !freeActive && !!current?.jobs && current.jobs < s.prices.busyFrom },
-    { price: leiLabel(s.prices.tier2Bani), caption: `de la ${s.prices.busyFrom}`, on: !freeActive && (current?.jobs || 0) >= s.prices.busyFrom },
+    { price: '0 lei', caption: 'fără lucrări', on: tierNow === 0 },
+    { price: leiLabel(s.prices.tier1Bani), caption: busyFrom - 1 === 1 ? `1${teamMonth ? what : ' lucrare'}` : `1–${busyFrom - 1}${what}`, on: tierNow === s.prices.tier1Bani },
+    { price: leiLabel(s.prices.tier2Bani), caption: teamMonth ? `${busyFrom}+${what}` : `de la ${busyFrom}`, on: tierNow === s.prices.tier2Bani },
   ];
 
   return (
@@ -248,10 +258,12 @@ export const Subscription: React.FC = () => {
                 ))}
               </div>
 
-              {freeActive && s.free && <p className="sub-line"><Sparkle size={17} weight="fill" aria-hidden="true" /><span>Gratuit până pe {dayLabel(s.free.until)}: lucrările de până atunci nu se plătesc.</span></p>}
+              {freeActive && s.free && <p className="sub-line"><Sparkle size={17} weight="fill" aria-hidden="true" /><span>{teamMonth
+                ? `Gratuit până pe ${dayLabel(s.free.until)}, dar nu și luna cu lucrări de echipă: ea se plătește întreagă.`
+                : `Gratuit până pe ${dayLabel(s.free.until)}: lucrările de până atunci nu se plătesc.`}</span></p>}
               {s.team && <p className="sub-line"><UsersThree size={18} weight="fill" aria-hidden="true" /><span>{current.teamBani > 0
-                ? `Echipa: ${current.teamMembers === 1 ? 'un om' : `${current.teamMembers} oameni`} × ${leiLabel(s.prices.teamMemberBani)} = ${leiLabel(current.teamBani)} luna asta.`
-                : `Echipa: ${leiLabel(s.prices.teamMemberBani)} pe omul verificat (${s.team.verifiedMembers} acum), doar în lunile cu lucrări de echipă.`}</span></p>}
+                ? `Echipa: ${current.teamMembers === 1 ? 'un om' : `${current.teamMembers} oameni`} × ${leiLabel(current.teamBani / Math.max(1, current.teamMembers))} = ${leiLabel(current.teamBani)} luna asta.`
+                : `${teamPriceText(s)} Acum ai ${s.team.verifiedMembers === 1 ? 'un om verificat' : `${s.team.verifiedMembers} oameni verificați`}.`}</span></p>}
               <p className="sub-line"><CreditCard size={18} weight="fill" aria-hidden="true" /><span>{current.totalBani > 0
                 ? `Îi luăm pe ${dayLabel(current.closesAt)} de pe cardul ${s.cardMask || 'salvat'}.`
                 : `Dacă rămâne așa, ${monthName} nu costă nimic.`}</span></p>

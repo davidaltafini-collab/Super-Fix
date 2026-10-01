@@ -8,6 +8,8 @@ export const FALLBACK_PRICES: BillingPrices = {
   tier2Bani: 5000,
   busyFrom: 11,
   teamMemberBani: 1500,
+  teamBusyFrom: 3,
+  teamMemberBusyBani: 3000,
 };
 
 export interface BillingPrices {
@@ -15,6 +17,9 @@ export interface BillingPrices {
   tier2Bani: number;
   busyFrom: number;
   teamMemberBani: number;
+  /** Luna cu lucrări de echipă: de la a câta lucrare se dublează tot (treapta titularului și oamenii). */
+  teamBusyFrom: number;
+  teamMemberBusyBani: number;
 }
 
 export type SubscriptionStatus =
@@ -50,6 +55,7 @@ export interface PriceStep {
   beforeBani: number;
   afterBani: number;
   nth: number;
+  team?: boolean;
 }
 
 export interface SubscriptionState {
@@ -65,6 +71,7 @@ export interface SubscriptionState {
   prices: BillingPrices;
   current: BillingMonth | null;
   nextJobStep: PriceStep | null;
+  nextTeamJobStep?: PriceStep | null;
   free: { from: string; until: string; active: boolean } | null;
   team: { verifiedMembers: number } | null;
   unpaid: BillingMonth[];
