@@ -114,9 +114,9 @@ export const Pricing: React.FC = () => (
   <LegalLayout title="Serviciul Superfix și prețurile" lastUpdated={UPDATED_AT}>
     <h3>Serviciul comercializat</h3>
     <p>
-      <OperatorIdentity /> comercializează către meseriași serviciul digital de
-      publicare și administrare a unui profil profesional și de primire a cererilor
-      de lucrări în platforma Superfix. Serviciul include:
+      <OperatorIdentity /> oferă meseriașilor intermedierea lucrărilor cu clienții prin
+      platforma Superfix și percepe o taxă de intermediere doar pentru lucrările preluate
+      prin platformă, calculată lunar ca mai jos. Fără plată separată, meseriașul are:
     </p>
     <ul>
       <li>profilul profesional cu nume de prezentare, meserie, descriere, fotografii, videoclip și zone de lucru;</li>
@@ -145,7 +145,7 @@ export const Pricing: React.FC = () => (
 
     <h3>Activarea și livrarea serviciului</h3>
     <p>
-      Serviciul este furnizat exclusiv digital. Profilul apare la clienți după
+      Intermedierea se face prin platformă. Profilul apare la clienți după
       aprobarea contului și verificarea cardului. Nu se livrează bunuri fizice și
       nu există taxe de transport.
     </p>
@@ -176,12 +176,12 @@ export const Terms: React.FC = () => (
       <li>Eroul răspunde pentru autorizațiile necesare, calitatea lucrării, garanții și obligațiile fiscale proprii.</li>
       <li>Superfix poate modera profiluri și poate oferi instrumente de comunicare, dar nu devine parte în contractul lucrării.</li>
     </ul>
-    <p>Serviciul comercializat de <OperatorIdentity /> este publicarea și administrarea profilului profesional al Eroului în platformă și primirea cererilor de lucrări, împreună cu instrumentele digitale aferente. Superfix nu vinde și nu facturează lucrarea executată de Erou.</p>
+    <p>Superfix este o platformă de intermediere între Clienți și Eroi. Profilul, primirea cererilor și instrumentele din aplicație sunt puse la dispoziția Eroului fără plată. <OperatorIdentity /> percepe Eroului doar o taxă de intermediere pentru lucrările pe care le preia prin platformă și le execută la Client. Superfix nu vinde și nu facturează lucrarea executată de Erou.</p>
 
     <h3>3. Plăți: plata pe lucrări a Eroului</h3>
     <ul>
       <li>Utilizarea platformei de către Clienți este gratuită. Superfix nu încasează prețul lucrărilor și nu procesează plățile dintre Client și Erou; acestea se fac direct între ei, în afara platformei.</li>
-      <li><OperatorIdentity /> comercializează și facturează exclusiv serviciul digital oferit Eroului. Prețul se calculează lunar, după numărul de lucrări din luna calendaristică (ora României): 0 lucrări — <strong>0,00 RON</strong>; 1–10 lucrări — <strong>25,00 RON</strong>; 11 sau mai multe — <strong>50,00 RON</strong>. Prețurile sunt totale, în RON (<Link to="/preturi">Serviciul și prețurile</Link>).</li>
+      <li><OperatorIdentity /> facturează Eroului exclusiv taxa de intermediere pentru lucrările preluate prin platformă. Taxa se calculează lunar, după numărul de lucrări din luna calendaristică (ora României): 0 lucrări — <strong>0,00 RON</strong>; 1–10 lucrări — <strong>25,00 RON</strong>; 11 sau mai multe — <strong>50,00 RON</strong>. Prețurile sunt totale, în RON (<Link to="/preturi">Serviciul și prețurile</Link>).</li>
       <li>Lucrare înseamnă o cerere acceptată de Erou în luna respectivă și neanulată de Client. Cererile refuzate și cele anulate de Client nu se numără; o lucrare anulată la cererea Eroului, după ce a acceptat-o, se numără.</li>
       <li>Echipe: în luna în care echipa are cel puțin o lucrare, titularul plătește <strong>25,00 RON</strong> plus <strong>15,00 RON</strong> pentru fiecare membru cu cardul verificat; de la a 3-a lucrare a echipei din lună, <strong>50,00 RON</strong> plus <strong>30,00 RON</strong> pentru fiecare membru. Lunile gratuite nu se aplică lucrărilor echipei. Lucrările echipei se numără la titular. Membrii nu plătesc.</li>
       <li>Intrarea în platformă se face prin verificarea cardului cu 0,00 RON, în pagina securizată NETOPIA Payments. Cardul verificat este condiția ca profilul să apară la clienți. Superfix păstrează doar tokenul tehnic primit și date mascate, nu numărul complet al cardului sau codul CVV.</li>
@@ -191,7 +191,7 @@ export const Terms: React.FC = () => (
       <li>Superfix poate acorda, la alegerea sa, gratuități sau scutiri individuale de plată.</li>
     </ul>
 
-    <h3 id="livrarea-serviciului" className="scroll-mt-28">4. Livrarea și activarea serviciului digital</h3>
+    <h3 id="livrarea-serviciului" className="scroll-mt-28">4. Livrarea serviciului și activarea profilului</h3>
     <ul>
       <li>Nu se livrează bunuri fizice și nu există costuri de transport.</li>
       <li>Profilul apare la clienți după aprobarea contului și verificarea cardului. Confirmarea este afișată în cont.</li>
@@ -293,7 +293,7 @@ export const GDPR: React.FC = () => (
   </LegalLayout>
 );
 
-const WITHDRAWAL_DECLARATION = 'Vă informez că doresc retragerea din contractul pentru serviciul digital Superfix pentru meseriași, identificat mai jos.';
+const WITHDRAWAL_DECLARATION = 'Vă informez că doresc retragerea din contractul de intermediere Superfix pentru meseriași, identificat mai jos.';
 
 export const Withdrawal: React.FC = () => {
   const [name, setName] = useState('');
