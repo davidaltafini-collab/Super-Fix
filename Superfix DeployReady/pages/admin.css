@@ -324,6 +324,23 @@ textarea.adm-input { min-height: 5rem; padding: 0.6rem 0.85rem; line-height: 1.6
   backdrop-filter: blur(8px);
 }
 
+/* Aceeași pastilă ca nota de încredere, jos pe poză: cine nu apare la clienți și cine are bilet de aur. */
+.adm-hero__hidden,
+.adm-hero__gold {
+  position: absolute;
+  left: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(27, 31, 37, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.adm-hero__hidden { bottom: 0.5rem; }
+.adm-hero__gold { top: 0.5rem; }
+
 /* ---------------- fereastra mare ---------------- */
 
 .adm-veil {

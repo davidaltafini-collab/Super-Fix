@@ -42,6 +42,10 @@ export interface Hero {
     imageUrl?: string;
     phone?: string;
     email?: string;
+    /** Doar în lista adminului (`/admin/heroes`): apare sau nu la clienți, și starea plății. */
+    listed?: boolean;
+    archived?: boolean;
+    billingAccount?: { status: string; exempt: boolean } | null;
     
     powers?: string;
     location?: string;

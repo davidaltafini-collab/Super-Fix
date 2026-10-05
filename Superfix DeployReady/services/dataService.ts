@@ -479,6 +479,10 @@ export const getAllRequests = async (): Promise<ServiceRequest[]> => {
    ETag-ul nu e în `Access-Control-Expose-Headers`, deci JavaScript nu-l vede. */
 export const getAllHeroesAdmin = (): Promise<Hero[]> => dedupe(CacheKey.heroes, async () => {
     try {
+        // Toți meseriașii, și cei care nu apar la clienți (fără card verificat): lista publică îi are doar pe
+        // cei listați și nu dă emailul și telefonul. Fără sesiune de admin (401) rămâne lista publică.
+        const admin = await fetch(`${API_URL}/admin/heroes`, { headers: { ...getAuthHeader() }, cache: 'no-store' });
+        if (admin.ok) return cacheSet(CacheKey.heroes, await admin.json() as Hero[]);
         const res = await fetch(`${API_URL}/heroes`, { cache: 'no-cache' });
         if (!res.ok) return cacheGet<Hero[]>(CacheKey.heroes) ?? [];
         return cacheSet(CacheKey.heroes, await res.json() as Hero[]);

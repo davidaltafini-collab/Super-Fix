@@ -1713,6 +1713,8 @@ export const Admin: React.FC = () => {
                     <div className="adm-hero__pic">
                       <img src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 420, { square: true })} alt="" loading="lazy" />
                       <span className="adm-hero__trust">{hero.trustFactor}</span>
+                      {hero.listed === false && <span className="adm-hero__hidden">Nu apare la clienți</span>}
+                      {hero.billingAccount?.exempt && <span className="adm-hero__gold">Bilet de aur</span>}
                     </div>
                     <div className="p-3">
                       <p className="truncate font-heading text-base leading-tight text-graphite">{hero.alias}</p>
