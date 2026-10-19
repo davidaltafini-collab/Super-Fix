@@ -245,6 +245,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   NO_SHOW: 'Nu a venit / a anulat fără motiv',
   POOR_QUALITY: 'Lucrare de proastă calitate',
   OTHER: 'Altceva',
+  // Pusă automat la verificarea cardului: cardul are aceleași cifre ca al altui cont (server, `flagReusedCard`).
+  CARD_REUSED: 'Card folosit și pe alt cont (ridici pauza dacă e alt om)',
 };
 const categoryLabel = (key: string | null | undefined) => (key ? CATEGORY_LABELS[key] ?? key : '—');
 
