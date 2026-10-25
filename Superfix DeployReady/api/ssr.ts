@@ -25,6 +25,9 @@
    Telefonul nu e public și nu apare nicăieri aici.
    ============================================================ */
 
+import { LEGAL, legalIdentityParts } from '../config/legal';
+import { PRIVACY_BLOCKS, PRIVACY_TITLE, PRIVACY_UPDATED_AT, type PolicyInline } from '../lib/privacyPolicy';
+
 export const config = { runtime: 'edge' };
 
 const SITE = 'https://super-fix.ro';
@@ -392,6 +395,39 @@ function missingPage(): { head: Head; body: string } {
   };
 }
 
+/* Politica de confidențialitate: Google Play o citește fără să ruleze aplicația (respingerea din 25.10.2026). */
+function policyInline(parts: PolicyInline[]): string {
+  return parts.map(part => {
+    if (typeof part === 'string') return esc(part);
+    if ('strong' in part) return `<strong>${esc(part.strong)}</strong>`;
+    if ('email' in part) return `<a href="mailto:${esc(LEGAL.supportEmail)}">${esc(LEGAL.supportEmail)}</a>`;
+    return `<strong>${esc(LEGAL.name)}</strong>${legalIdentityParts.length ? esc(`, ${legalIdentityParts.join(', ')}`) : ''}`;
+  }).join('');
+}
+
+function privacyPage(): { head: Head; body: string } {
+  const body = PRIVACY_BLOCKS.map(block => {
+    if (block.kind === 'h') return `<h2>${esc(block.text)}</h2>`;
+    if (block.kind === 'p') return `<p>${policyInline(block.parts)}</p>`;
+    return `<ul>${block.items.map(parts => `<li>${policyInline(parts)}</li>`).join('')}</ul>`;
+  }).join('\n');
+  const description = `Informații legale Superfix: ${PRIVACY_TITLE}. Ultima actualizare: ${PRIVACY_UPDATED_AT}.`;
+  return {
+    head: {
+      title: `${PRIVACY_TITLE} | Superfix`,
+      description,
+      canonical: `${SITE}/privacy`,
+      og: { title: `${PRIVACY_TITLE} | Superfix`, description, url: `${SITE}/privacy`, type: 'website' },
+    },
+    body: `
+<div class="ssr">
+  <h1>${esc(PRIVACY_TITLE)}</h1>
+  <p class="ssr-muted">Ultima actualizare: ${esc(PRIVACY_UPDATED_AT)}</p>
+  ${body}
+</div>`,
+  };
+}
+
 /* ---------- șablonul și răspunsul ---------- */
 
 /* `index.html` din build (numele scripturilor au hash, deci nu se poate scrie de
@@ -502,6 +538,8 @@ export default async function handler(request: Request): Promise<Response> {
     const view = landingPage(result.data, path, page);
     return htmlResponse(render(template, view, { kind: 'landing', path, page, data: result.data }), 200, CACHE_OK);
   }
+
+  if (route === 'privacy') return htmlResponse(render(template, privacyPage(), null), 200, 'public, s-maxage=3600');
 
   return missing();
 }

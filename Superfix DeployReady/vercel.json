@@ -15,6 +15,7 @@
     { "source": "/meserii/:a/:b/:c", "destination": "/api/ssr?__r=landing&__p=/meserii/:a/:b/:c" },
     { "source": "/zone/:a", "destination": "/api/ssr?__r=landing&__p=/zone/:a" },
     { "source": "/zone/:a/:b", "destination": "/api/ssr?__r=landing&__p=/zone/:a/:b" },
+    { "source": "/privacy", "destination": "/api/ssr?__r=privacy" },
     { "source": "/og/:path*", "destination": "/api/og?p=:path*" },
     {
       "source": "/((?!api/).*)",

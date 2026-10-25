@@ -1,4 +1,5 @@
-const env = import.meta.env;
+// `?? {}`: fișierul îl citește și funcția edge (api/ssr.ts, politica de confidențialitate), unde nu există `import.meta.env`.
+const env: Record<string, string | undefined> = import.meta.env ?? {};
 
 export const LEGAL = {
   name: env.VITE_COMPANY_LEGAL_NAME || 'ALTMAR GROUP SRL',

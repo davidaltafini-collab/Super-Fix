@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckCircle } from '@phosphor-icons/react';
 import { LEGAL, legalIdentityParts } from '../config/legal';
 import { Field } from '../components/Field';
+import { PRIVACY_BLOCKS, PRIVACY_TITLE, PRIVACY_UPDATED_AT, type PolicyInline } from '../lib/privacyPolicy';
 
 import './legal.css';
 import '../components/form.css';
@@ -238,28 +239,30 @@ export const Terms: React.FC = () => (
   </LegalLayout>
 );
 
+/* Textul vine din lib/privacyPolicy.ts, aceeași sursă cu HTML-ul de pe server (api/ssr.ts);
+   aici doar îl punem în aceleași etichete ca restul documentelor. */
+const PolicyText: React.FC<{ parts: PolicyInline[] }> = ({ parts }) => (
+  <>
+    {parts.map((part, i) => {
+      if (typeof part === 'string') return <React.Fragment key={i}>{part}</React.Fragment>;
+      if ('strong' in part) return <strong key={i}>{part.strong}</strong>;
+      if ('email' in part) return <a key={i} href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>;
+      return <OperatorIdentity key={i} />;
+    })}
+  </>
+);
+
 export const Privacy: React.FC = () => (
-  <LegalLayout title="Politica de Confidențialitate (GDPR)" lastUpdated={UPDATED_AT}>
-    <h3>1. Operatorul de date</h3>
-    <p>Datele sunt prelucrate de <OperatorIdentity />. Solicitările privind datele personale pot fi trimise la <a href={`mailto:${LEGAL.supportEmail}`}>{LEGAL.supportEmail}</a>.</p>
-
-    <h3>2. Datele prelucrate și scopurile</h3>
-    <ul>
-      <li><strong>Identitate și contact:</strong> nume, email, telefon și adresă, pentru cont, solicitări și comunicarea dintre părți.</li>
-      <li><strong>Profil profesional:</strong> specializări, zone, descriere, tarife și materiale de profil, pentru publicarea și administrarea profilului Eroului.</li>
-      <li><strong>Cereri, mesaje și imagini:</strong> pentru executarea solicitărilor, conversații, notificări, suport și soluționarea incidentelor.</li>
-      <li><strong>Securitate și dispozitiv:</strong> sesiuni, jurnale de audit și tokenuri push, pentru autentificare, notificări și prevenirea fraudei.</li>
-      <li><strong>Facturare:</strong> starea plăților, identificatori de tranzacție, token tehnic și date mascate ale cardului. NETOPIA Payments colectează direct datele complete ale cardului; Superfix nu le stochează.</li>
-      <li><strong>Recruiteri:</strong> codul, atribuirile, comisioanele și IBAN-ul necesar plății. IBAN-ul este criptat în baza de date și este disponibil numai persoanelor autorizate pentru operațiuni.</li>
-      <li><strong>Retrageri și reclamații:</strong> nume, email, identificatorul și data contractului, conținutul declarației, data și ora transmiterii, pentru înregistrarea cererii, confirmare și soluționare.</li>
-    </ul>
-
-    <h3>3. Temei, furnizori și păstrare</h3>
-    <p>Prelucrarea se bazează, după caz, pe executarea serviciului solicitat, obligații legale, interes legitim pentru securitate și prevenirea fraudei sau consimțământ. Folosim furnizori de găzduire, plăți, email și notificări numai cât este necesar funcționării serviciului.</p>
-    <p>Datele de cont sunt păstrate cât timp contul este activ. La ștergere, datele operaționale sunt șterse sau anonimizate, iar evidențele de plată, comision, securitate și audit pot fi păstrate atât cât impun obligațiile legale ori apărarea unui drept.</p>
-
-    <h3>4. Drepturile tale</h3>
-    <p>Ai dreptul la informare, acces, rectificare, ștergere, restricționare, opoziție și portabilitate, în condițiile legii. Poți depune și o plângere la autoritatea competentă pentru protecția datelor.</p>
+  <LegalLayout title={PRIVACY_TITLE} lastUpdated={PRIVACY_UPDATED_AT}>
+    {PRIVACY_BLOCKS.map((block, i) => {
+      if (block.kind === 'h') return <h3 key={i}>{block.text}</h3>;
+      if (block.kind === 'p') return <p key={i}><PolicyText parts={block.parts} /></p>;
+      return (
+        <ul key={i}>
+          {block.items.map((parts, j) => <li key={j}><PolicyText parts={parts} /></li>)}
+        </ul>
+      );
+    })}
   </LegalLayout>
 );
 
