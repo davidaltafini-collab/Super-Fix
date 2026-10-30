@@ -30,6 +30,13 @@ import {
 
 type Role = 'CLIENT' | 'HERO' | 'RECRUITER';
 
+// Același om poate avea cont de client și de erou, cu câte un mail: confirmarea spune care s-a schimbat (31.10).
+const ROLE_NAME: Record<Role, string> = {
+  CLIENT: 'contului de client',
+  HERO: 'contului de erou',
+  RECRUITER: 'contului de recruiter',
+};
+
 const ROLE_HOME: Record<Role, string> = {
   CLIENT: '/',
   HERO: '/portal',
@@ -163,7 +170,7 @@ export const PasswordReset: React.FC = () => {
               <CheckCircle size={30} weight="fill" aria-hidden="true" />
             </span>
             <h2 className="mt-5 font-heading text-xl font-bold text-graphite">
-              {done === 'sent' ? 'Am trimis, dacă era unde trebuie' : 'Gata, parola e schimbată'}
+              {done === 'sent' ? 'Am trimis, dacă era unde trebuie' : `Gata, parola ${ROLE_NAME[role]} e schimbată`}
             </h2>
             <p className="mt-3 leading-relaxed text-graphite-soft">
               {done === 'sent'
