@@ -5,10 +5,10 @@ import { ArrowLeft, CheckCircle, Key, PaperPlaneTilt } from '@phosphor-icons/rea
 
 import { API_URL } from '../config/api';
 import { apiFailure, failureMessage } from '../lib/apiError';
-import { Field, FieldPassword, FieldSelect } from '../components/Field';
+import { Field, FieldPassword } from '../components/Field';
 import { GlassButton } from '../components/Button';
 import {
-  checkAll, first, required, email as emailCheck, strongPassword, sameAs,
+  checkAll, first, required, strongPassword, sameAs,
   firstBad, focusField,
 } from '../lib/validate';
 
@@ -17,6 +17,11 @@ import {
 
    Pagina are două fețe, alese de link, nu de om: cu `?token=` în adresă ești
    deja verificat și pui parola nouă; fără el, ceri linkul.
+
+   Omul scrie emailul sau numele de utilizator, cum intră în cont; serverul
+   caută contul peste tot (client, erou, recruiter). Rolul din link spune doar
+   unde te întoarce „Înapoi” (31.10: alegerea „Ce fel de cont ai?” trimitea
+   eroul pe „client” și mailul nu mai pleca).
 
    Nu spunem niciodată dacă adresa există sau nu în baza de date. Un mesaj de
    tipul „nu avem contul ăsta" e o unealtă bună pentru cine vrea să afle cine e
@@ -39,7 +44,7 @@ export const PasswordReset: React.FC = () => {
   const [role, setRole] = useState<Role>(
     asked === 'HERO' || asked === 'RECRUITER' ? asked : 'CLIENT',
   );
-  const [form, setForm] = useState({ email: '', password: '', confirm: '' });
+  const [form, setForm] = useState({ email: params.get('id') || '', password: '', confirm: '' });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<'sent' | 'changed' | null>(null);
@@ -56,7 +61,7 @@ export const PasswordReset: React.FC = () => {
     event.preventDefault();
 
     const found = checkAll(form, {
-      email: first(required('Scrie adresa cu care ai contul.'), emailCheck()),
+      email: required('Scrie emailul sau numele de utilizator.'),
     });
     if (found.email) {
       setErrors(found);
@@ -70,7 +75,7 @@ export const PasswordReset: React.FC = () => {
       const response = await fetch(`${API_URL}/auth/password-reset/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email.trim(), role }),
+        body: JSON.stringify({ identifier: form.email.trim() }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -115,6 +120,7 @@ export const PasswordReset: React.FC = () => {
         throw new Error(failureMessage(apiFailure(response, payload), payload.message || 'Linkul nu mai e bun. Cere altul, durează un minut.'));
       }
       setForm({ email: '', password: '', confirm: '' });
+      if (payload.role === 'CLIENT' || payload.role === 'HERO' || payload.role === 'RECRUITER') setRole(payload.role);
       setDone('changed');
     } catch (reason) {
       setServerError(reason instanceof Error ? reason.message : 'Eroare de conexiune.');
@@ -161,7 +167,7 @@ export const PasswordReset: React.FC = () => {
             </h2>
             <p className="mt-3 leading-relaxed text-graphite-soft">
               {done === 'sent'
-                ? 'Dacă adresa are un cont la noi, linkul e deja pe drum. Verifică și în spam — uneori acolo aterizează.'
+                ? 'Dacă ai un cont la noi, linkul e deja pe drum, la emailul contului. Verifică și în spam — uneori acolo aterizează.'
                 : 'Poți intra în cont cu parola nouă. Sesiunile vechi s-au închis toate.'}
             </p>
             <div className="mt-7">
@@ -207,23 +213,15 @@ export const PasswordReset: React.FC = () => {
         ) : (
           /* ---------------- CEREREA LINKULUI ---------------- */
           <form onSubmit={askForLink} noValidate className="sf-glass mt-8 space-y-5 rounded-[28px] p-6 sm:p-7">
-            <FieldSelect
-              id="pr-role"
-              label="Ce fel de cont ai?"
-              value={role}
-              onChange={e => setRole(e.target.value as Role)}
-            >
-              <option value="CLIENT">Cont de client</option>
-              <option value="HERO">Cont de erou</option>
-              <option value="RECRUITER">Cont de recruiter</option>
-            </FieldSelect>
-
             <Field
               id="pr-email"
-              label="Emailul contului"
-              type="email"
+              label="Email sau nume de utilizator"
+              type="text"
               inputMode="email"
-              autoComplete="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="ion@exemplu.ro"
               value={form.email}
               error={errors.email}
