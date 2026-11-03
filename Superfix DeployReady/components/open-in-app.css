@@ -7,7 +7,7 @@
   position: fixed;
   inset: 0;
   z-index: 210;
-  background: rgba(20, 23, 28, 0.42);
+  background: rgba(20, 23, 28, 0.58);
   animation: oia-fade 320ms ease 700ms both;
 }
 
@@ -23,22 +23,13 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0.6rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+  padding: 1.75rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
   border-radius: 28px 28px 0 0;
   background: linear-gradient(170deg, #ffffff, #eef2f8);
   box-shadow: 0 -18px 50px -20px rgba(20, 23, 28, 0.45);
   animation: oia-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
 }
 
-/* Mânerul de sus: arată că e o foaie, nu o pagină. */
-.oia::before {
-  content: '';
-  width: 2.5rem;
-  height: 0.3rem;
-  border-radius: 999px;
-  background: rgba(46, 51, 59, 0.18);
-  margin-bottom: 1.4rem;
-}
 
 @keyframes oia-in {
   from { transform: translateY(100%); }
@@ -118,4 +109,24 @@
 @media (prefers-reduced-motion: reduce) {
   .oia, .oia-scrim { animation: none; }
   .oia__btn { transition: none; }
+}
+
+/* Codul din link (invitație, recruiter, echipă): la vedere, ca omul să știe ce primește. */
+.oia__code {
+  margin-top: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: hsl(355 66% 42%);
+  background: hsl(355 74% 55% / 0.1);
+}
+
+.oia__hint {
+  margin-top: 0.55rem;
+  max-width: 21rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #5b6370;
 }

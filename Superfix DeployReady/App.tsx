@@ -177,6 +177,9 @@ const App: React.FC = () => {
               <Suspense fallback={<VeilHold />}>
               <Routes>
                 <Route path="/" element={<Home />} />
+                {/* Linkul de intrare și invitația în echipă (`/app?echipa=…`, `/app?c=…`) sunt ale aplicației; fără ea,
+                    site-ul arată Acasă (nu „pagina nu există”), iar „Continuă în aplicație” duce linkul mai departe. */}
+                <Route path="/app" element={<Home />} />
                 <Route path="/heroes" element={<HeroesList />} />
                 <Route path="/hero/:slug" element={<HeroProfile />} />
                 <Route path="/hero/:slug/origine" element={<HeroOrigin />} />
