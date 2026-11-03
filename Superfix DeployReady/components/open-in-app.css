@@ -1,61 +1,76 @@
 /* ============================================================
-   „Continuă în aplicația Superfix". Aceeași sticlă, aceleași colțuri și
-   același buton roșu ca banda de cookies (`cookie.css`): pe site e o singură
-   formă pentru ce vine de jos.
+   „Continuă în aplicația Superfix" — foaia de jos, ca standardul: fundal
+   întunecat, iconița mare pe mijloc, butonul roșu ca banda de cookies.
    ============================================================ */
+
+.oia-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: rgba(20, 23, 28, 0.42);
+  animation: oia-fade 320ms ease 700ms both;
+}
 
 .oia {
   position: fixed;
-  z-index: 200;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 211;
+  left: 0;
+  right: 0;
+  bottom: 0;
   margin-inline: auto;
-  max-width: 28rem;
-  border-radius: 24px;
-  padding: 1.1rem 1.15rem 0.6rem;
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(233, 238, 246, 0.84));
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 26px 54px -22px rgba(46, 51, 59, 0.5),
-    0 6px 16px -8px rgba(46, 51, 59, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  animation: oia-in 460ms cubic-bezier(0.22, 1, 0.36, 1) 900ms both;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.6rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(170deg, #ffffff, #eef2f8);
+  box-shadow: 0 -18px 50px -20px rgba(20, 23, 28, 0.45);
+  animation: oia-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
+}
+
+/* Mânerul de sus: arată că e o foaie, nu o pagină. */
+.oia::before {
+  content: '';
+  width: 2.5rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgba(46, 51, 59, 0.18);
+  margin-bottom: 1.4rem;
 }
 
 @keyframes oia-in {
-  from { opacity: 0; transform: translateY(18px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(100%); }
+  to { transform: none; }
 }
 
-.oia__row {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
+@keyframes oia-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .oia__icon {
-  flex-shrink: 0;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.8rem;
-  box-shadow: 0 6px 14px -8px rgba(46, 51, 59, 0.45);
+  width: 5.25rem;
+  height: 5.25rem;
+  border-radius: 1.35rem;
+  box-shadow:
+    0 16px 30px -14px rgba(46, 51, 59, 0.55),
+    0 0 0 1px rgba(46, 51, 59, 0.06);
 }
 
-.oia__copy { min-width: 0; }
-
 .oia__title {
+  margin-top: 0.9rem;
   font-family: 'Anton', system-ui, sans-serif;
-  font-size: 1rem;
+  font-size: 1.5rem;
   letter-spacing: 0.01em;
   color: #2e333b;
 }
 
 .oia__text {
-  margin-top: 0.2rem;
-  font-size: 0.8125rem;
+  margin-top: 0.35rem;
+  max-width: 21rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   color: #474e59;
 }
@@ -65,12 +80,12 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 2.95rem;
-  margin-top: 0.95rem;
+  min-height: 3.25rem;
+  margin-top: 1.4rem;
   padding: 0 1.1rem;
   border-radius: 999px;
   font-family: 'Anton', system-ui, sans-serif;
-  font-size: 0.9375rem;
+  font-size: 1.05rem;
   letter-spacing: 0.02em;
   color: #fff;
   text-decoration: none;
@@ -82,11 +97,10 @@
 .oia__btn:active { transform: scale(0.97); }
 
 .oia__site {
-  display: block;
   width: 100%;
-  min-height: 2.6rem;
-  margin-top: 0.15rem;
-  font-size: 0.8125rem;
+  min-height: 2.9rem;
+  margin-top: 0.3rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #5b6370;
   background: none;
@@ -102,6 +116,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oia { animation: none; }
+  .oia, .oia-scrim { animation: none; }
   .oia__btn { transition: none; }
 }

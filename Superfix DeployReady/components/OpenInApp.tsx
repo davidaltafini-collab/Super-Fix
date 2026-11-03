@@ -6,8 +6,9 @@ import './open-in-app.css';
 /* ============================================================
    „Continuă în aplicația Superfix" — ca la Google, pe telefon.
 
-   Jos, aceeași sticlă ca banda de cookies (o singură formă pe site): butonul
-   mare duce în aplicație, dedesubt mic „Continuă pe site".
+   Ca standardul (Google, Reddit): pagina se întunecă, de jos urcă o foaie cu
+   iconița aplicației mare, pe mijloc, butonul roșu „Continuă în aplicația
+   Superfix" și dedesubt mic „Continuă pe site" (și tapul pe fundal).
 
    - Android: `intent://` cu pachetul `superfix.app` deschide aplicația pe
      aceeași pagină (schema `superfix://`, pe care o are orice versiune); fără
@@ -97,21 +98,20 @@ export const OpenInApp: React.FC = () => {
   };
 
   return createPortal(
-    <div className="oia" role="dialog" aria-label="Continuă în aplicația Superfix">
-      <div className="oia__row">
-        <img className="oia__icon" src="/app-icon.png" alt="" width={48} height={48} />
-        <div className="oia__copy">
-          <p className="oia__title">Aplicația Superfix</p>
-          <p className="oia__text">Mai rapidă, cu chat și notificări când îți răspunde meseriașul.</p>
-        </div>
+    <>
+      <div className="oia-scrim" onClick={stayOnSite} aria-hidden="true" />
+      <div className="oia" role="dialog" aria-modal="true" aria-labelledby="oia-title">
+        <img className="oia__icon" src="/app-icon.png" alt="" width={84} height={84} />
+        <p className="oia__title" id="oia-title">Superfix</p>
+        <p className="oia__text">Meseriași din zona ta, cu chat și notificări când îți răspund. Mai rapid în aplicație.</p>
+        <a className="oia__btn" href={appHref(platform, pathname)} onClick={goToApp}>
+          Continuă în aplicația Superfix
+        </a>
+        <button type="button" className="oia__site" onClick={stayOnSite}>
+          Continuă pe site
+        </button>
       </div>
-      <a className="oia__btn" href={appHref(platform, pathname)} onClick={goToApp}>
-        Continuă în aplicația Superfix
-      </a>
-      <button type="button" className="oia__site" onClick={stayOnSite}>
-        Continuă pe site
-      </button>
-    </div>,
+    </>,
     document.body,
   );
 };
