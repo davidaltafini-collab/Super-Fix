@@ -18,6 +18,7 @@
     { "source": "/privacy", "destination": "/api/ssr?__r=privacy" },
     { "source": "/og/:path*", "destination": "/api/og?p=:path*" },
     { "source": "/harta/:path*", "destination": "https://api.super-fix.ro/harta/:path*" },
+    { "source": "/.well-known/apple-app-site-association", "destination": "/api/aasa" },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

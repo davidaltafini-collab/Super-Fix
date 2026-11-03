@@ -39,8 +39,15 @@ export const COOKIE_CHOICE_EVENT = 'superfix:cookie-choice';
 
 const APP_STORE = 'https://apps.apple.com/ro/app/id6819299663';
 /* Aplicația din magazine citește singură linkul la prima pornire abia de la 1.0.4 (modulul `superfix-link`).
-   Până atunci codul se copiază și omul îl lipește la „Ai un cod?"; cu 1.0.4 în ambele magazine → `true`. */
-const APP_READS_LINK = false;
+   `/api/app-version` spune, pe fiecare magazin, dacă acolo e deja 1.0.4; până răspunde (sau dacă nu știe), codul
+   se copiază și omul îl lipește la „Ai un cod?", ca până acum. */
+type ReadsLink = { ios: boolean; android: boolean };
+let readsLinkAnswer: Promise<ReadsLink> | null = null;
+const fetchReadsLink = () =>
+  (readsLinkAnswer ??= fetch('/api/app-version')
+    .then(res => (res.ok ? res.json() : null))
+    .then(body => ({ ios: body?.ios === true, android: body?.android === true }))
+    .catch(() => ({ ios: false, android: false })));
 const PLAY_STORE = 'https://play.google.com/store/apps/details?id=superfix.app';
 
 type Platform = 'ios' | 'android' | null;
@@ -77,12 +84,12 @@ const normalizeCode = (value: string | null) => (value || '').trim().toUpperCase
 
 type LinkCode = { code: string; label: string; where: string };
 
-const linkCode = (search: string): LinkCode | null => {
+const linkCode = (search: string, readsLink: boolean): LinkCode | null => {
   const params = new URLSearchParams(search);
   const ref = normalizeCode(params.get('ref'));
   const recruiter = normalizeCode(params.get('recruiter'));
   const team = normalizeCode(params.get('echipa'));
-  if (APP_READS_LINK) {
+  if (readsLink) {
     if (ref) return { code: ref, label: 'Invitația ta', where: 'Se aplică singură în aplicație: lunile gratuite rămân ale tale.' };
     if (recruiter) return { code: recruiter, label: 'Codul tău de recruiter', where: 'Se aplică singur în aplicație.' };
     if (team) return { code: team, label: 'Invitația în echipă', where: 'Se aplică singură în aplicație.' };
@@ -122,8 +129,19 @@ export const OpenInApp: React.FC = () => {
   const { pathname, search } = useLocation();
   const [platform] = useState<Platform>(detectPlatform);
   const [closed, setClosed] = useState(wasClosed);
+  const [readsLinkByStore, setReadsLink] = useState<ReadsLink | null>(null);
 
   const show = !!platform && !closed;
+  const readsLink = !!platform && !!readsLinkByStore?.[platform];
+
+  useEffect(() => {
+    if (!show) return;
+    let alive = true;
+    void fetchReadsLink().then(answer => alive && setReadsLink(answer));
+    return () => {
+      alive = false;
+    };
+  }, [show]);
 
   /* Alegerea e obligatorie (David, 03.11): pagina din spate stă pe loc (numărătoarea comună a sitului), iar pe
      iPhone degetul tras pe fundal sau pe foaie nu mai derulează pagina de dedesubt. */
@@ -142,7 +160,7 @@ export const OpenInApp: React.FC = () => {
 
   if (!show || typeof document === 'undefined') return null;
 
-  const code = linkCode(search);
+  const code = linkCode(search, readsLink);
   const href = appHref(platform, pathname, search);
 
   const stayOnSite = () => {
@@ -153,10 +171,12 @@ export const OpenInApp: React.FC = () => {
   const path = appPath(pathname, search);
 
   /* Un nou drum din magazin înapoi în tab nu trebuie să găsească foaia tot acolo. Pe iPhone, linkul paginii pleacă
-     prin clipboard (App Store nu duce nimic mai departe); copierea cere apăsarea omului, deci se face chiar aici. */
+     prin clipboard (App Store nu duce nimic mai departe); copierea cere apăsarea omului, deci se face chiar aici.
+     Pe Android pagina pleacă prin Google Play, iar codul se copiază oricum: o aplicație instalată, dar rămasă pe o
+     versiune veche, îl primește tot prin „Ai un cod?". */
   const goToApp = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     rememberClosed();
-    const clip = APP_READS_LINK ? (platform === 'ios' && path ? `https://super-fix.ro/${path}` : '') : code?.code || '';
+    const clip = readsLink && platform === 'ios' ? (path ? `https://super-fix.ro/${path}` : '') : code?.code || '';
     if (clip) {
       event.preventDefault();
       await copy(clip);
@@ -177,7 +197,7 @@ export const OpenInApp: React.FC = () => {
             <p className="oia__code">{code.code}</p>
             <p className="oia__hint">
               {code.where}
-              {APP_READS_LINK && platform === 'ios' ? ' La prima deschidere, apasă „Permite” când te întreabă de lipire.' : ''}
+              {readsLink && platform === 'ios' ? ' La prima deschidere, apasă „Permite” când te întreabă de lipire.' : ''}
             </p>
           </>
         ) : (
