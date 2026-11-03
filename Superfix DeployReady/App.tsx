@@ -9,6 +9,7 @@ import PillNav from './components/PillNav';
 import { Footer } from './components/Footer';
 import { ScrollToTop } from './components/ScrollToTop';
 import { CookieBanner } from './components/CookieBanner';
+import { OpenInApp } from './components/OpenInApp';
 import { LoadingVeilProvider, VeilHold } from './components/Loader';
 import { ensureDeviceToken } from './services/dataService';
 import { ErrorBoundary, installStaleChunkReload } from './components/ErrorBoundary';
@@ -219,6 +220,7 @@ const App: React.FC = () => {
 
             <Footer />
             <CookieBanner />
+            <OpenInApp />
           </div>
         </div>
         </ToastProvider>

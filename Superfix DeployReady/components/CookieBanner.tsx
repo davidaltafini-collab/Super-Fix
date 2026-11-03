@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Cookie } from '@phosphor-icons/react';
 import { initGA } from '../utils/analytics';
+import { COOKIE_CHOICE_EVENT } from './OpenInApp';
 import './cookie.css';
 
 /* ============================================================
@@ -50,6 +51,8 @@ export const CookieBanner: React.FC = () => {
     }
     if (choice === 'accepted') initGA();
     setShow(false);
+    /* Abia acum poate veni „Continuă în aplicație" (OpenInApp): nu două benzi una peste alta. */
+    window.dispatchEvent(new Event(COOKIE_CHOICE_EVENT));
   };
 
   if (!show || typeof document === 'undefined') return null;

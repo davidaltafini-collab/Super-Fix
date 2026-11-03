@@ -1,0 +1,107 @@
+/* ============================================================
+   „Continuă în aplicația Superfix". Aceeași sticlă, aceleași colțuri și
+   același buton roșu ca banda de cookies (`cookie.css`): pe site e o singură
+   formă pentru ce vine de jos.
+   ============================================================ */
+
+.oia {
+  position: fixed;
+  z-index: 200;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  margin-inline: auto;
+  max-width: 28rem;
+  border-radius: 24px;
+  padding: 1.1rem 1.15rem 0.6rem;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(233, 238, 246, 0.84));
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 26px 54px -22px rgba(46, 51, 59, 0.5),
+    0 6px 16px -8px rgba(46, 51, 59, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  animation: oia-in 460ms cubic-bezier(0.22, 1, 0.36, 1) 900ms both;
+}
+
+@keyframes oia-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.oia__row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.oia__icon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.8rem;
+  box-shadow: 0 6px 14px -8px rgba(46, 51, 59, 0.45);
+}
+
+.oia__copy { min-width: 0; }
+
+.oia__title {
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: #2e333b;
+}
+
+.oia__text {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #474e59;
+}
+
+.oia__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.95rem;
+  margin-top: 0.95rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  font-family: 'Anton', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-decoration: none;
+  background: linear-gradient(150deg, hsl(355 74% 57%), hsl(355 66% 46%));
+  box-shadow: 0 14px 28px -14px rgba(225, 55, 70, 0.85);
+  transition: transform 180ms cubic-bezier(0.32, 0.72, 0, 1), filter 180ms ease;
+}
+
+.oia__btn:active { transform: scale(0.97); }
+
+.oia__site {
+  display: block;
+  width: 100%;
+  min-height: 2.6rem;
+  margin-top: 0.15rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #5b6370;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.oia__btn:focus-visible,
+.oia__site:focus-visible {
+  outline: 3px solid hsl(355 74% 55% / 0.45);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oia { animation: none; }
+  .oia__btn { transition: none; }
+}

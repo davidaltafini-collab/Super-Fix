@@ -11,6 +11,7 @@
         "components": [
           { "/": "/app" },
           { "/": "/app/*" },
+          { "/": "/hero/*" },
           { "/": "/onboarding", "?": { "token": "?*" } },
           { "/": "/cine-e-sub-costum", "?": { "token": "?*" } }
         ]
