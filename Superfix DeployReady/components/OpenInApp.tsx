@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import './open-in-app.css';
@@ -18,19 +18,19 @@ import './open-in-app.css';
      sau „Obține". Cine are aplicația nici nu ajunge aici: linkurile
      `/hero/...` o deschid direct (apple-app-site-association).
 
-   Apare doar pe paginile pe care aplicația le are, doar după ce omul a
-   răspuns la cookies (nu două benzi una peste alta) și nu revine 7 zile după
-   ce a ales „Continuă pe site". Roboții nu o văd.
+   Apare la fiecare intrare pe site, pe orice pagină (David, 03.11: „mereu când
+   intri", „absolut oriunde"), peste banda de cookies, care rămâne sub ea.
+   „Continuă pe site" o închide doar pentru vizita asta (sessionStorage).
+   Roboții nu o văd. În aplicație nu apare: plata (card-verify) nu încarcă
+   pagini de pe site, întoarcerea e prinsă înainte.
    ============================================================ */
 
-const SNOOZE_KEY = 'superfix_open_in_app_until';
-const CONSENT_KEY = 'superfix_cookie_consent';
+const CLOSED_KEY = 'superfix_open_in_app_closed';
 export const COOKIE_CHOICE_EVENT = 'superfix:cookie-choice';
 
 const APP_STORE = 'https://apps.apple.com/ro/app/id6819299663';
 const PLAY_STORE = 'https://play.google.com/store/apps/details?id=superfix.app';
 
-const SHOWN_ON = [/^\/$/, /^\/heroes\/?$/, /^\/hero\/[^/]+(\/origine)?\/?$/, /^\/meserii\//, /^\/zone\//];
 
 type Platform = 'ios' | 'android' | null;
 
@@ -43,57 +43,48 @@ const detectPlatform = (): Platform => {
   return null;
 };
 
-/* Pagina din aplicație care corespunde celei de pe site: profilul (și povestea lui) sau Acasă. */
-const appPath = (pathname: string) => {
-  const hero = pathname.match(/^\/hero\/([^/]+)(\/origine)?\/?$/);
-  return hero ? `hero/${hero[1]}${hero[2] || ''}` : '';
-};
+/* Pagina din aplicație care corespunde celei de pe site (cu tokenul/codul din adresă), altfel Acasă. */
+const IN_APP = /^\/(hero\/[^/]+(\/origine)?|onboarding|cine-e-sub-costum|app|register)\/?$/;
+const appPath = (pathname: string, search: string) =>
+  IN_APP.test(pathname) ? pathname.replace(/^\/|\/$/g, '') + search : '';
 
-const appHref = (platform: Platform, pathname: string) =>
+const appHref = (platform: Platform, pathname: string, search: string) =>
   platform === 'android'
-    ? `intent://${appPath(pathname)}#Intent;scheme=superfix;package=superfix.app;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`
+    ? `intent://${appPath(pathname, search)}#Intent;scheme=superfix;package=superfix.app;S.browser_fallback_url=${encodeURIComponent(PLAY_STORE)};end`
     : APP_STORE;
 
-const read = (key: string) => {
+const wasClosed = () => {
   try {
-    return localStorage.getItem(key);
+    return sessionStorage.getItem(CLOSED_KEY) === '1';
   } catch {
-    return null;
+    return false;
   }
 };
 
-const snooze = (days: number) => {
+const rememberClosed = () => {
   try {
-    localStorage.setItem(SNOOZE_KEY, String(Date.now() + days * 86400000));
+    sessionStorage.setItem(CLOSED_KEY, '1');
   } catch {
     /* fără memorie: o închidem doar acum */
   }
 };
 
 export const OpenInApp: React.FC = () => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [platform] = useState<Platform>(detectPlatform);
-  const [consented, setConsented] = useState(() => !!read(CONSENT_KEY));
-  const [closed, setClosed] = useState(() => Number(read(SNOOZE_KEY) || 0) > Date.now());
+  const [closed, setClosed] = useState(wasClosed);
 
-  useEffect(() => {
-    if (consented) return;
-    const onChoice = () => setConsented(true);
-    window.addEventListener(COOKIE_CHOICE_EVENT, onChoice);
-    return () => window.removeEventListener(COOKIE_CHOICE_EVENT, onChoice);
-  }, [consented]);
-
-  const show = !!platform && consented && !closed && SHOWN_ON.some(re => re.test(pathname));
+  const show = !!platform && !closed;
   if (!show || typeof document === 'undefined') return null;
 
   const stayOnSite = () => {
-    snooze(7);
+    rememberClosed();
     setClosed(true);
   };
 
   /* Un nou drum din magazin înapoi în tab nu trebuie să găsească banda tot acolo. */
   const goToApp = () => {
-    snooze(1);
+    rememberClosed();
     setTimeout(() => setClosed(true), 400);
   };
 
@@ -104,7 +95,7 @@ export const OpenInApp: React.FC = () => {
         <img className="oia__icon" src="/app-icon.png" alt="" width={84} height={84} />
         <p className="oia__title" id="oia-title">Superfix</p>
         <p className="oia__text">Meseriași din zona ta, cu chat și notificări când îți răspund. Mai rapid în aplicație.</p>
-        <a className="oia__btn" href={appHref(platform, pathname)} onClick={goToApp}>
+        <a className="oia__btn" href={appHref(platform, pathname, search)} onClick={goToApp}>
           Continuă în aplicația Superfix
         </a>
         <button type="button" className="oia__site" onClick={stayOnSite}>
