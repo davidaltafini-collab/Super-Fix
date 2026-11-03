@@ -9,8 +9,24 @@
    Acum e o bandă de sticlă, jos, care nu acoperă pagina și nu strigă.
    ============================================================ */
 
+/* Fundalul alegerii obligatorii: sub bandă, peste pagină. */
+.ck-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  touch-action: none;
+  background: rgba(20, 23, 28, 0.45);
+  animation: ck-fade 320ms ease 500ms both;
+}
+
+@keyframes ck-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .ck {
   position: fixed;
+  touch-action: none;
   z-index: 200;
   left: 0.75rem;
   right: 0.75rem;
@@ -135,6 +151,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ck { animation: none; }
+  .ck, .ck-scrim { animation: none; }
   .ck__btn { transition: none; }
 }

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { lockBodyScroll } from '@/lib/scrollLock';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Cookie } from '@phosphor-icons/react';
@@ -55,10 +56,28 @@ export const CookieBanner: React.FC = () => {
     window.dispatchEvent(new Event(COOKIE_CHOICE_EVENT));
   };
 
+  /* Alegerea e obligatorie (David, 03.11: „să fii obligat să apeși pe una dintre ele”): fundal întunecat, pagina
+     stă pe loc, nimic nu se închide cu un tap alături. „Doar strictul necesar” e la fel de aproape ca „De acord”.
+     Pe telefon vine după „Continuă în aplicație” (OpenInApp stă deasupra, cu fundalul ei). */
+  const layerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!show) return;
+    const unlock = lockBodyScroll();
+    const layer = layerRef.current;
+    const stop = (event: TouchEvent) => event.preventDefault();
+    layer?.addEventListener('touchmove', stop, { passive: false });
+    return () => {
+      unlock();
+      layer?.removeEventListener('touchmove', stop);
+    };
+  }, [show]);
+
   if (!show || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="ck" role="dialog" aria-live="polite" aria-label="Setări de confidențialitate">
+    <div ref={layerRef}>
+    <div className="ck-scrim" aria-hidden="true" />
+    <div className="ck" role="dialog" aria-modal="true" aria-live="polite" aria-label="Setări de confidențialitate">
       <div className="ck__inner">
         <div className="ck__row">
           <span className="ck__icon" aria-hidden="true">
@@ -83,6 +102,7 @@ export const CookieBanner: React.FC = () => {
           </button>
         </div>
       </div>
+    </div>
     </div>,
     document.body,
   );

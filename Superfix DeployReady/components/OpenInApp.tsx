@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { lockBodyScroll } from '@/lib/scrollLock';
 import './open-in-app.css';
 
 /* ============================================================
@@ -124,14 +125,18 @@ export const OpenInApp: React.FC = () => {
 
   const show = !!platform && !closed;
 
-  /* Pagina din spate stă pe loc cât foaia e deschisă. */
+  /* Alegerea e obligatorie (David, 03.11): pagina din spate stă pe loc (numărătoarea comună a sitului), iar pe
+     iPhone degetul tras pe fundal sau pe foaie nu mai derulează pagina de dedesubt. */
+  const layerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!show) return;
-    const html = document.documentElement;
-    const before = html.style.overflow;
-    html.style.overflow = 'hidden';
+    const unlock = lockBodyScroll();
+    const layer = layerRef.current;
+    const stop = (event: TouchEvent) => event.preventDefault();
+    layer?.addEventListener('touchmove', stop, { passive: false });
     return () => {
-      html.style.overflow = before;
+      unlock();
+      layer?.removeEventListener('touchmove', stop);
     };
   }, [show]);
 
@@ -161,7 +166,7 @@ export const OpenInApp: React.FC = () => {
   };
 
   return createPortal(
-    <>
+    <div ref={layerRef}>
       <div className="oia-scrim" aria-hidden="true" />
       <div className="oia" role="dialog" aria-modal="true" aria-labelledby="oia-title">
         <img className="oia__icon" src="/app-icon.png" alt="" width={84} height={84} />
@@ -185,7 +190,7 @@ export const OpenInApp: React.FC = () => {
           Continuă pe site
         </button>
       </div>
-    </>,
+    </div>,
     document.body,
   );
 };
