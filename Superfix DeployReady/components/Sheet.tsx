@@ -35,9 +35,19 @@ interface SheetProps {
       trebuie să dispară din ecran cât timp completezi câmpurile. Un buton de
       trimitere pus aici se leagă de formularul din `children` prin `form="id"`. */
   footer?: React.ReactNode;
+  /** Modalul mai lat (formularul de cerere): aproape tot telefonul, ca în aplicație. */
+  wide?: boolean;
+  /** `false`: la deschidere focusul merge pe panou, nu în primul câmp — pe telefon nu sare tastatura
+      peste ce trebuie întâi văzut (harta locului). */
+  autoFocus?: boolean;
 }
 
-export function Sheet({ open, onClose, title, subtitle, originRect, children, variant = 'sheet', footer }: SheetProps) {
+/* Foile deschise, de jos în sus: Escape închide doar foaia de deasupra (alegerea
+   locului stă peste formularul de cerere și nu trebuie să-l ia cu ea). */
+const openSheets: number[] = [];
+let sheetSeq = 0;
+
+export function Sheet({ open, onClose, title, subtitle, originRect, children, variant = 'sheet', footer, wide = false, autoFocus = true }: SheetProps) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [fade, setFade] = useState<'none' | 'top' | 'bottom' | 'both'>('none');
@@ -108,9 +118,17 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const id = ++sheetSeq;
+    openSheets.push(id);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && openSheets[openSheets.length - 1] === id) close();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const at = openSheets.indexOf(id);
+      if (at >= 0) openSheets.splice(at, 1);
+    };
   }, [open, close]);
 
   // blocarea scroll-ului, în efect separat care depinde DOAR de open
@@ -152,6 +170,10 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
   useEffect(() => {
     if (!open || !mounted) return;
     const t = window.setTimeout(() => {
+      if (!autoFocus) {
+        panelRef.current?.focus({ preventScroll: true });
+        return;
+      }
       panelRef.current
         ?.querySelector<HTMLElement>('input:not([type="checkbox"]), textarea, button')
         ?.focus();
@@ -190,12 +212,13 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
 
       <div
         ref={panelRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          'sf-glass relative z-10 flex w-full flex-col overflow-hidden',
+          'sf-glass relative z-10 flex w-full flex-col overflow-hidden outline-none',
           variant === 'modal'
             // card centrat, compact, cu margine vizibilă în jur pe orice ecran
-            ? 'my-auto max-w-[21rem] rounded-[24px]'
+            ? cn('my-auto rounded-[24px]', wide ? 'max-w-[26rem]' : 'max-w-[21rem]')
             // telefon: foaie lipită de jos, colțuri rotunjite doar sus; desktop: card centrat
             : 'max-h-[92svh] rounded-t-[28px] sm:max-w-lg sm:rounded-[28px]',
         )}
@@ -203,11 +226,11 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
         <div
           className={cn(
             'flex items-start justify-between gap-4 border-b border-graphite/10',
-            variant === 'modal' ? 'px-4 pb-2.5 pt-3.5' : 'px-6 pb-4 pt-5',
+            variant === 'modal' ? (wide ? 'items-center px-5 pb-3 pt-4' : 'px-4 pb-2.5 pt-3.5') : 'px-6 pb-4 pt-5',
           )}
         >
           <div className="min-w-0">
-            <h2 className={cn('font-heading font-semibold text-graphite', variant === 'modal' ? 'text-base' : 'text-xl')}>{title}</h2>
+            <h2 className={cn('font-heading font-semibold text-graphite', variant === 'modal' && !wide ? 'text-base' : 'text-xl')}>{title}</h2>
             {subtitle && <p className={cn('mt-1 text-graphite-soft', variant === 'modal' ? 'text-xs' : 'text-sm')}>{subtitle}</p>}
           </div>
           <button
@@ -226,7 +249,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
         <div
           ref={bodyRef}
           data-fade={fade}
-          className={cn(variant === 'modal' ? 'px-4 pt-3.5' : 'sf-scroll overflow-y-auto px-6 pt-5')}
+          className={cn(variant === 'modal' ? (wide ? 'px-5 pt-4' : 'px-4 pt-3.5') : 'sf-scroll overflow-y-auto px-6 pt-5')}
           style={
             footer
               // cu subsol lipit, marginea de siguranță de jos e treaba subsolului
@@ -246,7 +269,7 @@ export function Sheet({ open, onClose, title, subtitle, originRect, children, va
           <div
             className={cn(
               'shrink-0 border-t border-graphite/10 bg-white/45',
-              variant === 'modal' ? 'px-4 pb-3.5 pt-3' : 'px-6 pt-4',
+              variant === 'modal' ? (wide ? 'px-5 pb-4 pt-3.5' : 'px-4 pb-3.5 pt-3') : 'px-6 pt-4',
             )}
             style={variant === 'modal' ? undefined : { paddingBottom: 'calc(0.875rem + env(safe-area-inset-bottom))' }}
           >

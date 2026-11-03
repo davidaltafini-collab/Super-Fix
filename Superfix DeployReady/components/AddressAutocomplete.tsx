@@ -43,10 +43,14 @@ export const AddressAutocomplete: React.FC<Props> = ({
      imediat ce omul alege „Strada Republicii 12, Timișoara", cererea pleacă
      iar cu exact acel text și lista se redeschide peste ce tocmai a ales. */
   const skipNext = useRef(false);
+  /* Căutăm doar ce scrie omul: adresa pusă de altcineva (GPS, harta, locul ținut minte) nu
+     deschide lista peste un câmp pe care nu l-a atins nimeni (ca `LocationPicker` din aplicație). */
+  const typed = useRef(false);
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (skipNext.current) { skipNext.current = false; return; }
+    if (!typed.current) { setItems([]); setOpen(false); return; }
 
     const text = value.trim();
     if (text.length < 3) { setItems([]); setOpen(false); return; }
@@ -113,7 +117,7 @@ export const AddressAutocomplete: React.FC<Props> = ({
         aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => { typed.current = true; onChange(e.target.value); }}
         onKeyDown={onKeyDown}
         onFocus={() => { if (items.length > 0) setOpen(true); }}
         onBlur={e => {

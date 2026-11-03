@@ -588,6 +588,25 @@ export const getHeroBySlug = (slug: string): Promise<Hero | undefined> =>
 export const peekHeroBySlug = (slug: string): Hero | undefined =>
     cacheGet(CacheKey.heroBySlug(slug));
 
+/* „Verificat de Superfix”: cifre din lucrările reale (ca în aplicație, `getHeroVerified`). Publice;
+   fără ele rămâne Fix-o-metrul singur. */
+export interface VerifiedStats {
+    missionsCompleted: number;
+    trustFactor?: number;
+    /** Media orelor pe zi, doar din ce a înregistrat aplicația singură. */
+    hoursPerDay: number | null;
+    /** Mediana dintre cerere și acceptare. */
+    responseMinutes: number | null;
+}
+
+export const getHeroVerified = async (ref: string): Promise<VerifiedStats | null> => {
+    try {
+        const res = await fetch(`${API_URL}/heroes/${encodeURIComponent(ref)}/verified`);
+        if (!res.ok) return null;
+        return (await res.json()) as VerifiedStats;
+    } catch { return null; }
+};
+
 /** Doar cu id real (UUID), de ex. cel din tokenul eroului logat. */
 export const getHeroById = (id: string): Promise<Hero | undefined> =>
   dedupe(CacheKey.heroById(id), async () => {

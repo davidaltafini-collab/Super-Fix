@@ -1,75 +1,62 @@
 /* ============================================================
-   Hărțile, îmbrăcate în limbajul sitului.
+   Hărțile, îmbrăcate în limbajul sitului (și al aplicației).
 
-   Leaflet vine cu stilul lui (controale gri, chenare pătrate, font de sistem).
-   Aici îl aducem la sticlă, colțuri de 20px și Anton, ca harta să nu pară o
-   cutie străină lipită în pagină.
+   Harta e a noastră (MapLibre + stilul aplicației). Aici stau doar cutia, pinul
+   de brand și butoanele de sticlă de peste ea.
    ============================================================ */
 
 .sf-map {
+  position: relative;
   width: 100%;
-  border-radius: 20px;
   overflow: hidden;
-  background: #eef3fb;
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  /* fundalul stilului, cât se încarcă plăcile: nu clipește alb */
+  background: #eef1f6;
+  z-index: 0; /* sub navbar și sub panouri */
+}
+
+.sf-map--framed {
+  border-radius: 20px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 18px 40px -22px rgba(46, 51, 59, 0.5);
-  z-index: 0; /* sub navbar și sub panouri; Leaflet urcă altfel peste ele */
+    0 12px 28px -18px rgba(46, 51, 59, 0.45),
+    0 2px 8px -4px rgba(46, 51, 59, 0.12);
 }
 
-/* controalele Leaflet: pastile de sticlă, ca restul butoanelor */
-.sf-map .leaflet-control-zoom {
-  border: 0;
-  box-shadow: none;
-}
-
-.sf-map .leaflet-control-zoom a {
-  width: 2.25rem;
-  height: 2.25rem;
-  line-height: 2.25rem;
-  color: #2e333b;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(46, 51, 59, 0.12);
-  border-radius: 999px;
-  margin-bottom: 0.4rem;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 6px 16px -8px rgba(46, 51, 59, 0.45);
-  transition: background-color 180ms ease;
-}
-
-@media (hover: hover) {
-  .sf-map .leaflet-control-zoom a:hover {
-    background: #fff;
-  }
-}
-
-.sf-map .leaflet-control-attribution {
-  padding: 0.15rem 0.5rem;
+/* Atribuirea: (i) mic în colț, ca în aplicație; desfăcut doar la atingere. */
+.sf-map .maplibregl-ctrl-attrib {
   font-size: 0.625rem;
   color: #8b929c;
   background: rgba(255, 255, 255, 0.75);
-  border-radius: 999px 0 0 0;
 }
 
-.sf-map .leaflet-control-attribution a { color: #616368; }
+.sf-map .maplibregl-ctrl-attrib a { color: #616368; }
+.sf-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 6px 6px 0; }
 
 /* ---------------- pinul de brand ---------------- */
 
-.sf-pin-wrap { background: none; border: 0; }
+/* Cutia marcajului: 30×37 — picătura și vârful ei, care iese ~6px sub pătratul rotit.
+   Ancora e jos, deci vârful stă exact pe coordonată. */
+.sf-pin-wrap {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 37px;
+  pointer-events: none;
+}
 
-/* Picătura clasică: cerc rotit la 45°, cu colțul de jos ascuțit. Umbra e pusă
-   pe element, nu ca imagine separată, ca să se miște odată cu el la drag. */
+/* Picătura clasică: cerc rotit la 45°, cu colțul de jos ascuțit. */
 .sf-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   width: 30px;
   height: 30px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  background: linear-gradient(140deg, #ee5364, #c8283a);
+  background: #de3e4e;
   border: 2px solid #fff;
-  box-shadow: 0 8px 16px -6px rgba(200, 40, 58, 0.75);
+  box-shadow: -4px 4px 10px -2px rgba(200, 40, 58, 0.55);
+  z-index: 1;
 }
 
 .sf-pin__dot {
@@ -81,76 +68,146 @@
   margin: -4.5px 0 0 -4.5px;
   border-radius: 999px;
   background: #fff;
-  transform: rotate(45deg);
 }
 
-/* pinul care se poate trage: cerc care pulsează, ca să se vadă că e apucabil */
-.leaflet-marker-draggable .sf-pin::after {
-  content: '';
+/* Umbra de pe pământ, sub vârf (`BrandPin`). */
+.sf-pin__shadow {
+  position: absolute;
+  left: 2px;
+  bottom: -5px;
+  width: 26px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(19, 23, 32, 0.34), rgba(19, 23, 32, 0.16) 55%, rgba(19, 23, 32, 0));
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+/* ---------------- alegerea locului ---------------- */
+
+.sf-map-picker { position: relative; }
+
+.sf-map-picker__frame {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 12px 28px -18px rgba(46, 51, 59, 0.45),
+    0 2px 8px -4px rgba(46, 51, 59, 0.12);
+  /* trasul pe hartă mută harta, nu foaia */
+  touch-action: none;
+}
+
+/* Pinul din mijloc: vârful pe centrul hărții. */
+.sf-map-picker__pin {
   position: absolute;
   left: 50%;
   top: 50%;
   width: 30px;
-  height: 30px;
-  margin: -15px 0 0 -15px;
-  border-radius: 999px;
-  background: hsl(355 74% 55% / 0.28);
-  animation: sf-pin-pulse 2.2s ease-out infinite;
+  height: 37px;
+  margin: -37px 0 0 -15px;
   pointer-events: none;
+  z-index: 2;
 }
 
-@keyframes sf-pin-pulse {
-  0% { transform: scale(0.6); opacity: 0.7; }
-  70% { transform: scale(2.1); opacity: 0; }
-  100% { transform: scale(2.1); opacity: 0; }
+.sf-map-picker__pin .sf-pin {
+  transition: translate 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.leaflet-marker-draggable { cursor: grab; }
-.leaflet-marker-draggable:active { cursor: grabbing; }
+/* Se ridică puțin cât timp harta alunecă sub el: se vede că e „în aer”. */
+.sf-map-picker__pin[data-lifted='true'] .sf-pin { translate: 0 -10px; }
+.sf-map-picker__pin[data-lifted='true'] .sf-pin__shadow { transform: scale(0.75); opacity: 0.6; }
 
-/* ---------------- alegerea locației ---------------- */
+.sf-map-picker__tools {
+  position: absolute;
+  right: 10px;
+  bottom: 26px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
 
-.sf-map-picker { position: relative; }
+/* Butoanele de peste hartă: sticlă, ca în aplicație. */
+.sf-map-btn,
+.sf-map-zoom {
+  color: #2e333b;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+  box-shadow: 0 8px 18px -10px rgba(46, 51, 59, 0.55);
+}
 
-.sf-map-picker__hint {
+.sf-map-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+}
+
+.sf-map-zoom {
+  display: flex;
+  flex-direction: column;
+  width: 36px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.sf-map-zoom button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+}
+
+.sf-map-zoom button + button { border-top: 1px solid rgba(46, 51, 59, 0.1); }
+
+@media (hover: hover) {
+  .sf-map-btn:hover,
+  .sf-map-zoom button:hover { background: #fff; }
+}
+
+.sf-map-btn:focus-visible,
+.sf-map-zoom button:focus-visible {
+  outline: 3px solid hsl(211 100% 62% / 0.45);
+  outline-offset: 1px;
+}
+
+.sf-map-picker__hint,
+.sf-map-picker__ok,
+.sf-map-picker__ask {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   margin-top: 0.6rem;
+  padding: 0 0.25rem;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: #8b929c;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
-.sf-map-picker__recenter {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 3.1rem;
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+.sf-map-picker__hint { color: #7a8392; }
+.sf-map-picker__hint[data-active='true'] { color: hsl(211 70% 42%); animation: sf-hint-pulse 1.2s ease-in-out infinite; }
+.sf-map-picker__ok { color: #1f8a57; }
+.sf-map-picker__ask { color: hsl(355 66% 48%); }
+
+.sf-map-picker__ask span {
+  width: 7.5px;
+  height: 7.5px;
+  flex-shrink: 0;
   border-radius: 999px;
-  color: hsl(211 70% 40%);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(46, 51, 59, 0.12);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 20px -10px rgba(46, 51, 59, 0.5);
-  transition: transform 200ms ease, background-color 200ms ease;
+  background: hsl(355 74% 55%);
 }
 
-@media (hover: hover) {
-  .sf-map-picker__recenter:hover {
-    transform: translateY(-2px);
-    background: #fff;
-  }
+@keyframes sf-hint-pulse {
+  50% { opacity: 0.55; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .leaflet-marker-draggable .sf-pin::after { animation: none; }
-  .sf-map-picker__recenter,
-  .sf-map .leaflet-control-zoom a { transition: none; }
+  .sf-map-picker__pin .sf-pin,
+  .sf-pin__shadow { transition: none; }
+  .sf-map-picker__hint[data-active='true'] { animation: none; }
 }

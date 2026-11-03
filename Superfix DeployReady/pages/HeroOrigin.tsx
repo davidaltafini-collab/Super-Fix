@@ -1,14 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, Phone, PaperPlaneTilt, Wrench, Images } from '@phosphor-icons/react';
+import { ArrowLeft, Phone, PaperPlaneTilt, Images } from '@phosphor-icons/react';
 
 import { Hero } from '../types';
-import { getHeroBySlug, peekHeroBySlug } from '../services/dataService';
+import { getHeroBySlug, getHeroPhone, peekHeroBySlug } from '../services/dataService';
 import { Skel, SkeletonPage } from '../components/Loader';
-import { thumb, full } from '../lib/img';
+import { thumb } from '../lib/img';
 import { Reveal } from '../components/motion';
-import { Lightbox } from '../components/Lightbox';
+import { useToast } from '../components/Toast';
 
 import './hero-origin.css';
 
@@ -34,14 +34,15 @@ interface Panel {
 /** Panourile care au conținut, în ordinea în care se citesc bine. */
 function buildPanels(hero: Hero): Panel[] {
   const all: Panel[] = [
-    { key: 'origin', question: 'Cum a început tot', answer: hero.originStory || '', span: 'wide', tone: 'red' },
-    { key: 'hardest', question: 'Cea mai grea misiune', answer: hero.hardestMission || '', span: 'big', tone: 'red' },
-    { key: 'tool', question: 'Nu pleacă de acasă fără', answer: hero.favoriteTool || '', span: 'small', tone: 'calm' },
-    { key: 'never', question: 'Ce nu face niciodată', answer: hero.neverDoes || '', span: 'big', tone: 'calm' },
-    { key: 'team', question: 'Ține cu', answer: hero.team || '', span: 'small', tone: 'red' },
-    { key: 'peeve', question: 'Ce îl scoate din sărite', answer: hero.petPeeve || '', span: 'wide', tone: 'calm' },
+    /* Aceleași întrebări, în aceeași ordine, ca interviul din aplicație (`INTERVIEW_ASKS`). */
+    { key: 'origin', question: 'Cum ai început?', answer: hero.originStory || '', span: 'wide', tone: 'red' },
+    { key: 'hardest', question: 'Care a fost cea mai grea misiune?', answer: hero.hardestMission || '', span: 'big', tone: 'red' },
+    { key: 'tool', question: 'Fără ce nu pleci de acasă?', answer: hero.favoriteTool || '', span: 'small', tone: 'calm' },
+    { key: 'never', question: 'Ce nu faci niciodată?', answer: hero.neverDoes || '', span: 'big', tone: 'calm' },
+    { key: 'team', question: 'Cu cine ții?', answer: hero.team || '', span: 'small', tone: 'red' },
+    { key: 'peeve', question: 'Ce te scoate din sărite?', answer: hero.petPeeve || '', span: 'wide', tone: 'calm' },
   ];
-  return all.filter(p => p.answer.trim() !== '');
+  return all.filter(p => p.answer.trim() !== '').map(p => ({ ...p, answer: p.answer.trim() }));
 }
 
 export const HeroOrigin: React.FC = () => {
@@ -52,9 +53,7 @@ export const HeroOrigin: React.FC = () => {
   const [hero, setHero] = useState<Hero | null>(() => peekHeroBySlug(slug || '') ?? null);
   const [loading, setLoading] = useState(() => !peekHeroBySlug(slug || ''));
 
-  // arsenalul se deschide mare, în același lightbox ca video-ul de pe profil
-  const [shot, setShot] = useState<string | null>(null);
-  const [shotOrigin, setShotOrigin] = useState<DOMRect | null>(null);
+
 
   useEffect(() => {
     let alive = true;
@@ -69,7 +68,20 @@ export const HeroOrigin: React.FC = () => {
   }, [slug]);
 
   const panels = useMemo(() => (hero ? buildPanels(hero) : []), [hero]);
-  const arsenal = hero?.arsenal?.filter(Boolean) ?? [];
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [calling, setCalling] = useState(false);
+  /* „Sună acum”: numărul nu vine cu profilul (CONT-FANTOMA.md §7), se cere la apăsare, ca pe profil.
+     Oferta de cont (a doua cerere de număr într-o zi) stă pe profil: acolo trimitem. */
+  const callHero = async () => {
+    if (!hero || calling) return;
+    setCalling(true);
+    const result = await getHeroPhone(hero.id);
+    setCalling(false);
+    if (result.ok) { window.location.href = `tel:${result.phone}`; return; }
+    if (result.error === 'PHONE_QUOTA') { navigate(`/hero/${slug}`); return; }
+    toast.error(result.message || 'Nu am putut deschide numărul. Încearcă din nou.');
+  };
   const proud = useMemo(() => {
     if (!hero?.proudMissionId) return null;
     // `proudMissionId` e id-ul misiunii alese, nu al item-ului de portofoliu
@@ -131,7 +143,10 @@ export const HeroOrigin: React.FC = () => {
     );
   }
 
-  const hasAnything = panels.length > 0 || arsenal.length > 0 || Boolean(proud);
+  /* Sculele au zona lor pe profil („Cu ce lucrează”), ca în aplicație; aici rămâne povestea. */
+  const hasAnything = panels.length > 0 || Boolean(proud && (proud.beforeUrl || proud.afterUrl));
+  /* Numele adevărat ascuns de erou nu se arată nici aici. */
+  const shownName = hero.showRealNamePublic === false ? hero.alias : hero.realName || hero.alias;
 
   return (
     <div className="pb-8 font-sans text-graphite md:pb-20">
@@ -139,7 +154,7 @@ export const HeroOrigin: React.FC = () => {
         <title>{`Cine e sub costum: ${hero.alias} | Superfix`}</title>
         <meta
           name="description"
-          content={`Povestea lui ${hero.realName || hero.alias}, ${hero.category} pe Superfix.`}
+          content={`Povestea lui ${shownName}, ${hero.category} pe Superfix.`}
         />
         {/* Povestea e și pe profil, deci Google le adună la profil (la fel în api/ssr.ts). */}
         <link rel="canonical" href={`https://super-fix.ro/hero/${hero.slug || slug}`} />
@@ -173,12 +188,15 @@ export const HeroOrigin: React.FC = () => {
               Cine e sub costum
             </p>
             <h1 className="mt-3 font-heading text-[2.4rem] font-bold leading-[1.05] text-graphite sm:text-5xl md:text-6xl">
-              {hero.realName || hero.alias}
+              {shownName}
             </h1>
-            <p className="mt-3 text-lg text-graphite-soft">
-              Pe teren îi zice <span className="font-semibold text-graphite">{hero.alias}</span>
-              {hero.yearsActive ? <> · {hero.yearsActive} ani de meserie</> : null}
-            </p>
+            {(shownName !== hero.alias || hero.yearsActive) ? (
+              <p className="mt-3 text-lg text-graphite-soft">
+                {shownName !== hero.alias && <>Pe teren îi zice <span className="font-semibold text-graphite">{hero.alias}</span></>}
+                {shownName !== hero.alias && hero.yearsActive ? ' · ' : null}
+                {hero.yearsActive ? <>{hero.yearsActive} ani de meserie</> : null}
+              </p>
+            ) : null}
           </div>
         </div>
       </header>
@@ -214,32 +232,11 @@ export const HeroOrigin: React.FC = () => {
           </div>
         )}
 
-        {arsenal.length > 0 && (
-          <Reveal className="mt-14 block">
-            <h2 className="flex items-center gap-2 font-heading text-2xl font-bold text-graphite">
-              <Wrench size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
-              Arsenalul
-            </h2>
-            <p className="mt-2 text-graphite-soft">Cu ce vine {hero.alias} la ușa ta.</p>
-
-            <div className="origin-arsenal mt-6">
-              {arsenal.map((url, i) => (
-                <ArsenalShot
-                  key={url + i}
-                  url={url}
-                  alias={hero.alias}
-                  onOpen={(rect) => { setShotOrigin(rect); setShot(url); }}
-                />
-              ))}
-            </div>
-          </Reveal>
-        )}
-
         {proud && (proud.beforeUrl || proud.afterUrl) && (
           <Reveal className="mt-14 block">
             <h2 className="flex items-center gap-2 font-heading text-2xl font-bold text-graphite">
               <Images size={24} weight="duotone" className="text-super-red" aria-hidden="true" />
-              Misiunea de care e mândru
+              De ce lucrare ești mândru?
             </h2>
             {proud.title && <p className="mt-2 text-graphite-soft">{proud.title}</p>}
 
@@ -270,64 +267,33 @@ export const HeroOrigin: React.FC = () => {
         )}
       </main>
 
-      {/* aceeași bară de acțiune ca pe profil: o singură formă de contact pe tot situl */}
+      {/* Aceeași bară de acțiune ca pe profil: o singură formă de contact pe tot situl.
+          Numărul se cere abia la apăsare (ca pe profil); cererea se deschide pe profil,
+          direct cu formularul (`?cerere=1`), ca în aplicație. */}
       <div
         className="sticky bottom-0 z-40 px-3 pb-3 pt-3"
         style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       >
         <div className="sf-glass mx-auto flex max-w-xl gap-2.5 rounded-full p-2">
-          <a
-            href={`tel:${hero.phone}`}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(5,150,105,0.8)] transition-transform active:scale-[0.97] sm:hover:-translate-y-0.5"
+          <button
+            type="button"
+            onClick={callHero}
+            disabled={calling}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(5,150,105,0.8)] transition-transform active:scale-[0.97] disabled:opacity-70 sm:hover:-translate-y-0.5"
           >
             <Phone size={18} weight="fill" aria-hidden="true" />
-            Sună acum
-          </a>
+            {calling ? 'Se caută numărul…' : 'Sună acum'}
+          </button>
           <Link
-            to={`/hero/${slug}`}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-graphite px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(46,51,59,0.9)] transition-transform active:scale-[0.97] sm:hover:-translate-y-0.5"
+            to={`/hero/${slug}?cerere=1`}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[hsl(355,74%,57%)] to-[hsl(355,66%,46%)] px-4 py-3.5 font-heading text-sm font-semibold text-white shadow-[0_10px_22px_-10px_rgba(225,55,70,0.85)] transition-transform active:scale-[0.97] sm:hover:-translate-y-0.5"
           >
             <PaperPlaneTilt size={18} weight="fill" aria-hidden="true" />
-            Trimite mesaj
+            Trimite cerere
           </Link>
         </div>
       </div>
-
-      <Lightbox
-        open={shot !== null}
-        onClose={() => setShot(null)}
-        originRect={shotOrigin}
-        label={`Din arsenalul lui ${hero.alias}`}
-      >
-        {shot && (
-          <img
-            src={full(shot)}
-            alt=""
-            className="max-h-[82svh] w-auto max-w-full rounded-[20px] shadow-[0_28px_60px_-24px_rgba(46,51,59,0.6)]"
-          />
-        )}
-      </Lightbox>
     </div>
-  );
-};
-
-/* fiecare poză își reține poziția, ca lightbox-ul să crească exact din ea */
-const ArsenalShot: React.FC<{
-  url: string;
-  alias: string;
-  onOpen: (rect: DOMRect) => void;
-}> = ({ url, alias, onOpen }) => {
-  const ref = useRef<HTMLButtonElement>(null);
-  return (
-    <button
-      ref={ref}
-      type="button"
-      className="origin-arsenal__shot"
-      aria-label={`Vezi poza din arsenalul lui ${alias}`}
-      onClick={() => { if (ref.current) onOpen(ref.current.getBoundingClientRect()); }}
-    >
-      <img src={thumb(url, 480)} alt="" loading="lazy" decoding="async" />
-    </button>
   );
 };
 

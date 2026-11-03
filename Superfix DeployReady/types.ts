@@ -82,8 +82,30 @@ export interface Hero {
     favoriteTool?: string;     // Unealta fără de care nu pleci de acasă
     team?: string;             // Cu ce echipă ții
     petPeeve?: string;         // Ce te enervează la meseria asta
-    arsenal?: string[];        // pozele cu unelte, dubă, atelier
+    /* Sculele: vechi doar poza (text), noi cu nume și poză. `arsenalList` le aduce la aceeași formă. */
+    arsenal?: (string | { name?: string | null; photoUrl?: string | null })[];
     proudMissionId?: string;   // id-ul misiunii din portofoliu de care e mândru
+
+    /* === Aceleași câmpuri ca în aplicație (pagina eroului) === */
+    /** Numele adevărat ascuns de erou: se scrie „Ascunsă”. */
+    showRealNamePublic?: boolean;
+    /** Semnalul: până când e în pauză (ISO); lipsă/trecut = la datorie acum. */
+    offUntil?: string | null;
+    /** Zona reală: cercul, inelul în care vine cu bani pe km, sau toată țara. */
+    zone?: { nationwide: true } | { nationwide: false; lat: number; lng: number; radiusKm: number; travelKm?: number | null; travelRatePerKm?: number | null } | null;
+    /** Actele declarate de erou (factură, garanție, autorizații). */
+    papers?: HeroPapers | null;
+    /** Echipa din care face parte. */
+    memberOf?: { id: string; slug?: string | null; name: string; avatarUrl?: string | null; role?: string } | null;
+}
+
+export interface HeroPapers {
+    invoice?: 'COMPANY' | 'PFA' | 'NONE' | string | null;
+    warrantyMonths?: number | null;
+    authorizations?: string[] | null;
+    authOther?: string | null;
+    note?: string | null;
+    photos?: { invoice?: string | null; warranty?: string | null; auth?: Record<string, { url?: string | null } | null> | null } | null;
 }
 
 export interface ServiceRequest {
@@ -117,4 +139,6 @@ export interface ServiceRequest {
     address?: string | null;
     lat?: number | null;
     lng?: number | null;
+    /** Blocul, scara, etajul, interfonul: un rând scris de client, ca în aplicație. */
+    addressDetails?: string;
 }

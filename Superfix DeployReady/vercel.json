@@ -17,6 +17,7 @@
     { "source": "/zone/:a/:b", "destination": "/api/ssr?__r=landing&__p=/zone/:a/:b" },
     { "source": "/privacy", "destination": "/api/ssr?__r=privacy" },
     { "source": "/og/:path*", "destination": "/api/og?p=:path*" },
+    { "source": "/harta/:path*", "destination": "https://api.super-fix.ro/harta/:path*" },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

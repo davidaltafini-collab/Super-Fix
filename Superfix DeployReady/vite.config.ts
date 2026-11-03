@@ -24,6 +24,14 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             secure: true,
           },
+          // Harta noastră (plăcile `.pmtiles` și literele), ca rescrierea `/harta` din vercel.json.
+          '/harta': { target: 'https://api.super-fix.ro', changeOrigin: true, secure: true },
+        },
+      },
+      // `vite preview` (build-ul de probă): aceeași hartă, pe același drum ca în producție.
+      preview: {
+        proxy: {
+          '/harta': { target: 'https://api.super-fix.ro', changeOrigin: true, secure: true },
         },
       },
       plugins: [react()],

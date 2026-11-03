@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash, Spinner, CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { Camera, Spinner, CaretLeft, CaretRight, X } from '@phosphor-icons/react';
 
 import { uploadSignedMedia, uploadErrorText, UploadFailure } from '../services/mediaUpload';
 import { thumb, full } from '../lib/img';
@@ -32,126 +32,136 @@ const clientErrorText = (reason: UploadFailure) =>
     ? 'Nu putem primi poze chiar acum. Trimite cererea fără ele — eroul te sună și îi arăți la fața locului.'
     : uploadErrorText(reason, 'image');
 
-/* ---------------- câmpul din formular ---------------- */
+/* ---------------- pozele din formular, prinse cu clipsul ---------------- */
 
-interface FieldProps {
-  urls: string[];
-  onChange: (next: string[]) => void;
-  /** id-ul pe care îl arată eticheta; formularul îl folosește ca să mute focusul */
+/** O poză din formular: `preview` se vede pe loc, `url` vine după urcare (gol cât se urcă). */
+export interface ClipPhoto {
+  key: string;
+  preview: string;
+  url: string;
+}
+
+interface ClipsProps {
+  photos: ClipPhoto[];
+  onChange: React.Dispatch<React.SetStateAction<ClipPhoto[]>>;
+  /** „eroul” sau „echipa”: cine le vede */
+  who?: string;
+  /** id-ul câmpului de fișier, ca formularul să poată muta focusul */
   id?: string;
 }
 
-export const RequestPhotosField: React.FC<FieldProps> = ({ urls, onChange, id = 'sos-photos' }) => {
-  const [busy, setBusy] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+let clipSeq = 0;
 
-  const room = MAX_REQUEST_PHOTOS - urls.length;
+/**
+ * Pozele problemei, ca în aplicație (`PhotoClip`): fiecare poză e prinsă cu un clips metalic,
+ * înclinată două grade, și apare pe loc, cât se urcă. Se scoate cu ×. Până la șase, cât primește
+ * serverul. Urcarea e aceeași ca peste tot pe site (`uploadSignedMedia`, scopul `request`).
+ */
+export const RequestPhotoClips: React.FC<ClipsProps> = ({ photos, onChange, who = 'eroul', id = 'sos-photos' }) => {
+  const [error, setError] = useState<string | null>(null);
+  const room = MAX_REQUEST_PHOTOS - photos.length;
+  const Who = who.charAt(0).toUpperCase() + who.slice(1);
 
   const handleFiles = async (files: File[]) => {
     setError(null);
-
-    /* Omul poate alege zece poze deodată din galerie. Luăm câte încap și îi
-       spunem pe loc, ca să nu creadă că s-au urcat toate. */
-    const chosen = files.slice(0, room);
-    const ignored = files.length - chosen.length;
-    if (ignored > 0) {
-      setError(
-        MAX_REQUEST_PHOTOS === urls.length + chosen.length && chosen.length > 0
-          ? `Am luat primele ${chosen.length}. Șase poze sunt de ajuns.`
-          : 'Ai deja șase poze. Scoate una dacă vrei să pui alta.',
-      );
+    const chosen = files.slice(0, Math.max(0, room));
+    if (files.length > chosen.length) {
+      setError(chosen.length > 0 ? `Am luat primele ${chosen.length}. Șase poze sunt de ajuns.` : 'Ai deja șase poze. Scoate una dacă vrei să pui alta.');
     }
     if (chosen.length === 0) return;
 
-    /* Una câte una, nu toate deodată: pe o conexiune de telefon șase încărcări
-       paralele se sufocă între ele și niciuna nu ajunge. Micșorarea o face
-       `uploadSignedMedia` — vine dintr-un singur loc pentru tot situl. */
-    const added: string[] = [];
-    let failure: string | null = null;
-    for (const file of chosen) {
-      setBusy(b => b + 1);
-      const result = await uploadSignedMedia(file, 'image', { purpose: 'request' });
-      setBusy(b => b - 1);
-      if (result.url) added.push(result.url);
-      else if (!failure) failure = clientErrorText(result.reason || 'network');
-    }
+    const fresh = chosen.map(file => ({ key: `c${(clipSeq += 1)}`, preview: URL.createObjectURL(file), url: '', file }));
+    onChange(list => [...list, ...fresh.map(({ file, ...item }) => item)].slice(0, MAX_REQUEST_PHOTOS));
 
-    if (added.length > 0) onChange([...urls, ...added]);
-    /* Dacă una singură a picat din șase, mesajul ăsta ar acoperi vestea bună.
-       Îl arătăm doar când chiar n-a intrat nimic, ori când e singura poză. */
-    if (failure && added.length === 0) setError(failure);
-    else if (failure) setError(`O poză n-a intrat. ${failure}`);
+    /* Una câte una: pe o conexiune de telefon șase încărcări paralele se sufocă între ele. */
+    let failure: string | null = null;
+    let failed = 0;
+    for (const item of fresh) {
+      const result = await uploadSignedMedia(item.file, 'image', { purpose: 'request' });
+      if (result.url) {
+        onChange(list => list.map(photo => (photo.key === item.key ? { ...photo, url: result.url as string } : photo)));
+      } else {
+        failed += 1;
+        if (!failure) failure = clientErrorText(result.reason || 'network');
+        onChange(list => list.filter(photo => photo.key !== item.key));
+        URL.revokeObjectURL(item.preview);
+      }
+    }
+    if (failure) setError(failed === fresh.length ? failure : `O poză n-a intrat. ${failure}`);
   };
 
+  const remove = (key: string) => {
+    onChange(list => {
+      const gone = list.find(photo => photo.key === key);
+      if (gone?.preview.startsWith('blob:')) URL.revokeObjectURL(gone.preview);
+      return list.filter(photo => photo.key !== key);
+    });
+    setError(null);
+  };
+
+  const addTile = (label: string) => (
+    <label className="rqc__slot">
+      <input
+        id={id}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={e => {
+          /* Copia se face ÎNAINTE de golire: `files` e o listă vie legată de câmp. */
+          const picked = e.target.files;
+          const files: File[] = [];
+          for (let i = 0; i < (picked ? picked.length : 0); i++) files.push(picked[i]);
+          e.target.value = '';
+          if (files.length) handleFiles(files);
+        }}
+      />
+      <span className="rqc__frame rqc__frame--empty">
+        <Camera size={22} weight="duotone" aria-hidden="true" />
+        <span>{label}</span>
+      </span>
+      <span className="rqc__clip" aria-hidden="true" />
+    </label>
+  );
+
   return (
-    <div className="sf-field">
-      <label htmlFor={id} className="sf-field__label">
-        Poze cu problema <span className="rqp__optional">(opțional)</span>
-      </label>
-      <p className="rqp__hint">
-        Arată ce s-a stricat. Eroul știe din poză ce scule să ia și cât durează.
-      </p>
-
-      <ul className="rqp__grid" aria-label="Pozele atașate cererii">
-        {urls.map((url, i) => (
-          <li key={url} className="rqp__cell">
-            <img
-              src={thumb(url, 260, { square: true })}
-              alt={`Poza ${i + 1}`}
-              loading="lazy"
-              decoding="async"
-            />
-            <button
-              type="button"
-              className="rqp__drop"
-              onClick={() => {
-                onChange(urls.filter((_, k) => k !== i));
-                setError(null);
-              }}
-              aria-label={`Scoate poza ${i + 1}`}
-            >
-              <Trash size={15} weight="bold" aria-hidden="true" />
-            </button>
-          </li>
-        ))}
-
-        {busy > 0 && (
-          <li className="rqp__cell rqp__cell--busy" aria-live="polite">
-            <Spinner size={22} weight="bold" className="rqp__spin" aria-hidden="true" />
-            <span>Se încarcă…</span>
-          </li>
-        )}
-
-        {room > 0 && (
-          <li className="rqp__cell rqp__cell--add">
-            <label className="rqp__add">
-              <input
-                id={id}
-                type="file"
-                accept="image/*"
-                multiple
-                className="sr-only"
-                onChange={e => {
-                  /* Copia se face ÎNAINTE de golire, și e obligatorie: `files`
-                     e o listă vie legată de câmp, iar golirea lui o golește și
-                     pe ea — cu referința păstrată, `handleFiles` primea zero
-                     poze și nu se urca nimic. */
-                  const picked = e.target.files;
-                  const files: File[] = [];
-                  for (let i = 0; i < (picked ? picked.length : 0); i++) files.push(picked[i]);
-                  // golim câmpul: altfel aceeași poză aleasă a doua oară nu
-                  // declanșează `change` și pare că s-a blocat
-                  e.target.value = '';
-                  if (files.length) handleFiles(files);
-                }}
-              />
-              <Plus size={20} weight="bold" aria-hidden="true" />
-              <span>Adaugă</span>
-            </label>
-          </li>
-        )}
-      </ul>
-
+    <div className="rqc">
+      {photos.length === 0 ? (
+        <div className="rqc__intro">
+          {addTile('Fă o poză')}
+          <div className="rqc__text">
+            <strong>Adaugă poze (opțional)</strong>
+            <span>{`Din poze, ${who} știe ce scule și ce piese să ia. Până la ${MAX_REQUEST_PHOTOS}.`}</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <ul className="rqc__row" aria-label="Pozele atașate cererii">
+            {photos.map((photo, i) => (
+              <li key={photo.key} className="rqc__slot">
+                <span className="rqc__frame">
+                  <img src={photo.preview} alt={`Poza ${i + 1}`} decoding="async" />
+                  {!photo.url && (
+                    <span className="rqc__busy" aria-label="Se încarcă">
+                      <Spinner size={22} weight="bold" className="rqp__spin" aria-hidden="true" />
+                    </span>
+                  )}
+                </span>
+                <span className="rqc__clip" aria-hidden="true" />
+                <button type="button" className="rqc__remove" onClick={() => remove(photo.key)} aria-label={`Scoate poza ${i + 1}`}>
+                  <X size={12} weight="bold" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+            {room > 0 && <li className="rqc__more">{addTile('Mai pune una')}</li>}
+          </ul>
+          <p className="rqc__caption">
+            {photos.length === 1
+              ? `${Who} o vede înainte să accepte și știe cu ce să vină.`
+              : `${Who} le vede pe toate înainte să accepte.`}
+          </p>
+        </>
+      )}
       {error && <p className="sf-field__error">{error}</p>}
     </div>
   );
