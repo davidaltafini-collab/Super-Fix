@@ -383,3 +383,49 @@ textarea.adm-input { min-height: 5rem; padding: 0.6rem 0.85rem; line-height: 1.6
   .adm-tab, .adm-btn, .adm-hero, .adm-input { transition: none; }
   .adm-veil, .adm-sheet { animation: none; }
 }
+
+/* ---------------- meseriile (Setări → Meserii) ---------------- */
+
+/* Un rând de meserie: ca pastilele de alături, umbră în loc de contur. */
+.adm-trade {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 2px rgba(27, 31, 37, 0.06), 0 4px 14px rgba(27, 31, 37, 0.05);
+  transition: background-color 0.15s ease;
+}
+.adm-trade:hover { background: #fff; }
+.adm-trade__icon {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: hsl(355, 74%, 55%);
+  background: rgba(27, 31, 37, 0.05);
+}
+
+/* O iconiță din grilă: desenul și, mic dedesubt, ce înseamnă. Cea aleasă = apăsată. */
+.adm-icon-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.25rem 0.55rem;
+  border-radius: 0.9rem;
+  color: #1b1f25;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 2px rgba(27, 31, 37, 0.06);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.adm-icon-pick span { font-size: 0.65rem; line-height: 1.15; text-align: center; color: rgba(27, 31, 37, 0.62); }
+.adm-icon-pick:hover { background: #fff; }
+.adm-icon-pick[aria-pressed='true'] { color: #fff; background: #1b1f25; }
+.adm-icon-pick[aria-pressed='true'] span { color: rgba(255, 255, 255, 0.8); }
+.adm-icon-pick:disabled { opacity: 0.6; }

@@ -3,30 +3,14 @@ import { Link } from 'react-router-dom';
 import { Hero } from '../types';
 import { thumb } from '../lib/img';
 import { Tilt } from './motion';
-import {
-  Star, ShieldCheck, Lightning, Drop, Wrench, PaintRoller, Hammer,
-  Key, Broom, Toolbox, ArrowRight, Target,
-} from '@phosphor-icons/react';
+import { tradeIcon, useTradeIcons } from '../lib/tradeIcons';
+import { Star, ShieldCheck, ArrowRight, Target } from '@phosphor-icons/react';
 
 /* Cardul de erou din listă, folosit și pe paginile pe meserie și loc
    (pages/SeoLanding.tsx), ca un meseriaș să arate la fel oriunde apare. */
 
-// Iconița pentru fiecare meserie — același limbaj vizual ca pe homepage,
+// Iconița meseriei — același limbaj vizual ca pe homepage și în aplicație (lib/tradeIcons.ts),
 // ca filtrele de aici să se lege de secțiunea "Alege după putere".
-const TRADE_ICONS: Record<string, React.ElementType> = {
-  ELECTRICIAN: Lightning,
-  INSTALATOR: Drop,
-  MECANIC: Wrench,
-  ZUGRAV: PaintRoller,
-  TÂMPLAR: Hammer,
-  TAMPLAR: Hammer,
-  LĂCĂTUȘ: Key,
-  LACATUS: Key,
-  CURĂȚENIE: Broom,
-  CURATENIE: Broom,
-};
-export const iconForTrade = (name: string): React.ElementType =>
-  TRADE_ICONS[name.toUpperCase()] || Toolbox;
 
 /* Poza „în revizie", pentru cine n-are încă poză: 640px WebP, 31 KB.
    Originalul (revizie.png, 766px, 306 KB) întârzia pozele adevărate din listă. */
@@ -57,7 +41,7 @@ export const HeroCardSkeleton: React.FC = () => (
    afișate primesc exact același obiect `hero` și nu se mai recalculează deloc. */
 export const HeroListCard = React.memo(function HeroListCard({ hero, showDistance, priority = false }: { hero: Hero; showDistance: boolean; priority?: boolean }) {
   const avgRating = hero.ratingAvg ?? 0; // calculată pe server (A9)
-  const TradeIcon = iconForTrade(hero.category);
+  const TradeIcon = tradeIcon(hero.category, useTradeIcons());
   return (
     <Tilt max={8} className="h-full rounded-[20px] sm:rounded-[28px]">
       <Link

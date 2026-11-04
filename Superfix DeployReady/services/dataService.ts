@@ -432,6 +432,60 @@ export const deleteApplication = async (id: string) => {
     } catch { return false; }
 };
 
+/* === ADMIN: MESERIILE ===
+   Meseriile eroilor și ale dosarelor, cu iconița aleasă. `isNew` = meserie care nu e
+   de bază și n-are încă iconiță — lista vine deja cu ele primele. `expired` (401)
+   spune apelantului să închidă sesiunea, ca la moderare. */
+export interface AdminTrade {
+    key: string;
+    category: string;
+    heroes: number;
+    applications: number;
+    core: boolean;
+    icon: string | null;
+    isNew: boolean;
+}
+export interface AdminTradeIconOption { name: string; label: string; }
+
+export type AdminTradesResult =
+    | { ok: true; trades: AdminTrade[]; icons: AdminTradeIconOption[] }
+    | { ok: false; expired?: boolean; message: string };
+
+const tradeFailure = async (res: Response, fallback: string) => {
+    const data = await res.json().catch(() => ({} as any));
+    if (res.status === 401) return { ok: false as const, expired: true, message: 'Sesiunea de administrator a expirat. Autentifică-te din nou.' };
+    if (res.status === 403) return { ok: false as const, message: data?.message || 'Treapta ta de administrator nu are voie să facă asta.' };
+    return { ok: false as const, message: data?.message || data?.error || fallback };
+};
+
+export const getAdminTrades = async (): Promise<AdminTradesResult> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/trades`, { headers: getAuthHeader(), cache: 'no-store' });
+        if (!res.ok) return tradeFailure(res, 'Meseriile nu s-au putut încărca.');
+        const data = await res.json().catch(() => ({} as any));
+        return {
+            ok: true,
+            trades: Array.isArray(data?.trades) ? data.trades : [],
+            icons: Array.isArray(data?.icons) ? data.icons : [],
+        };
+    } catch { return { ok: false, message: 'Eroare de rețea.' }; }
+};
+
+/** `icon: null` = înapoi la iconița de rezervă. */
+export const setAdminTradeIcon = async (category: string, icon: string | null):
+    Promise<{ ok: true; key: string; icon: string | null } | { ok: false; expired?: boolean; message: string }> => {
+    try {
+        const res = await fetch(`${API_URL}/admin/trades/icon`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ category, icon }),
+        });
+        if (!res.ok) return tradeFailure(res, 'Iconița nu s-a putut salva.');
+        const data = await res.json().catch(() => ({} as any));
+        return { ok: true, key: typeof data?.key === 'string' ? data.key : '', icon: typeof data?.icon === 'string' ? data.icon : null };
+    } catch { return { ok: false, message: 'Eroare de rețea.' }; }
+};
+
 // === ADMIN: HERO MANAGEMENT ===
 export type SaveHeroResult = { ok: boolean; error?: string };
 

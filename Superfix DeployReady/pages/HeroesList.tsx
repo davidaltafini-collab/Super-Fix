@@ -9,7 +9,8 @@ import {
 } from '../services/dataService';
 import { RomaniaMap } from '../components/RomaniaMap';
 // Cardul stă în componenta lui: îl folosesc și paginile pe meserie și loc.
-import { HeroListCard, HeroCardSkeleton, iconForTrade, PRIORITY_CARDS } from '../components/HeroListCard';
+import { HeroListCard, HeroCardSkeleton, PRIORITY_CARDS } from '../components/HeroListCard';
+import { tradeIcon, useTradeIcons } from '../lib/tradeIcons';
 import { GlassButton } from '../components/Button';
 import { Mascot } from '../components/Mascot';
 import {
@@ -79,6 +80,7 @@ export const HeroesList: React.FC = () => {
 
   // Meseriile care au eroi listați, de la server (FRONTEND-HANDOFF A8).
   const [categories, setCategories] = useState<HeroCategoryCount[]>([]);
+  const tradeIcons = useTradeIcons();
 
   // === „LÂNGĂ MINE" ȘI „APROAPE DE MINE" (FRONTEND-HANDOFF A15) ===
   // Ordinea o face serverul. Lista pornește „lângă mine", după poziția
@@ -518,7 +520,7 @@ export const HeroesList: React.FC = () => {
             {categories.map(({ category }) => {
               // Valoarea pleacă la server exact cum vine; afișată fără spațiile de la capete.
               const label = category.trim();
-              const Icon = iconForTrade(label);
+              const Icon = tradeIcon(label, tradeIcons);
               const active = filterCategory === category;
               return (
                 <button

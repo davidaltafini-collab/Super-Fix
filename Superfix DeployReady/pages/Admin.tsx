@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   MagnifyingGlass, Plus, Minus, X, SignOut, ArrowsClockwise, DownloadSimple,
@@ -13,7 +13,9 @@ import {
     getAdminMe, listAdmins, createAdmin, patchAdmin, resetAdminTotp, setAdminPassword, deleteAdmin,
     AdminAccount, AdminRoleInfo,
     investigate, InvestigateResult,
+    getAdminTrades, setAdminTradeIcon, AdminTrade, AdminTradeIconOption,
 } from '../services/dataService';
+import { CHOSEN_ICONS, defaultTradeIcon, setChosenTradeIcon, tradeIcon, tradeKey } from '../lib/tradeIcons';
 import { RomaniaMap } from '../components/RomaniaMap';
 import { API_URL } from '../config/api';
 import { failureMessage } from '../lib/apiError';
@@ -52,6 +54,10 @@ type PayoutBatch = {
   recruiterCount?: number;
   _count?: { items?: number };
 };
+
+
+/** Cont de recenzie (Apple/Google), nu om: emailul pe domeniul de probă. */
+const isProbaHero = (hero: Hero) => (hero.email || '').toLowerCase().endsWith('@proba.super-fix.ro');
 
 export const Admin: React.FC = () => {
   const toast = useToast();
@@ -136,8 +142,15 @@ export const Admin: React.FC = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [heroes, setHeroes] = useState<Hero[]>([]);
   
-  const [categoryList, setCategoryList] = useState<string[]>(Object.values(JobCategory));
-  const [newCatInput, setNewCatInput] = useState('');
+  /* Meseriile, de pe server (`/admin/trades`): eroii + dosarele în așteptare, cu iconița aleasă. Înainte stăteau în
+     browserul ăsta (localStorage), deci nu le vedea nimeni altcineva și nu ajungeau în aplicație. */
+  const [trades, setTrades] = useState<AdminTrade[]>([]);
+  const [tradeIconOptions, setTradeIconOptions] = useState<AdminTradeIconOption[]>([]);
+  const [iconPickerFor, setIconPickerFor] = useState<AdminTrade | null>(null);
+  const [savingTradeIcon, setSavingTradeIcon] = useState(false);
+  /* Conturile de recenzie (Apple/Google, `@proba.super-fix.ro`) nu sunt oameni: ascunse din Eroi și Misiuni, ca adminul
+     să arate doar lumea reală (David, 03.11: „în admin apare baza de date mock”). Un singur buton le arată. */
+  const [showProba, setShowProba] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -195,9 +208,6 @@ export const Admin: React.FC = () => {
             setAdminRole(localStorage.getItem('superfix_admin_role'));
         }
         else { setIsAuthenticated(false); if (token) logoutUser(); }
-
-        const savedCats = localStorage.getItem('superfix_full_categories');
-        if (savedCats) setCategoryList(JSON.parse(savedCats));
     }, []);
 
     useEffect(() => {
@@ -522,8 +532,16 @@ export const Admin: React.FC = () => {
         fetchModerationCounts().then(setModerationCounts).catch(() => {});
     };
 
+    const fetchTrades = () => {
+        getAdminTrades().then(result => {
+            if (result.ok === true) { setTrades(result.trades); setTradeIconOptions(result.icons); }
+            else if ((result as { expired?: boolean }).expired) expireAdminSession();
+        }).catch(() => {});
+    };
+
     const refreshAllData = () => {
         getAllHeroesAdmin().then(setHeroes);
+        fetchTrades();
         getAllRequests().then(setRequests);
         getApplications().then(setApplications);
         refreshModerationCounts();
@@ -862,19 +880,24 @@ export const Admin: React.FC = () => {
     }
   };
 
-  const addCategory = () => {
-      if (!newCatInput.trim() || categoryList.includes(newCatInput)) return;
-      const updated = [...categoryList, newCatInput];
-      setCategoryList(updated);
-      localStorage.setItem('superfix_full_categories', JSON.stringify(updated));
-      setNewCatInput('');
-  };
-
-  const removeCategory = async (cat: string) => {
-      if (await toast.confirm(`Sigur ștergi categoria "${cat}"?`, { confirmLabel: 'Șterg', danger: true })) {
-          const updated = categoryList.filter(c => c !== cat);
-          setCategoryList(updated);
-          localStorage.setItem('superfix_full_categories', JSON.stringify(updated));
+  /* Iconița unei meserii, aleasă din admin (`icon: null` = cea de rezervă). Pagina deschisă o vede pe loc; aplicația și
+     site-ul o iau de la server. */
+  const saveTradeIcon = async (trade: AdminTrade, icon: string | null) => {
+      setSavingTradeIcon(true);
+      try {
+          const result = await setAdminTradeIcon(trade.category, icon);
+          if (result.ok !== true) {
+              const failed = result as { expired?: boolean; message: string };
+              if (failed.expired) return expireAdminSession();
+              toast.error(failed.message);
+              return;
+          }
+          setChosenTradeIcon(result.key || trade.key, result.icon);
+          setIconPickerFor(null);
+          fetchTrades();
+          toast.success(icon ? `${trade.category}: iconița e salvată.` : `${trade.category}: înapoi la iconița de rezervă.`);
+      } finally {
+          setSavingTradeIcon(false);
       }
   };
 
@@ -1383,7 +1406,25 @@ export const Admin: React.FC = () => {
   };
 
   const heroMissions = selectedHero ? requests.filter(r => r.heroId === selectedHero.id) : [];
-  const filteredHeroes = heroes.filter(h => (filterCategory === 'ALL' || h.category === filterCategory) && h.alias.toLowerCase().includes(searchTerm.toLowerCase()));
+  /* Meseriile din filtru și din fișa eroului: cele de pe server și ale eroilor, o dată fiecare (aceeași cheie ca pe
+     server: „Utilaje ” = „utilaje”), în ordine alfabetică. */
+  const categoryList = useMemo(() => {
+    const byKey = new Map<string, string>();
+    for (const name of [...Object.values(JobCategory), ...trades.map(t => t.category), ...heroes.map(h => h.category || '')]) {
+      const label = name.replace(/\s+/g, ' ').trim();
+      if (label.length > 1 && !byKey.has(tradeKey(label))) byKey.set(tradeKey(label), label);
+    }
+    return [...byKey.values()].sort((a, b) => a.localeCompare(b, 'ro'));
+  }, [trades, heroes]);
+  const probaHeroIds = useMemo(() => new Set(heroes.filter(isProbaHero).map(h => h.id)), [heroes]);
+  const visibleRequests = showProba ? requests : requests.filter(r => !probaHeroIds.has(r.heroId));
+  const newTrades = trades.filter(t => t.isNew);
+  const newTradeKeys = new Set(newTrades.map(t => t.key));
+
+  const filteredHeroes = heroes.filter(h =>
+    (showProba || !isProbaHero(h))
+    && (filterCategory === 'ALL' || tradeKey(h.category) === tradeKey(filterCategory))
+    && h.alias.toLowerCase().includes(searchTerm.toLowerCase()));
 
   // === RENDER ===
 
@@ -1472,7 +1513,7 @@ export const Admin: React.FC = () => {
     { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
     { key: 'BILLING_MONTHS', label: 'Luni', count: 0 },
-    { key: 'SETTINGS', label: 'Setări', count: 0 },
+    { key: 'SETTINGS', label: 'Meserii', count: newTrades.length },
     { key: 'LOGS', label: 'Jurnal', count: 0 },
     { key: 'CAUTARE', label: 'Căutare', count: 0 },
   ];
@@ -1694,6 +1735,17 @@ export const Admin: React.FC = () => {
                   {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+              {probaHeroIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowProba(v => !v)}
+                  aria-pressed={showProba}
+                  className="adm-btn adm-btn--quiet sm:shrink-0"
+                  title="Conturile cu care intră Apple și Google la recenzie. Nu apar la oameni."
+                >
+                  {showProba ? 'Ascunde conturile de recenzie' : `Conturi de recenzie (${probaHeroIds.size})`}
+                </button>
+              )}
               <button type="button" onClick={openAddModal} className="adm-btn adm-btn--main">
                 <Plus size={15} weight="bold" aria-hidden="true" />
                 Erou nou
@@ -1714,7 +1766,9 @@ export const Admin: React.FC = () => {
                       <img src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 420, { square: true })} alt="" loading="lazy" />
                       <span className="adm-hero__trust">{hero.trustFactor}</span>
                       {hero.listed === false && <span className="adm-hero__hidden">Nu apare la clienți</span>}
-                      {hero.billingAccount?.exempt && <span className="adm-hero__gold">Bilet de aur</span>}
+                      {isProbaHero(hero)
+                        ? <span className="adm-hero__gold">Recenzie</span>
+                        : hero.billingAccount?.exempt && <span className="adm-hero__gold">Bilet de aur</span>}
                     </div>
                     <div className="p-3">
                       <p className="truncate font-heading text-base leading-tight text-graphite">{hero.alias}</p>
@@ -1755,10 +1809,10 @@ export const Admin: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {requests.length === 0 && (
+                {visibleRequests.length === 0 && (
                   <tr><td colSpan={5} className="py-10 text-center text-graphite-soft">Nicio misiune încă.</td></tr>
                 )}
-                {requests.map(req => (
+                {visibleRequests.map(req => (
                   <tr key={req.id}>
                     <td className="adm-num whitespace-nowrap">{formatDateTime(req.date)}</td>
                     <td>
@@ -1800,6 +1854,18 @@ export const Admin: React.FC = () => {
                       <div className="min-w-0">
                         <h3 className="font-heading text-lg leading-tight text-graphite">{app.name}</h3>
                         <p className="mt-1 text-sm text-graphite-soft">{app.category}</p>
+                        {newTradeKeys.has(tradeKey(app.category || '')) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="adm-state" data-tone="wait">Meserie nouă</span>
+                            <button
+                              type="button"
+                              className="adm-btn adm-btn--quiet"
+                              onClick={() => setIconPickerFor(newTrades.find(t => t.key === tradeKey(app.category || '')) ?? null)}
+                            >
+                              Alege iconița
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <span className="adm-state" data-tone="wait">Nou</span>
                     </div>
@@ -2293,38 +2359,36 @@ export const Admin: React.FC = () => {
         {/* ---------------- SETĂRI ---------------- */}
         {activeTab === 'SETTINGS' && (
           <section className="adm-card mx-auto mt-5 max-w-2xl p-6">
-            <h2 className="font-heading text-lg text-graphite">Meseriile din listă</h2>
+            <h2 className="font-heading text-lg text-graphite">Meseriile</h2>
             <p className="mt-1.5 text-sm leading-relaxed text-graphite-soft">
-              Apar în filtrul de eroi și în fișa fiecăruia. Se țin în browserul ăsta, nu pe server.
+              Toate meseriile eroilor și ale dosarelor noi. Una scrisă altfel („utilaje”, „UTILAJE ”) se pune singură la
+              cea existentă. Apasă pe o meserie ca să-i alegi iconița: se vede pe site și în aplicație.
             </p>
-
-            <div className="mt-5 flex gap-2">
-              <input
-                className="adm-input flex-1"
-                placeholder="Instalator gaz…"
-                aria-label="Meserie nouă"
-                value={newCatInput}
-                onChange={e => setNewCatInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }}
-              />
-              <button type="button" onClick={addCategory} className="adm-btn adm-btn--main">Adaugă</button>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {categoryList.map(cat => (
-                <span key={cat} className="inline-flex items-center gap-1.5 rounded-full bg-white/70 py-1.5 pl-3 pr-1.5 text-sm font-semibold text-graphite">
-                  {cat}
-                  <button
-                    type="button"
-                    onClick={() => removeCategory(cat)}
-                    aria-label={`Scoate ${cat}`}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-super-red/12 hover:text-super-red"
-                  >
-                    <X size={12} weight="bold" />
-                  </button>
-                </span>
-              ))}
-            </div>
+            {trades.length === 0 ? (
+              <p className="mt-5 text-sm text-graphite-soft">Se încarcă meseriile…</p>
+            ) : (
+              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                {trades.map(trade => {
+                  const Icon = tradeIcon(trade.category, trade.icon ? { [trade.key]: trade.icon } : undefined);
+                  const counts = [
+                    trade.heroes ? `${trade.heroes} ${trade.heroes === 1 ? 'erou' : 'eroi'}` : '',
+                    trade.applications ? `${trade.applications} ${trade.applications === 1 ? 'dosar' : 'dosare'}` : '',
+                  ].filter(Boolean).join(' · ') || 'Fără eroi încă';
+                  return (
+                    <li key={trade.key}>
+                      <button type="button" onClick={() => setIconPickerFor(trade)} className="adm-trade">
+                        <span className="adm-trade__icon"><Icon size={20} weight="fill" aria-hidden="true" /></span>
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block truncate font-semibold text-graphite">{trade.category}</span>
+                          <span className="block truncate text-xs text-graphite-soft">{counts}</span>
+                        </span>
+                        {trade.isNew && <span className="adm-state" data-tone="wait">Nouă</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
         )}
 
@@ -3083,6 +3147,60 @@ export const Admin: React.FC = () => {
       )}
 
       {/* ---------------- ADMINISTRATOR NOU ---------------- */}
+      {iconPickerFor && createPortal(
+        <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label={`Iconița pentru ${iconPickerFor.category}`} onClick={e => { if (e.target === e.currentTarget && !savingTradeIcon) setIconPickerFor(null); }}>
+          <div className="adm-sheet !max-w-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-graphite/10 bg-[#f4f7fb]/95 px-5 py-3.5 backdrop-blur">
+              <h2 className="min-w-0 truncate font-heading text-lg text-graphite">Iconița pentru {iconPickerFor.category}</h2>
+              <button
+                type="button"
+                onClick={() => setIconPickerFor(null)}
+                aria-label="Închide"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-graphite-soft transition-colors hover:bg-graphite/8 hover:text-graphite"
+              >
+                <X size={17} weight="bold" />
+              </button>
+            </div>
+            <div className="p-5 sm:p-6">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {tradeIconOptions.filter(option => CHOSEN_ICONS[option.name]).map(option => {
+                  const Icon = CHOSEN_ICONS[option.name];
+                  return (
+                    <button
+                      key={option.name}
+                      type="button"
+                      disabled={savingTradeIcon}
+                      onClick={() => saveTradeIcon(iconPickerFor, option.name)}
+                      aria-pressed={iconPickerFor.icon === option.name}
+                      title={option.label}
+                      className="adm-icon-pick"
+                    >
+                      <Icon size={24} weight="fill" aria-hidden="true" />
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {iconPickerFor.icon && (() => {
+                const Fallback = defaultTradeIcon(iconPickerFor.category);
+                return (
+                  <button
+                    type="button"
+                    disabled={savingTradeIcon}
+                    onClick={() => saveTradeIcon(iconPickerFor, null)}
+                    className="adm-btn adm-btn--quiet mt-4 w-full"
+                  >
+                    <Fallback size={15} weight="bold" aria-hidden="true" />
+                    Iconița de rezervă
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {showCreateAdmin && createPortal(
         <div className="adm adm-veil" role="dialog" aria-modal="true" aria-label="Administrator nou" onClick={e => { if (e.target === e.currentTarget && !createAdminSubmitting) setShowCreateAdmin(false); }}>
           <div className="adm-sheet !max-w-md">

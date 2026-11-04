@@ -27,18 +27,9 @@ import { SeoCrumbs, SeoLinks } from '../components/SeoNav';
 import type { HeroSeo } from '../lib/seo';
 import {
   Phone, PaperPlaneTilt, Target, Star, Play, MoonStars, Prohibit,
-  ChatCircleText, CheckCircle, Sparkle, IdentificationCard, Lightning, MaskHappy, ArrowLeft,
-  Drop, Wrench, PaintRoller, Hammer, Key, Broom, Toolbox, X, Images,
+  ChatCircleText, CheckCircle, Sparkle, IdentificationCard, MaskHappy, ArrowLeft, X, Images,
 } from '@phosphor-icons/react';
-
-// Aceleași iconițe de meserie ca pe /heroes și pe homepage.
-const TRADE_ICONS: Record<string, React.ElementType> = {
-  ELECTRICIAN: Lightning, INSTALATOR: Drop, MECANIC: Wrench,
-  ZUGRAV: PaintRoller, TÂMPLAR: Hammer, TAMPLAR: Hammer,
-  LĂCĂTUȘ: Key, LACATUS: Key, CURĂȚENIE: Broom, CURATENIE: Broom,
-};
-const iconForTrade = (name: string): React.ElementType =>
-  TRADE_ICONS[(name || '').toUpperCase()] || Toolbox;
+import { tradeIcon, useTradeIcons } from '../lib/tradeIcons';
 
 /* Recenziile se desenează câte 10, pe măsură ce omul derulează spre ele. Un erou
    cu sute de recenzii nu mai construiește sute de bule la deschiderea paginii,
@@ -55,6 +46,8 @@ export const HeroProfile: React.FC = () => {
   const msgBtnRef = React.useRef<HTMLButtonElement>(null);
   const [formOrigin, setFormOrigin] = React.useState<DOMRect | null>(null);
   const toast = useToast();
+  // Aceleași iconițe de meserie ca pe /heroes și pe homepage (și alegerea din admin).
+  const tradeIcons = useTradeIcons();
   /** posterul video: de acolo creste lightbox-ul */
   const posterRef = React.useRef<HTMLButtonElement>(null);
   const [videoOpen, setVideoOpen] = React.useState(false);
@@ -290,7 +283,7 @@ export const HeroProfile: React.FC = () => {
   );
   if (!hero) return null;
 
-  const TradeIcon = iconForTrade(hero.category);
+  const TradeIcon = tradeIcon(hero.category, tradeIcons);
   /* Ca în aplicație: pe profil stau doar lucrările cu ambele poze (înainte și după), cele mai noi întâi. */
   const portfolio = (hero.portfolio || [])
     .filter(p => p.beforeUrl && p.afterUrl)

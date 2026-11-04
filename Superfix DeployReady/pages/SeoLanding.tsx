@@ -6,7 +6,8 @@ import {
 
 import { getSeoLanding, peekSeoLanding } from '../services/dataService';
 import type { SeoLanding as LandingData } from '../lib/seo';
-import { HeroListCard, HeroCardSkeleton, iconForTrade, PRIORITY_CARDS } from '../components/HeroListCard';
+import { HeroListCard, HeroCardSkeleton, PRIORITY_CARDS } from '../components/HeroListCard';
+import { tradeIcon, useTradeIcons } from '../lib/tradeIcons';
 import { SeoHead } from '../components/SeoHead';
 import { SeoCrumbs, SeoLinks } from '../components/SeoNav';
 import { GlassButton } from '../components/Button';
@@ -61,6 +62,7 @@ export const SeoLanding: React.FC = () => {
     return cached ? { status: 'ok', data: cached } : { status: 'loading' };
   });
   const [attempt, setAttempt] = useState(0);
+  const tradeIcons = useTradeIcons();
 
   useEffect(() => {
     const cached = peekSeoLanding(path, page);
@@ -117,7 +119,7 @@ export const SeoLanding: React.FC = () => {
   const { data } = view;
   const isTrade = data.kind.startsWith('trade');
   const categoryLabel = typeof data.category === 'string' ? data.category : data.category?.label || '';
-  const KindIcon = isTrade ? iconForTrade(categoryLabel) : MapPin;
+  const KindIcon = isTrade ? tradeIcon(categoryLabel, tradeIcons) : MapPin;
   const stats = data.stats || {};
   const pages = data.limit > 0 ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
   const pageHref = (n: number) => (n <= 1 ? path : `${path}?page=${n}`);
