@@ -148,9 +148,6 @@ export const Admin: React.FC = () => {
   const [tradeIconOptions, setTradeIconOptions] = useState<AdminTradeIconOption[]>([]);
   const [iconPickerFor, setIconPickerFor] = useState<AdminTrade | null>(null);
   const [savingTradeIcon, setSavingTradeIcon] = useState(false);
-  /* Conturile de recenzie (Apple/Google, `@proba.super-fix.ro`) nu sunt oameni: ascunse din Eroi și Misiuni, ca adminul
-     să arate doar lumea reală (David, 03.11: „în admin apare baza de date mock”). Un singur buton le arată. */
-  const [showProba, setShowProba] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -1416,13 +1413,15 @@ export const Admin: React.FC = () => {
     }
     return [...byKey.values()].sort((a, b) => a.localeCompare(b, 'ro'));
   }, [trades, heroes]);
+  /* Baza de probă (conturile de recenzie Apple/Google, `@proba.super-fix.ro`) nu apare în admin deloc (David, 10.11:
+     „nu are sens”): serverul n-o mai trimite (`admin-proba.ts`); filtrul de aici o ține afară și cu un server vechi. */
   const probaHeroIds = useMemo(() => new Set(heroes.filter(isProbaHero).map(h => h.id)), [heroes]);
-  const visibleRequests = showProba ? requests : requests.filter(r => !probaHeroIds.has(r.heroId));
+  const visibleRequests = requests.filter(r => !probaHeroIds.has(r.heroId));
   const newTrades = trades.filter(t => t.isNew);
   const newTradeKeys = new Set(newTrades.map(t => t.key));
 
   const filteredHeroes = heroes.filter(h =>
-    (showProba || !isProbaHero(h))
+    !isProbaHero(h)
     && (filterCategory === 'ALL' || tradeKey(h.category) === tradeKey(filterCategory))
     && h.alias.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -1672,8 +1671,8 @@ export const Admin: React.FC = () => {
             <div>
               <h1 className="font-heading text-lg leading-tight text-graphite">Cartierul general</h1>
               <p className="text-xs text-graphite-soft">
-                <span className="adm-num">{heroes.length}</span> eroi ·{' '}
-                <span className="adm-num">{requests.length}</span> misiuni
+                <span className="adm-num">{heroes.length - probaHeroIds.size}</span> eroi ·{' '}
+                <span className="adm-num">{visibleRequests.length}</span> misiuni
               </p>
             </div>
           </div>
@@ -1735,17 +1734,6 @@ export const Admin: React.FC = () => {
                   {categoryList.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              {probaHeroIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowProba(v => !v)}
-                  aria-pressed={showProba}
-                  className="adm-btn adm-btn--quiet sm:shrink-0"
-                  title="Conturile cu care intră Apple și Google la recenzie. Nu apar la oameni."
-                >
-                  {showProba ? 'Ascunde conturile de recenzie' : `Conturi de recenzie (${probaHeroIds.size})`}
-                </button>
-              )}
               <button type="button" onClick={openAddModal} className="adm-btn adm-btn--main">
                 <Plus size={15} weight="bold" aria-hidden="true" />
                 Erou nou
@@ -1766,9 +1754,7 @@ export const Admin: React.FC = () => {
                       <img src={thumb(hero.avatarUrl || DEFAULT_AVATAR, 420, { square: true })} alt="" loading="lazy" />
                       <span className="adm-hero__trust">{hero.trustFactor}</span>
                       {hero.listed === false && <span className="adm-hero__hidden">Nu apare la clienți</span>}
-                      {isProbaHero(hero)
-                        ? <span className="adm-hero__gold">Recenzie</span>
-                        : hero.billingAccount?.exempt && <span className="adm-hero__gold">Bilet de aur</span>}
+                      {hero.billingAccount?.exempt && <span className="adm-hero__gold">Bilet de aur</span>}
                     </div>
                     <div className="p-3">
                       <p className="truncate font-heading text-base leading-tight text-graphite">{hero.alias}</p>
