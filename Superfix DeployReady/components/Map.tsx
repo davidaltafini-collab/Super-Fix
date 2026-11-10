@@ -62,6 +62,20 @@ const FIRST_LABEL = (base.layers as { id: string; type: string }[]).find(layer =
 /** De la zoom 15 clădirile se ridică; harta se înclină odată cu ele, până la 45° (ca în aplicație). */
 export const pitchForZoom = (zoom: number) => Math.max(0, Math.min(45, (zoom - 15) * 30));
 
+/* Fără WebGL2 (browser vechi, placă video blocată) MapLibre aruncă la construire, iar eroarea dărâma toată pagina
+   eroului („Ceva s-a blocat”, 11.11). Atunci harta lipsește, cutia ei dispare, restul paginii merge. */
+let webgl2: boolean | null = null;
+function canDrawMap(): boolean {
+  if (webgl2 === null) {
+    try {
+      webgl2 = typeof document !== 'undefined' && !!document.createElement('canvas').getContext('webgl2');
+    } catch {
+      webgl2 = false;
+    }
+  }
+  return webgl2;
+}
+
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -159,10 +173,17 @@ export const MapPreview: React.FC<MapPreviewProps> = ({
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const at = point ?? around;
   const atZoom = point ? zoom : 10.5;
+  const [off, setOff] = useState(() => !canDrawMap());
 
   useEffect(() => {
-    if (!ref.current || mapRef.current || !at) return;
-    const map = createMap(ref.current, { center: at, zoom: atZoom, interactive: false });
+    if (off || !ref.current || mapRef.current || !at) return;
+    let map: MlMap;
+    try {
+      map = createMap(ref.current, { center: at, zoom: atZoom, interactive: false });
+    } catch {
+      setOff(true);
+      return;
+    }
     mapRef.current = map;
     const stop = followSize(map, ref.current);
     return () => {
@@ -188,6 +209,7 @@ export const MapPreview: React.FC<MapPreviewProps> = ({
     map.easeTo({ center: [at.lng, at.lat], zoom: atZoom, pitch: pitchForZoom(atZoom), duration: reducedMotion() ? 0 : 420 });
   }, [at?.lat, at?.lng, point ? 1 : 0, atZoom]);
 
+  if (off) return null;
   return (
     <div
       ref={ref}
@@ -237,12 +259,19 @@ export const MapPicker: React.FC<MapPickerProps> = ({
 
   const [moving, setMoving] = useState(false);
   const [reading, setReading] = useState(false);
+  const [off, setOff] = useState(() => !canDrawMap());
 
   useEffect(() => {
-    if (!ref.current || mapRef.current) return;
+    if (off || !ref.current || mapRef.current) return;
     const start = point ?? around ?? COUNTRY;
     const zoom = point ? CLOSE_ZOOM : around ? 11 : 6;
-    const map = createMap(ref.current, { center: start, zoom, interactive: true });
+    let map: MlMap;
+    try {
+      map = createMap(ref.current, { center: start, zoom, interactive: true });
+    } catch {
+      setOff(true);
+      return;
+    }
     mapRef.current = map;
 
     let user = false;
@@ -310,6 +339,8 @@ export const MapPicker: React.FC<MapPickerProps> = ({
         ? 'Mută harta până pinul e pe casă, sau scrie adresa.'
         : null;
 
+  /* Fără hartă rămâne adresa scrisă din formular. */
+  if (off) return null;
   return (
     <div className={`sf-map-picker ${className || ''}`}>
       <div className="sf-map-picker__frame" style={{ height }}>
@@ -419,20 +450,28 @@ export const ZoneMap: React.FC<ZoneMapProps> = ({ lat, lng, radiusKm, travelKm, 
     return { green, outer, world };
   }, [lat, lng, radiusKm, outerKm, frameKm, extra]);
 
+  const [off, setOff] = useState(() => !canDrawMap());
+
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (off || !el) return;
     const dLat = frameKm / FIT_RATIO / KM_PER_DEG_LAT;
     const dLng = frameKm / FIT_RATIO / (KM_PER_DEG_LNG * Math.cos((lat * Math.PI) / 180));
     setup();
-    const map = new maplibregl.Map({
-      container: el,
-      style: superfixStyle(),
-      bounds: [[lng - dLng, lat - dLat], [lng + dLng, lat + dLat]],
-      interactive: false,
-      attributionControl: { compact: true },
-      fadeDuration: 0,
-    });
+    let map: MlMap;
+    try {
+      map = new maplibregl.Map({
+        container: el,
+        style: superfixStyle(),
+        bounds: [[lng - dLng, lat - dLat], [lng + dLng, lat + dLat]],
+        interactive: false,
+        attributionControl: { compact: true },
+        fadeDuration: 0,
+      });
+    } catch {
+      setOff(true);
+      return;
+    }
     quietAttribution(map);
 
     map.on('load', () => {
@@ -500,6 +539,7 @@ export const ZoneMap: React.FC<ZoneMapProps> = ({ lat, lng, radiusKm, travelKm, 
     };
   }, [lat, lng, radiusKm, extra, frameKm, outerKm, shapes]);
 
+  if (off) return null;
   return (
     <div
       ref={ref}
