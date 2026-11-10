@@ -40,13 +40,17 @@ function setup() {
   maplibregl.addProtocol('pmtiles', protocol.tile);
 }
 
+/** Harta slăbită (10.11, `scripts/harta/slabeste.mjs` în aplicație): doar ce desenează stilul, aspectul identic.
+    Alt nume la fiecare refacere (browserul ține minte antetul fișierului vechi), același ca în aplicație. */
+const MAP_FILE = 'harta-20261110.pmtiles';
+
 /** Stilul aplicației, legat de locul unde stau datele și literele. */
 function superfixStyle(): StyleSpecification {
   const root = absolute(MAP_BASE);
   return {
     version: 8,
     glyphs: `${root}/fonts/{fontstack}/{range}.pbf`,
-    sources: { protomaps: { type: 'vector', url: `pmtiles://${root}/harta.pmtiles`, attribution: '© OpenStreetMap' } },
+    sources: { protomaps: { type: 'vector', url: `pmtiles://${root}/${MAP_FILE}`, attribution: '© OpenStreetMap' } },
     light: base.light,
     layers: base.layers,
   } as unknown as StyleSpecification;
