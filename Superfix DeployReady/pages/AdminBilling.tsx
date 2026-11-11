@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowsClockwise, Check, Gift, Plus, Ticket, WarningCircle } from '@phosphor-icons/react';
 import { API_URL } from '../config/api';
-import { BillingMonth, capitalize, jobsLabel, leiLabel, monthLabel, MonthStatus } from '../services/subscription';
+import { BillingMonth, capitalize, dayLabel, jobsLabel, leiLabel, monthLabel, MonthStatus } from '../services/subscription';
 
 class AdminBillingError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -82,9 +82,6 @@ export function AdminBillingPanel({ onSessionExpired }: { onSessionExpired: () =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [action, setAction] = useState<string | null>(null);
-  const [promos, setPromos] = useState<PromoCode[]>([]);
-  const [promo, setPromo] = useState({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
-  const [settings, setSettings] = useState<GrowthSettings | null>(null);
 
   const fail = useCallback((reason: unknown) => {
     if (reason instanceof AdminBillingError && reason.status === 401) onSessionExpired();
@@ -104,19 +101,7 @@ export function AdminBillingPanel({ onSessionExpired }: { onSessionExpired: () =
     finally { setLoading(false); }
   }, [fail, month, status]);
 
-  const loadSupport = useCallback(async () => {
-    try {
-      const [codes, growth] = await Promise.all([
-        adminRequest<PromoCode[]>('/admin/promo-codes'),
-        adminRequest<GrowthSettings>('/admin/growth/settings'),
-      ]);
-      setPromos(Array.isArray(codes) ? codes : []);
-      setSettings(growth);
-    } catch (reason) { fail(reason); }
-  }, [fail]);
-
   useEffect(() => { void loadMonths(); }, [loadMonths]);
-  useEffect(() => { void loadSupport(); }, [loadSupport]);
 
   const waive = async (item: AdminMonth) => {
     const note = window.prompt(`De ce iertăm ${monthLabel(item.month)} pentru ${item.billingAccount.hero.alias}? (minimum 3 caractere)`)?.trim() || '';
@@ -128,43 +113,6 @@ export function AdminBillingPanel({ onSessionExpired }: { onSessionExpired: () =
       await loadMonths();
     } catch (reason) { fail(reason); }
     finally { setAction(null); }
-  };
-
-  const createPromo = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setAction('promo');
-    setError('');
-    try {
-      await adminRequest('/admin/promo-codes', {
-        method: 'POST',
-        body: JSON.stringify({
-          code: promo.code.trim().toUpperCase(),
-          description: promo.description.trim() || undefined,
-          freeMonths: Number(promo.freeMonths) || 6,
-          maxUses: promo.maxUses ? Number(promo.maxUses) : undefined,
-          expiresAt: promo.expiresAt || undefined,
-        }),
-      });
-      setPromo({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
-      await loadSupport();
-    } catch (reason) { fail(reason); }
-    finally { setAction(null); }
-  };
-
-  const saveSettings = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!settings) return;
-    setAction('settings');
-    setError('');
-    try {
-      const saved = await adminRequest<GrowthSettings>('/admin/growth/settings', { method: 'PUT', body: JSON.stringify(settings) });
-      setSettings(saved);
-    } catch (reason) { fail(reason); }
-    finally { setAction(null); }
-  };
-
-  const setSetting = (key: keyof GrowthSettings, value: string) => {
-    setSettings(current => current ? { ...current, [key]: Math.max(0, Number(value) || 0) } : current);
   };
 
   return (
@@ -206,33 +154,201 @@ export function AdminBillingPanel({ onSessionExpired }: { onSessionExpired: () =
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+    </section>
+  );
+}
+
+/* Starea unui cod cum o simte meseriașul care îl scrie: oprit, expirat sau epuizat = „Cod invalid”. */
+const promoState = (code: PromoCode, now = new Date()): { word: string; tone: string } => {
+  if (!code.active) return { word: 'Oprit', tone: 'off' };
+  if (code.expiresAt && new Date(code.expiresAt) <= now) return { word: 'Expirat', tone: 'off' };
+  if (code.maxUses != null && promoUses(code) >= code.maxUses) return { word: 'Epuizat', tone: 'wait' };
+  return { word: 'Activ', tone: 'live' };
+};
+
+const promoUses = (code: PromoCode) => code.uses ?? code._count?.redemptions ?? 0;
+
+const monthsLabel = (count: number) => (count === 1 ? 'o lună gratuită' : `${count} luni gratuite`);
+
+const PROMO_ERRORS: Record<string, string> = {
+  PROMO_EXISTS: 'Există deja un cod cu numele ăsta. Alege altul.',
+  EXPIRY_MUST_BE_FUTURE: 'Data de expirare trebuie să fie în viitor.',
+  VALIDATION_ERROR: 'Codul are între 3 și 50 de caractere.',
+  NOT_FOUND: 'Codul era deja oprit.',
+};
+
+/* Tot ce dă luni gratuite: codurile promo ale echipei (fără comision pentru nimeni) și regulile invitațiilor și ale recruiterilor. */
+export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => void }) {
+  const [promos, setPromos] = useState<PromoCode[]>([]);
+  const [promo, setPromo] = useState({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
+  const [settings, setSettings] = useState<GrowthSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [action, setAction] = useState<string | null>(null);
+
+  const fail = useCallback((reason: unknown) => {
+    if (reason instanceof AdminBillingError && reason.status === 401) onSessionExpired();
+    const message = reason instanceof Error ? reason.message : '';
+    setError(PROMO_ERRORS[message] || message || 'Ceva n-a mers. Încearcă din nou.');
+  }, [onSessionExpired]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [codes, growth] = await Promise.all([
+        adminRequest<PromoCode[]>('/admin/promo-codes'),
+        adminRequest<GrowthSettings>('/admin/growth/settings'),
+      ]);
+      setPromos(Array.isArray(codes) ? codes : []);
+      setSettings(growth);
+    } catch (reason) { fail(reason); }
+    finally { setLoading(false); }
+  }, [fail]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const createPromo = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAction('promo');
+    setError('');
+    setNotice('');
+    try {
+      const created = await adminRequest<PromoCode>('/admin/promo-codes', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: promo.code.trim().toUpperCase(),
+          description: promo.description.trim() || undefined,
+          freeMonths: Number(promo.freeMonths) || 6,
+          maxUses: promo.maxUses ? Number(promo.maxUses) : undefined,
+          // Ziua aleasă e ultima în care merge: expiră la miezul nopții de după ea, ora României.
+          expiresAt: promo.expiresAt ? new Date(`${promo.expiresAt}T23:59:59`).toISOString() : undefined,
+        }),
+      });
+      setPromo({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
+      setNotice(`Codul ${created.code} e gata: ${monthsLabel(created.freeMonths)}.`);
+      await load();
+    } catch (reason) { fail(reason); }
+    finally { setAction(null); }
+  };
+
+  const stopPromo = async (code: PromoCode) => {
+    if (!window.confirm(`Oprești codul ${code.code}? Cine l-a folosit deja își păstrează lunile; de acum nu mai merge.`)) return;
+    setAction(`stop:${code.id}`);
+    setError('');
+    setNotice('');
+    try {
+      await adminRequest(`/admin/promo-codes/${encodeURIComponent(code.id)}`, { method: 'DELETE' });
+      await load();
+    } catch (reason) { fail(reason); }
+    finally { setAction(null); }
+  };
+
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!settings) return;
+    setAction('settings');
+    setError('');
+    setNotice('');
+    try {
+      const saved = await adminRequest<GrowthSettings>('/admin/growth/settings', { method: 'PUT', body: JSON.stringify(settings) });
+      setSettings(saved);
+      setNotice('Regulile invitațiilor sunt salvate.');
+    } catch (reason) { fail(reason); }
+    finally { setAction(null); }
+  };
+
+  const setSetting = (key: keyof GrowthSettings, value: string) => {
+    setSettings(current => current ? { ...current, [key]: Math.max(0, Number(value) || 0) } : current);
+  };
+
+  const today = new Date();
+  const minExpiry = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  return (
+    <section className="mt-5 space-y-5" aria-labelledby="codes-title">
+      <div className="adm-card flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 id="codes-title" className="font-heading text-lg text-graphite">Coduri</h2>
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
+            Codurile promo dau luni gratuite și nimeni nu primește comision din ele. Meseriașul îl scrie la înscriere
+            sau în aplicație, la „Ai un cod?”, înainte să-și verifice cardul. Un singur cod pe cont.
+          </p>
+        </div>
+        <button type="button" onClick={() => void load()} disabled={loading || !!action} className="adm-btn adm-btn--quiet">
+          <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+          {loading ? 'Se încarcă…' : 'Reîmprospătează'}
+        </button>
+      </div>
+
+      {error && <p className="rounded-2xl bg-super-red/8 p-3 text-sm font-semibold text-super-red-dark" role="alert">{error}</p>}
+      {notice && <p className="rounded-2xl bg-white/55 p-3 text-sm font-semibold text-graphite" role="status">{notice}</p>}
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="adm-card p-5">
-          <div className="flex items-center gap-2"><Ticket size={20} weight="fill" className="text-super-red" aria-hidden="true" /><h2 className="font-heading text-lg text-graphite">Coduri promo</h2></div>
+          <div className="flex items-center gap-2"><Ticket size={20} weight="fill" className="text-super-red" aria-hidden="true" /><h2 className="font-heading text-lg text-graphite">Cod nou</h2></div>
           <form onSubmit={createPromo} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div><label htmlFor="promo-code" className="adm-label">Cod</label><input id="promo-code" required className="adm-input uppercase" value={promo.code} onChange={event => setPromo({ ...promo, code: event.target.value })} /></div>
+            <div><label htmlFor="promo-code" className="adm-label">Cod</label><input id="promo-code" required minLength={3} maxLength={50} autoComplete="off" spellCheck={false} placeholder="ex. TARGBRASOV" className="adm-input font-mono uppercase" value={promo.code} onChange={event => setPromo({ ...promo, code: event.target.value })} /></div>
             <div><label htmlFor="promo-months" className="adm-label">Luni gratuite</label><input id="promo-months" required type="number" min="1" max="36" className="adm-input" value={promo.freeMonths} onChange={event => setPromo({ ...promo, freeMonths: event.target.value })} /></div>
-            <div><label htmlFor="promo-uses" className="adm-label">Utilizări maxime</label><input id="promo-uses" type="number" min="1" className="adm-input" placeholder="Fără limită" value={promo.maxUses} onChange={event => setPromo({ ...promo, maxUses: event.target.value })} /></div>
-            <div><label htmlFor="promo-expiry" className="adm-label">Expiră</label><input id="promo-expiry" type="date" className="adm-input" value={promo.expiresAt} onChange={event => setPromo({ ...promo, expiresAt: event.target.value })} /></div>
-            <div className="sm:col-span-2"><label htmlFor="promo-description" className="adm-label">Notă</label><input id="promo-description" className="adm-input" value={promo.description} onChange={event => setPromo({ ...promo, description: event.target.value })} /></div>
+            <div><label htmlFor="promo-uses" className="adm-label">De câte ori se poate folosi</label><input id="promo-uses" type="number" min="1" className="adm-input" placeholder="Fără limită" value={promo.maxUses} onChange={event => setPromo({ ...promo, maxUses: event.target.value })} /></div>
+            <div><label htmlFor="promo-expiry" className="adm-label">Merge până pe</label><input id="promo-expiry" type="date" min={minExpiry} className="adm-input" value={promo.expiresAt} onChange={event => setPromo({ ...promo, expiresAt: event.target.value })} /></div>
+            <div className="sm:col-span-2"><label htmlFor="promo-description" className="adm-label">Pentru cine e (doar voi o vedeți)</label><input id="promo-description" maxLength={500} placeholder="ex. meseriașii de la târgul din Brașov" className="adm-input" value={promo.description} onChange={event => setPromo({ ...promo, description: event.target.value })} /></div>
             <button type="submit" className="adm-btn adm-btn--main sm:col-span-2" disabled={!!action}><Plus size={15} weight="bold" aria-hidden="true" />{action === 'promo' ? 'Se creează…' : 'Creează codul'}</button>
           </form>
-          <div className="mt-4 space-y-2">{promos.slice(0, 8).map(code => <div key={code.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/55 p-3 text-sm"><div><strong className="font-mono text-graphite">{code.code}</strong><p className="text-xs text-graphite-soft">{code.freeMonths} luni · {code._count?.redemptions ?? code.uses ?? 0} utilizări</p></div><span className="adm-state" data-tone={code.active ? 'live' : 'off'}>{code.active ? 'Activ' : 'Oprit'}</span></div>)}</div>
+          <p className="mt-3 flex gap-2 text-xs leading-relaxed text-graphite-soft"><WarningCircle size={16} className="shrink-0" aria-hidden="true" />Termenii promit 6 luni pentru un cod promo. Alt număr e în regulă dacă îl spuneți omului odată cu codul; aplicația i-l arată când îl scrie.</p>
         </div>
 
         <div className="adm-card p-5">
-          <div className="flex items-center gap-2"><Gift size={20} weight="fill" className="text-super-red" aria-hidden="true" /><h2 className="font-heading text-lg text-graphite">Creștere și invitații</h2></div>
-          {settings ? <form onSubmit={saveSettings} className="mt-4 grid gap-3 sm:grid-cols-2">
-            {([
-              ['referralThreshold', 'Invitații pentru recompensă'], ['inviteeFreeMonths', 'Luni pentru invitat'],
-              ['inviterRewardMonths', 'Luni pentru cel care invită'], ['inviterRewardMax', 'Maximum luni câștigate'],
-              ['recruiterFreeMonths', 'Luni prin recruiter'], ['recruiterCommissionBps', 'Comision recruiter (bps)'],
-              ['recruiterPaidInvoiceLimit', 'Limită facturi plătite'],
-            ] as [keyof GrowthSettings, string][]).map(([key, label]) => <div key={key}><label htmlFor={`growth-${key}`} className="adm-label">{label}</label><input id={`growth-${key}`} type="number" min="0" className="adm-input" value={settings[key]} onChange={event => setSetting(key, event.target.value)} /></div>)}
-            <button type="submit" className="adm-btn adm-btn--main sm:col-span-2" disabled={!!action}><Check size={15} weight="bold" aria-hidden="true" />{action === 'settings' ? 'Se salvează…' : 'Salvează setările'}</button>
-          </form> : <p className="mt-4 text-sm text-graphite-soft">Se încarcă setările…</p>}
-          <p className="mt-3 flex gap-2 text-xs leading-relaxed text-graphite-soft"><WarningCircle size={16} className="shrink-0" aria-hidden="true" />Valorile schimbă regulile pentru invitațiile viitoare. Codurile promo au implicit 6 luni.</p>
+          <h2 className="font-heading text-lg text-graphite">Codurile promo</h2>
+          {loading && promos.length === 0 ? (
+            <p className="mt-4 text-sm text-graphite-soft">Se încarcă…</p>
+          ) : promos.length === 0 ? (
+            <p className="mt-4 text-sm text-graphite-soft">Niciun cod încă. Cel creat aici apare în listă.</p>
+          ) : (
+            <ul className="mt-4 space-y-2">
+              {promos.map(code => {
+                const state = promoState(code, today);
+                const used = promoUses(code);
+                const details = [
+                  monthsLabel(code.freeMonths),
+                  code.maxUses != null ? `${used} din ${code.maxUses} folosiri` : `${used} ${used === 1 ? 'folosire' : 'folosiri'}, fără limită`,
+                  code.expiresAt ? `${state.word === 'Expirat' ? 'a expirat' : 'merge până'} ${dayLabel(code.expiresAt, today)}` : '',
+                ].filter(Boolean).join(' · ');
+                return (
+                  <li key={code.id} className="flex items-center justify-between gap-3 rounded-2xl bg-white/55 p-3 text-sm">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="font-mono text-graphite">{code.code}</strong>
+                        <span className="adm-state" data-tone={state.tone}>{state.word}</span>
+                      </div>
+                      <p className="adm-num mt-1 text-xs text-graphite-soft">{details}</p>
+                      {code.description && <p className="mt-0.5 truncate text-xs text-graphite-soft">{code.description}</p>}
+                    </div>
+                    {code.active && (
+                      <button type="button" onClick={() => void stopPromo(code)} disabled={!!action} className="adm-btn adm-btn--quiet shrink-0">
+                        {action === `stop:${code.id}` ? 'Se oprește…' : 'Oprește'}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
+      </div>
+
+      <div className="adm-card p-5">
+        <div className="flex items-center gap-2"><Gift size={20} weight="fill" className="text-super-red" aria-hidden="true" /><h2 className="font-heading text-lg text-graphite">Invitații și recruiteri</h2></div>
+        {settings ? <form onSubmit={saveSettings} className="mt-4 grid gap-3 sm:grid-cols-2">
+          {([
+            ['referralThreshold', 'Invitații pentru recompensă'], ['inviteeFreeMonths', 'Luni pentru invitat'],
+            ['inviterRewardMonths', 'Luni pentru cel care invită'], ['inviterRewardMax', 'Maximum luni câștigate'],
+            ['recruiterFreeMonths', 'Luni prin recruiter'], ['recruiterCommissionBps', 'Comision recruiter (bps)'],
+            ['recruiterPaidInvoiceLimit', 'Limită facturi plătite'],
+          ] as [keyof GrowthSettings, string][]).map(([key, label]) => <div key={key}><label htmlFor={`growth-${key}`} className="adm-label">{label}</label><input id={`growth-${key}`} type="number" min="0" className="adm-input" value={settings[key]} onChange={event => setSetting(key, event.target.value)} /></div>)}
+          <button type="submit" className="adm-btn adm-btn--main sm:col-span-2" disabled={!!action}><Check size={15} weight="bold" aria-hidden="true" />{action === 'settings' ? 'Se salvează…' : 'Salvează setările'}</button>
+        </form> : <p className="mt-4 text-sm text-graphite-soft">Se încarcă setările…</p>}
+        <p className="mt-3 flex gap-2 text-xs leading-relaxed text-graphite-soft"><WarningCircle size={16} className="shrink-0" aria-hidden="true" />Valorile schimbă regulile pentru codurile folosite de acum încolo.</p>
       </div>
     </section>
   );

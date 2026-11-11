@@ -27,7 +27,7 @@ import { netLog, onNetLog, clearNetLog, NetEntry } from '../services/netlog';
 import { thumb, full } from '../lib/img';
 import QRCode from 'qrcode';
 import { ReportsPanel, SanctionsPanel, FeedbackPanel, fetchModerationCounts } from './AdminModeration';
-import { AdminBillingPanel, BillingExemptControl } from './AdminBilling';
+import { AdminBillingPanel, AdminCodesPanel, BillingExemptControl } from './AdminBilling';
 
 import './admin.css';
 
@@ -128,7 +128,7 @@ export const Admin: React.FC = () => {
   const [searchResult, setSearchResult] = useState<InvestigateResult | null>(null);
   const [searchRan, setSearchRan] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'REPORTS' | 'SANCTIONS' | 'FEEDBACK' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'PAYOUTS' | 'BILLING_MONTHS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
+  const [activeTab, setActiveTab] = useState<'HEROES' | 'REQUESTS' | 'REPORTS' | 'SANCTIONS' | 'FEEDBACK' | 'APPLICATIONS' | 'FUNNEL' | 'RECRUITERS' | 'CODES' | 'PAYOUTS' | 'BILLING_MONTHS' | 'SETTINGS' | 'LOGS' | 'ADMINS' | 'CAUTARE'>('HEROES');
   // Raportări necitite și sugestii noi, pentru numerele din taburi (AdminModeration.tsx).
   const [moderationCounts, setModerationCounts] = useState({ reports: 0, feedback: 0 });
   // Funnel de recrutare: numărători pe etape + lista etapei deschise.
@@ -1510,6 +1510,7 @@ export const Admin: React.FC = () => {
     { key: 'APPLICATIONS', label: 'Recrutare', count: applications.length },
     { key: 'FUNNEL', label: 'Pâlnie', count: funnelCounts ? (funnelCounts.APROBAT_FARA_ONBOARDING || 0) + (funnelCounts.ONBOARDED_FARA_CARD || 0) : 0 },
     { key: 'RECRUITERS', label: 'Recruiteri', count: pendingRecruiters },
+    { key: 'CODES', label: 'Coduri', count: 0 },
     { key: 'PAYOUTS', label: 'Plăți', count: 0 },
     { key: 'BILLING_MONTHS', label: 'Luni', count: 0 },
     { key: 'SETTINGS', label: 'Meserii', count: newTrades.length },
@@ -1779,6 +1780,9 @@ export const Admin: React.FC = () => {
         )}
         {activeTab === 'BILLING_MONTHS' && (
           <AdminBillingPanel onSessionExpired={expireAdminSession} />
+        )}
+        {activeTab === 'CODES' && (
+          <AdminCodesPanel onSessionExpired={expireAdminSession} />
         )}
 
         {/* ---------------- MISIUNI ---------------- */}

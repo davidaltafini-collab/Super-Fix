@@ -28,7 +28,7 @@ import './register.css';
    nu spune care câmp e de vină. Mesajele stau acum sub câmpul lor.
    ============================================================ */
 
-type GrowthCodeType = 'REFERRAL' | 'RECRUITER';
+type GrowthCodeType = 'REFERRAL' | 'RECRUITER' | 'PROMO';
 
 const normalizeGrowthCode = (value: string) =>
   value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
@@ -149,7 +149,7 @@ export const RegisterHero: React.FC = () => {
   const resolveGrowthCode = async (code: string): Promise<GrowthCodeType> => {
     const response = await fetch(`${API_URL}/growth/code/${encodeURIComponent(code)}`);
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.valid || !['REFERRAL', 'RECRUITER'].includes(data.type)) {
+    if (!response.ok || !data.valid || !['REFERRAL', 'RECRUITER', 'PROMO'].includes(data.type)) {
       throw new Error(data.message || 'Codul ăsta nu mai e activ. Verifică-l sau lasă câmpul gol.');
     }
     return data.type as GrowthCodeType;
@@ -174,12 +174,13 @@ export const RegisterHero: React.FC = () => {
     setLoading(true);
     try {
       const code = normalizeGrowthCode(growthCode);
-      const codePayload: { referralCode?: string; recruiterCode?: string } = {};
+      const codePayload: { referralCode?: string; recruiterCode?: string; promoCode?: string } = {};
 
       if (code) {
         try {
           const type = await resolveGrowthCode(code);
           if (type === 'REFERRAL') codePayload.referralCode = code;
+          else if (type === 'PROMO') codePayload.promoCode = code;
           else codePayload.recruiterCode = code;
         } catch (reason) {
           setCodeError(reason instanceof Error ? reason.message : 'Codul nu a putut fi verificat.');
@@ -427,8 +428,8 @@ export const RegisterHero: React.FC = () => {
               <div className="mt-5">
                 <Field
                   id="reg-code"
-                  label="Cod de invitație sau de recruiter"
-                  placeholder="ERO-… sau REC-…"
+                  label="Cod de invitație, de recruiter sau promo"
+                  placeholder="ERO-…, REC-… sau codul primit"
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}
