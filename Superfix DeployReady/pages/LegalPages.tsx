@@ -213,7 +213,7 @@ export const Terms: React.FC = () => (
 
     <h3>7. Luni gratuite, invitații și recruiteri</h3>
     <ul>
-      <li>Un cod promoțional sau un cod de recruiter acordă 6 luni gratuite. Codul unui Erou (invitația) acordă 3 luni gratuite. Eroul care invită primește o lună gratuită pentru fiecare invitat calificat, cel mult 10.</li>
+      <li>Un cod promoțional acordă beneficiul afișat când este introdus: un număr de luni gratuite sau biletul de aur (Eroul nu plătește nimic, de la introducerea codului; pentru a apărea la clienți își verifică totuși cardul). Un cod de recruiter acordă 6 luni gratuite. Codul unui Erou (invitația) acordă 3 luni gratuite. Eroul care invită primește o lună gratuită pentru fiecare invitat calificat, cel mult 10.</li>
       <li>Lunile gratuite curg din ziua verificării cardului (respectiv a calificării invitatului) și se adaugă una după alta. Lucrările acceptate în lunile gratuite nu se plătesc și nu se numără. Lucrările echipei nu intră în lunile gratuite: se plătesc după regula pentru echipe.</li>
       <li>Invitația este calificată numai după aprobarea contului invitat și verificarea cardului său. Conturile duplicate, proprii, frauduloase sau șterse nu sunt eligibile.</li>
       <li>Un cont poate avea un singur cod (promoțional, de invitație sau de recruiter), introdus înainte de verificarea cardului.</li>

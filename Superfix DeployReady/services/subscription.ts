@@ -76,7 +76,8 @@ export interface SubscriptionState {
   team: { verifiedMembers: number } | null;
   unpaid: BillingMonth[];
   history: BillingMonth[];
-  code: { kind: 'promo' | 'referral' | 'recruiter'; months: number; status: string } | null;
+  /** Codul legat și ce i-a adus (`offer`, aceleași cuvinte ca la scrierea lui); `gold` = bilet de aur. */
+  code: { kind: 'promo' | 'referral' | 'recruiter'; months: number; status: string; gold?: boolean; name?: string | null; offer?: string } | null;
   canApplyCode: boolean;
   termsVersion: string;
   // Câmpuri vechi, păstrate în contract cât timp serverul le mai trimite.
@@ -184,7 +185,19 @@ export async function startCheckout(termsVersion: string | null | undefined): Pr
   } catch { return { message: 'N-am putut deschide verificarea cardului. Verifică internetul și mai încearcă.' }; }
 }
 
-export async function applyPromoCode(code: string): Promise<{ success: boolean; kind?: 'promo' | 'referral' | 'recruiter'; months?: number; message?: string }> {
+/** Ce dă un cod, cât îl scrie omul, înainte să-l aplice. `null` = nu se știe (fără net): nu spunem nimic. */
+export async function previewCode(code: string): Promise<{ valid: boolean; type?: 'REFERRAL' | 'RECRUITER' | 'PROMO'; offer?: string; gold?: boolean } | null> {
+  try {
+    const response = await fetch(`${API_URL}/growth/code/${encodeURIComponent(code.trim().toUpperCase())}`);
+    if (response.status === 404) return { valid: false };
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!data?.valid) return { valid: false };
+    return { valid: true, type: data.type, offer: typeof data.offer === 'string' ? data.offer : undefined, gold: !!data.gold };
+  } catch { return null; }
+}
+
+export async function applyPromoCode(code: string): Promise<{ success: boolean; kind?: 'promo' | 'referral' | 'recruiter'; months?: number; offer?: string; message?: string }> {
   try {
     const response = await call('/subscription/apply-promo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -195,6 +208,7 @@ export async function applyPromoCode(code: string): Promise<{ success: boolean; 
       success: response.ok && !!data?.success,
       kind: data?.kind as 'promo' | 'referral' | 'recruiter' | undefined,
       months: typeof data?.months === 'number' ? data.months : undefined,
+      offer: typeof data?.offer === 'string' ? data.offer : undefined,
       message: typeof (data?.message || data?.error) === 'string' ? String(data.message || data.error) : undefined,
     };
   } catch { return { success: false, message: 'N-am putut verifica codul acum. Mai încearcă o dată.' }; }

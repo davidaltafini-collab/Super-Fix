@@ -42,6 +42,9 @@ type PromoCode = {
   code: string;
   description?: string | null;
   freeMonths: number;
+  goldTicket?: boolean;
+  /** Ce vede omul când scrie codul (serverul, `codeOffer`). */
+  offer?: string;
   maxUses?: number | null;
   active: boolean;
   expiresAt?: string | null;
@@ -180,7 +183,7 @@ const PROMO_ERRORS: Record<string, string> = {
 /* Tot ce dă luni gratuite: codurile promo ale echipei (fără comision pentru nimeni) și regulile invitațiilor și ale recruiterilor. */
 export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [promos, setPromos] = useState<PromoCode[]>([]);
-  const [promo, setPromo] = useState({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
+  const [promo, setPromo] = useState({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '', gold: false });
   const [settings, setSettings] = useState<GrowthSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -220,13 +223,14 @@ export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => 
           code: promo.code.trim().toUpperCase(),
           description: promo.description.trim() || undefined,
           freeMonths: Number(promo.freeMonths) || 6,
+          goldTicket: promo.gold,
           maxUses: promo.maxUses ? Number(promo.maxUses) : undefined,
           // Ziua aleasă e ultima în care merge: expiră la miezul nopții de după ea, ora României.
           expiresAt: promo.expiresAt ? new Date(`${promo.expiresAt}T23:59:59`).toISOString() : undefined,
         }),
       });
-      setPromo({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '' });
-      setNotice(`Codul ${created.code} e gata: ${monthsLabel(created.freeMonths)}.`);
+      setPromo({ code: '', description: '', freeMonths: '6', maxUses: '', expiresAt: '', gold: false });
+      setNotice(`Codul ${created.code} e gata: ${created.goldTicket ? 'bilet de aur' : monthsLabel(created.freeMonths)}.`);
       await load();
     } catch (reason) { fail(reason); }
     finally { setAction(null); }
@@ -271,7 +275,7 @@ export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => 
         <div>
           <h2 id="codes-title" className="font-heading text-lg text-graphite">Coduri</h2>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-graphite-soft">
-            Codurile promo dau luni gratuite și nimeni nu primește comision din ele. Meseriașul îl scrie la înscriere
+            Codurile promo dau luni gratuite sau biletul de aur, iar nimeni nu primește comision din ele. Meseriașul îl scrie la înscriere
             sau în aplicație, la „Ai un cod?”, înainte să-și verifice cardul. Un singur cod pe cont.
           </p>
         </div>
@@ -288,14 +292,24 @@ export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => 
         <div className="adm-card p-5">
           <div className="flex items-center gap-2"><Ticket size={20} weight="fill" className="text-super-red" aria-hidden="true" /><h2 className="font-heading text-lg text-graphite">Cod nou</h2></div>
           <form onSubmit={createPromo} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div><label htmlFor="promo-code" className="adm-label">Cod</label><input id="promo-code" required minLength={3} maxLength={50} autoComplete="off" spellCheck={false} placeholder="ex. TARGBRASOV" className="adm-input font-mono uppercase" value={promo.code} onChange={event => setPromo({ ...promo, code: event.target.value })} /></div>
-            <div><label htmlFor="promo-months" className="adm-label">Luni gratuite</label><input id="promo-months" required type="number" min="1" max="36" className="adm-input" value={promo.freeMonths} onChange={event => setPromo({ ...promo, freeMonths: event.target.value })} /></div>
+            <div className="sm:col-span-2"><label htmlFor="promo-code" className="adm-label">Cod</label><input id="promo-code" required minLength={3} maxLength={50} autoComplete="off" spellCheck={false} placeholder="ex. TARGBRASOV" className="adm-input font-mono uppercase" value={promo.code} onChange={event => setPromo({ ...promo, code: event.target.value })} /></div>
+            <div className="sm:col-span-2">
+              <span className="adm-label" id="promo-kind-label">Ce dă</span>
+              <div className="adm-tabs w-full" role="radiogroup" aria-labelledby="promo-kind-label">
+                <button type="button" role="radio" aria-checked={!promo.gold} className="adm-tab flex-1" onClick={() => setPromo({ ...promo, gold: false })}>Luni gratuite</button>
+                {/* Biletul de aur e pe viață: o limită de folosiri e propusă din start (se poate șterge). */}
+                <button type="button" role="radio" aria-checked={promo.gold} className="adm-tab flex-1" onClick={() => setPromo({ ...promo, gold: true, maxUses: promo.maxUses || '1' })}>Bilet de aur</button>
+              </div>
+            </div>
+            {!promo.gold && <div><label htmlFor="promo-months" className="adm-label">Luni gratuite</label><input id="promo-months" required type="number" min="1" max="120" className="adm-input" value={promo.freeMonths} onChange={event => setPromo({ ...promo, freeMonths: event.target.value })} /></div>}
             <div><label htmlFor="promo-uses" className="adm-label">De câte ori se poate folosi</label><input id="promo-uses" type="number" min="1" className="adm-input" placeholder="Fără limită" value={promo.maxUses} onChange={event => setPromo({ ...promo, maxUses: event.target.value })} /></div>
             <div><label htmlFor="promo-expiry" className="adm-label">Merge până pe</label><input id="promo-expiry" type="date" min={minExpiry} className="adm-input" value={promo.expiresAt} onChange={event => setPromo({ ...promo, expiresAt: event.target.value })} /></div>
             <div className="sm:col-span-2"><label htmlFor="promo-description" className="adm-label">Pentru cine e (doar voi o vedeți)</label><input id="promo-description" maxLength={500} placeholder="ex. meseriașii de la târgul din Brașov" className="adm-input" value={promo.description} onChange={event => setPromo({ ...promo, description: event.target.value })} /></div>
             <button type="submit" className="adm-btn adm-btn--main sm:col-span-2" disabled={!!action}><Plus size={15} weight="bold" aria-hidden="true" />{action === 'promo' ? 'Se creează…' : 'Creează codul'}</button>
           </form>
-          <p className="mt-3 flex gap-2 text-xs leading-relaxed text-graphite-soft"><WarningCircle size={16} className="shrink-0" aria-hidden="true" />Termenii promit 6 luni pentru un cod promo. Alt număr e în regulă dacă îl spuneți omului odată cu codul; aplicația i-l arată când îl scrie.</p>
+          <p className="mt-3 flex gap-2 text-xs leading-relaxed text-graphite-soft"><WarningCircle size={16} className="shrink-0" aria-hidden="true" />{promo.gold
+            ? 'Biletul de aur: contul nu mai plătește nimic, niciodată. Ca să apară la clienți tot își verifică cardul. Cine are deja biletul îl păstrează și dacă oprești codul.'
+            : 'Omul vede ce dă codul cât îl scrie, în aplicație și pe site, înainte să-l aplice.'}</p>
         </div>
 
         <div className="adm-card p-5">
@@ -310,7 +324,7 @@ export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => 
                 const state = promoState(code, today);
                 const used = promoUses(code);
                 const details = [
-                  monthsLabel(code.freeMonths),
+                  code.goldTicket ? 'bilet de aur' : monthsLabel(code.freeMonths),
                   code.maxUses != null ? `${used} din ${code.maxUses} folosiri` : `${used} ${used === 1 ? 'folosire' : 'folosiri'}, fără limită`,
                   code.expiresAt ? `${state.word === 'Expirat' ? 'a expirat' : 'merge până'} ${dayLabel(code.expiresAt, today)}` : '',
                 ].filter(Boolean).join(' · ');
@@ -323,6 +337,7 @@ export function AdminCodesPanel({ onSessionExpired }: { onSessionExpired: () => 
                       </div>
                       <p className="adm-num mt-1 text-xs text-graphite-soft">{details}</p>
                       {code.description && <p className="mt-0.5 truncate text-xs text-graphite-soft">{code.description}</p>}
+                      {code.offer && <p className="mt-0.5 text-xs text-graphite-soft">Omul vede: „{code.offer}”</p>}
                     </div>
                     {code.active && (
                       <button type="button" onClick={() => void stopPromo(code)} disabled={!!action} className="adm-btn adm-btn--quiet shrink-0">

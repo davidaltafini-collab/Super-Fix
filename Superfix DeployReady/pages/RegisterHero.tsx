@@ -8,6 +8,7 @@ import { Field, FieldArea } from '../components/Field';
 import { GlassButton } from '../components/Button';
 import { JobCategory } from '../types';
 import { API_URL } from '../config/api';
+import { previewCode } from '../services/subscription';
 import {
   checkAll, first, required, minLength, maxLength, email as emailCheck,
   phoneRo, normalizePhone, firstBad, focusField,
@@ -73,6 +74,18 @@ export const RegisterHero: React.FC = () => {
 
   const [growthCode, setGrowthCode] = useState('');
   const [detectedType, setDetectedType] = useState<GrowthCodeType | null>(null);
+  // Ce dă codul scris, aflat cât scrie omul: „6 luni gratuite…” / „Bilet de aur…”, pentru codul `for`.
+  const [codeOffer, setCodeOffer] = useState<{ for: string; valid: boolean; offer?: string } | null>(null);
+  const typedCode = normalizeGrowthCode(growthCode);
+  useEffect(() => {
+    if (typedCode.length < 3) return;
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void previewCode(typedCode).then(found => { if (alive && found) setCodeOffer({ for: typedCode, ...found }); });
+    }, 450);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [typedCode]);
+  const shownOffer = codeOffer && codeOffer.for === typedCode ? codeOffer : null;
   const [codeError, setCodeError] = useState('');
 
   const badgeRef = useRef<HTMLDivElement>(null);
@@ -438,11 +451,15 @@ export const RegisterHero: React.FC = () => {
                   value={growthCode}
                   error={codeError}
                   hint={
-                    detectedType
-                      ? detectedType === 'REFERRAL'
-                        ? 'Cod luat din link — te-a invitat un erou.'
-                        : 'Cod luat din link — vii de la un recruiter.'
-                      : 'Un singur cod de cont. Dacă ai venit dintr-un link, e completat deja.'
+                    shownOffer?.valid && shownOffer.offer
+                      ? `${detectedType === 'REFERRAL' ? 'Te-a invitat un erou. ' : detectedType === 'RECRUITER' ? 'Vii de la un recruiter. ' : ''}${shownOffer.offer}`
+                      : shownOffer && !shownOffer.valid
+                        ? 'Nu găsim codul ăsta. Verifică-l sau lasă câmpul gol.'
+                        : detectedType
+                          ? detectedType === 'REFERRAL'
+                            ? 'Cod luat din link — te-a invitat un erou.'
+                            : 'Cod luat din link — vii de la un recruiter.'
+                          : 'Scrie codul și vezi pe loc ce primești. Un singur cod pe cont.'
                   }
                   onChange={e => {
                     setGrowthCode(e.target.value.toUpperCase());

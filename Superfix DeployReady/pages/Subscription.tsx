@@ -8,7 +8,7 @@ import {
 
 import {
   applyPromoCode, BillingMonth, capitalize, dayLabel, getSubscriptionStatus,
-  jobsLabel, leiLabel, markCardChange, monthLabel, payOutstanding, startCheckout,
+  jobsLabel, leiLabel, markCardChange, monthLabel, payOutstanding, previewCode, startCheckout,
   SubscriptionState,
 } from '../services/subscription';
 import { hasHeroSession } from '../services/dataService';
@@ -31,6 +31,8 @@ const benefits = (s: SubscriptionState) => [
 ];
 
 const monthsLabel = (months: number) => months === 1 ? 'o lună' : `${months} luni`;
+/** „Bilet de aur. …” după „Codul X: ” → „bilet de aur. …”. */
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 type Head = { label: string; title: string; body?: string; tone: string; icon: React.ReactNode };
 
@@ -116,6 +118,18 @@ export const Subscription: React.FC = () => {
   const [consent, setConsent] = useState(nativeCheckout);
   const [promo, setPromo] = useState('');
   const [promoError, setPromoError] = useState('');
+  // Ce dă codul scris, aflat cât scrie omul (David 11.11: „să știe ce ofertă are”), pentru codul `for`.
+  const [promoPreview, setPromoPreview] = useState<{ for: string; valid: boolean; offer?: string; gold?: boolean } | null>(null);
+  const typedPromo = promo.trim().toUpperCase();
+  useEffect(() => {
+    if (typedPromo.length < 3) return;
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void previewCode(typedPromo).then(found => { if (alive && found) setPromoPreview({ for: typedPromo, ...found }); });
+    }, 450);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [typedPromo]);
+  const shownPromo = promoPreview && promoPreview.for === typedPromo ? promoPreview : null;
 
   const refresh = async () => setState(await getSubscriptionStatus());
 
@@ -184,7 +198,7 @@ export const Subscription: React.FC = () => {
     setBusy(false);
     if (result.success) {
       setPromo('');
-      toast.success(result.message || 'Codul e aplicat.');
+      toast.success(result.offer ? `Cod bun: ${lowerFirst(result.offer)}` : result.message || 'Codul e aplicat.');
       await refresh();
     } else setPromoError(result.message || 'Codul ăsta nu merge. Verifică-l o dată.');
   };
@@ -305,8 +319,9 @@ export const Subscription: React.FC = () => {
             </button>
           )}
 
-          {s.code && !['APPLIED', 'QUALIFIED'].includes(s.code.status) && !s.hasCard && (
-            <p className="sub-line mt-5"><Sparkle size={17} weight="fill" aria-hidden="true" /><span>Codul tău: {monthsLabel(s.code.months)} gratuite, din ziua în care îți verifici cardul.</span></p>
+          {/* Codul legat și ce i-a adus, până la verificarea cardului; biletul de aur e „aplicat” de la început. */}
+          {s.code && !s.hasCard && (s.code.gold || !['APPLIED', 'QUALIFIED'].includes(s.code.status)) && (
+            <p className="sub-line mt-5">{s.code.gold ? <Trophy size={17} weight="fill" aria-hidden="true" /> : <Sparkle size={17} weight="fill" aria-hidden="true" />}<span>{s.code.name ? `Codul ${s.code.name}` : 'Codul tău'}: {s.code.offer ? lowerFirst(s.code.offer) : `${monthsLabel(s.code.months)} gratuite, din ziua în care îți verifici cardul.`}</span></p>
           )}
 
           {s.canApplyCode && (
@@ -316,7 +331,9 @@ export const Subscription: React.FC = () => {
                 <input id="sub-promo" className="sf-field__input font-mono uppercase" placeholder="SUPERFIX2026" autoCapitalize="characters" autoComplete="off" spellCheck={false} value={promo} aria-invalid={promoError ? true : undefined} aria-describedby={promoError ? 'sub-promo-hint sub-promo-error' : 'sub-promo-hint'} onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoError(''); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void sendPromo(); } }} />
                 <button type="button" onClick={() => void sendPromo()} disabled={busy} className="sub-promo__apply">Aplică</button>
               </div>
-              <p id="sub-promo-hint" className="sub-promo__hint">Cod promo sau de recruiter: 6 luni gratuite. Codul unui meseriaș: 3 luni. Lunile curg din ziua în care îți verifici cardul.</p>
+              {shownPromo?.valid && shownPromo.offer
+                ? <p id="sub-promo-hint" className="sub-line mt-3" role="status">{shownPromo.gold ? <Trophy size={17} weight="fill" aria-hidden="true" /> : <Sparkle size={17} weight="fill" aria-hidden="true" />}<span>{shownPromo.offer}</span></p>
+                : <p id="sub-promo-hint" className="sub-promo__hint">{shownPromo && !shownPromo.valid && typedPromo.length >= 3 ? 'Nu găsim codul ăsta. Verifică-l o dată.' : 'Scrie codul și vezi pe loc ce primești. Un singur cod pe cont, înainte să-ți verifici cardul.'}</p>}
               {promoError && <p id="sub-promo-error" className="sf-field__error" role="status">{promoError}</p>}
             </div>
           )}

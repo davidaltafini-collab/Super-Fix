@@ -73,7 +73,8 @@
   .adm-tab:hover { background: rgba(255, 255, 255, 0.7); }
 }
 
-.adm-tab[aria-selected='true'] {
+.adm-tab[aria-selected='true'],
+.adm-tab[aria-checked='true'] {
   color: #fff;
   background: #2e333b;
   box-shadow: 0 8px 18px -10px rgba(46, 51, 59, 0.8);
